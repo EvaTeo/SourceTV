@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-
-const genres = ["All", "Movies", "Shows", "Shorts", "Animation", "Drama", "Comedy"];
+import PremiereRail from "@/app/components/PremiereRail";
+import FeaturedCarousel from "@/app/components/FeaturedCarousel";
+import ContinueWatching from "@/app/components/ContinueWatching";
+import ContentCard from "@/app/components/ContentCard";
+import ContentRail from "@/app/components/ContentRail";
+import TopTenRail from "@/app/components/TopTenRail";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 type ContentItem = {
   id: string;
@@ -11,166 +15,356 @@ type ContentItem = {
   type: string;
   genre: string;
   videoUrl: string;
+  mainVideoUrl?: string | null;
+  trailerUrl?: string | null;
+  thumbnailUrl?: string | null;
+  backdropUrl?: string | null;
   description: string;
   status: string;
+  views?: number;
+  maturityRating?: string | null;
+  runtime?: string | null;
+  creatorName?: string | null;
+  scheduledAt?: string | null;
 };
 
-function slugify(title: string) {
-  return title.toLowerCase().trim().replace(/\s+/g, "-");
+type RecommendationMemoryItem = {
+  slug: string;
+  title: string;
+  type?: string | null;
+  genre?: string | null;
+  creatorName?: string | null;
+  watchedAt: number;
+};
+
+function getActiveProfile() {
+  try {
+    return JSON.parse(
+      localStorage.getItem("sourcetv_active_profile") ||
+        '{"id":"main","name":"Adan"}'
+    );
+  } catch {
+    return { id: "main", name: "Adan" };
+  }
+}
+
+function normalize(value?: string | null) {
+  return (value || "").trim().toLowerCase();
 }
 
 export default function BrowsePage() {
+  const searchParams = useSearchParams();
+
   const [content, setContent] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
+  const [profileName, setProfileName] = useState("Your");
+
+  const urlType = searchParams.get("type") || "";
+  const urlGenre = searchParams.get("genre") || "";
 
   useEffect(() => {
+    const activeProfile = getActiveProfile();
+
+    setProfileName(activeProfile.name || "Your");
+
+    const memoryKey = `sourcetv_recommendation_memory_${activeProfile.id}`;
+    const savedMemory = JSON.parse(localStorage.getItem(memoryKey) || "[]");
+    setMemory(savedMemory);
+
     async function fetchContent() {
-      const res = await fetch("/api/content");
-      const data = await res.json();
-      setContent(data);
+      try {
+        const res = await fetch("/api/content", {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to load content");
+        }
+
+        const data = await res.json();
+        setContent(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("BROWSE CONTENT LOAD ERROR:", error);
+        setContent([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
     fetchContent();
   }, []);
 
-  return (
-    <main className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-2xl font-black">
-            Source<span className="text-sky-400">TV</span>
-          </Link>
+  const filteredContent = useMemo(() => {
+    return content.filter((item) => {
+      const cleanType = normalize(urlType);
+      const cleanGenre = normalize(urlGenre);
 
-          <nav className="hidden items-center gap-6 text-sm text-white/70 md:flex">
-            <Link href="/browse" className="text-sky-300">
-              Browse
-            </Link>
-            <Link href="/creator/apply" className="hover:text-sky-300">
-              Submit Project
-            </Link>
-            <Link href="/admin/submissions" className="hover:text-sky-300">
-              Admin
-            </Link>
-          </nav>
+      const itemType = normalize(item.type);
+      const itemGenre = normalize(item.genre);
 
-          <Link
-            href="/signup"
-            className="rounded-full bg-sky-400 px-5 py-2 text-sm font-bold text-black shadow-[0_0_25px_rgba(56,189,248,0.5)]"
-          >
-            Watch Free
-          </Link>
-        </div>
-      </header>
+      const matchesType = cleanType
+  ? itemType.includes(cleanType) || cleanType.includes(itemType)
+  : true;
 
-      <section className="relative overflow-hidden px-6 py-16">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_10%,rgba(14,165,233,0.35),transparent_35%)]" />
+const matchesGenre = cleanGenre
+  ? itemGenre.includes(cleanGenre) || cleanGenre.includes(itemGenre)
+  : true;
 
-        <div className="relative mx-auto max-w-7xl">
-          <p className="mb-4 text-sm font-bold uppercase tracking-[0.35em] text-sky-300">
-            Now Streaming
-          </p>
+      return matchesType && matchesGenre;
+    });
+  }, [content, urlType, urlGenre]);
 
-          <h1 className="max-w-4xl text-5xl font-black leading-tight md:text-7xl">
-            Discover approved films, shows, shorts, and creator originals.
-          </h1>
+  const trending = useMemo(() => {
+    return [...content].sort((a, b) => (b.views || 0) - (a.views || 0));
+  }, [content]);
 
-          <p className="mt-5 max-w-2xl text-white/60">
-            Browse curated projects approved for SourceTV. Free to watch,
-            powered by ads, built for new creative voices.
-          </p>
+  const topTen = useMemo(() => {
+    return trending.slice(0, 10);
+  }, [trending]);
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            {genres.map((genre) => (
-              <button
-                key={genre}
-                className={`rounded-full border px-5 py-2 text-sm font-bold transition ${
-                  genre === "All"
-                    ? "border-sky-300 bg-sky-400 text-black"
-                    : "border-white/15 bg-white/5 text-white/70 hover:border-sky-300/60 hover:text-sky-200"
-                }`}
-              >
-                {genre}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+  const todayTrending = useMemo(() => {
+    return trending.slice(0, 12);
+  }, [trending]);
 
-      <section className="px-6 pb-8">
-        <div className="mx-auto max-w-7xl rounded-3xl border border-sky-300/20 bg-sky-400/10 p-6 shadow-[0_0_35px_rgba(14,165,233,0.15)]">
-          <p className="text-xs font-black uppercase tracking-[0.35em] text-sky-300">
-            Ad Space
-          </p>
-          <h2 className="mt-2 text-2xl font-black">Sponsored placement</h2>
-          <p className="mt-2 text-sm text-white/55">
-            Future banner ads, brand partnerships, and SourceTV promotions will appear here.
-          </p>
-        </div>
-      </section>
+  const recentlyAdded = useMemo(() => {
+    return [...content].slice().reverse();
+  }, [content]);
 
-      <section className="space-y-12 px-6 pb-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-black">Approved on SourceTV</h2>
-            <Link href="/creator/apply" className="text-sm font-bold text-sky-300 hover:text-sky-200">
-              Submit yours
-            </Link>
-          </div>
+  const personalized = useMemo(() => {
+    if (!memory.length) return [];
 
-          {content.length === 0 ? (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
-              <h3 className="text-2xl font-black">No approved content yet.</h3>
-              <p className="mt-3 text-white/55">
-                Approve a project in the admin dashboard and it will appear here.
-              </p>
-              <Link
-                href="/admin/submissions"
-                className="mt-6 inline-block rounded-full bg-sky-400 px-6 py-3 font-black text-black"
-              >
-                Go to Admin
-              </Link>
+    const watchedSlugs = new Set(memory.map((item) => item.slug));
+
+    const genreScore = new Map<string, number>();
+    const typeScore = new Map<string, number>();
+    const creatorScore = new Map<string, number>();
+
+    memory.forEach((item, index) => {
+      const weight = Math.max(1, 10 - index);
+
+      if (item.genre) {
+        genreScore.set(item.genre, (genreScore.get(item.genre) || 0) + weight);
+      }
+
+      if (item.type) {
+        typeScore.set(item.type, (typeScore.get(item.type) || 0) + weight);
+      }
+
+      if (item.creatorName) {
+        creatorScore.set(
+          item.creatorName,
+          (creatorScore.get(item.creatorName) || 0) + weight
+        );
+      }
+    });
+
+    return [...content]
+      .filter((item) => !watchedSlugs.has(item.id))
+      .map((item) => {
+        const score =
+          (genreScore.get(item.genre) || 0) * 3 +
+          (typeScore.get(item.type) || 0) * 2 +
+          (item.creatorName ? creatorScore.get(item.creatorName) || 0 : 0) +
+          (item.views || 0) * 0.01;
+
+        return { item, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.item)
+      .slice(0, 12);
+  }, [content, memory]);
+
+  const favoriteGenre = useMemo(() => {
+    if (!memory.length) return null;
+
+    const counts = new Map<string, number>();
+
+    memory.forEach((item) => {
+      if (!item.genre) return;
+      counts.set(item.genre, (counts.get(item.genre) || 0) + 1);
+    });
+
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }, [memory]);
+
+  const favoriteGenreTitles = useMemo(() => {
+    if (!favoriteGenre) return [];
+
+    return content
+      .filter((item) => item.genre === favoriteGenre)
+      .filter((item) => !memory.some((watched) => watched.slug === item.id))
+      .slice(0, 12);
+  }, [content, favoriteGenre, memory]);
+
+  const hiddenGems = useMemo(() => {
+    return [...content]
+      .sort((a, b) => (a.views || 0) - (b.views || 0))
+      .slice(0, 12);
+  }, [content]);
+
+  const filteredTitle = useMemo(() => {
+    if (urlType) return urlType === "Film" ? "Films" : urlType;
+    if (urlGenre) return urlGenre;
+    return "";
+  }, [urlType, urlGenre]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen overflow-hidden bg-black px-4 pb-24 pt-24 text-white md:px-10">
+        <div className="animate-pulse">
+          <div className="h-[56vh] overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] md:h-[82vh]">
+            <div className="relative z-10 flex h-full items-end p-8 md:p-14">
+              <div className="w-full max-w-3xl">
+                <div className="h-3 w-36 rounded-full bg-white/10" />
+                <div className="mt-5 h-14 w-4/5 rounded-full bg-white/10 md:h-24" />
+                <div className="mt-6 h-5 w-full max-w-xl rounded-full bg-white/10" />
+                <div className="mt-3 h-5 w-4/5 max-w-lg rounded-full bg-white/10" />
+                <div className="mt-8 flex gap-3">
+                  <div className="h-12 w-36 rounded-full bg-white/10" />
+                  <div className="h-12 w-32 rounded-full bg-white/10" />
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-              {content.map((item, index) => (
-                <Link key={item.id} href={`/watch/${slugify(item.title)}`}>
-                  <div className="group relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black p-4 transition duration-300 hover:-translate-y-2 hover:border-sky-300/60 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.24),transparent_48%)] opacity-70 transition group-hover:opacity-100" />
+          </div>
 
-                    <div className="relative z-10 flex h-full flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-sky-200">
-                          #{index + 1}
-                        </span>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">
-                          Free
-                        </span>
-                      </div>
+          <div className="mt-10">
+            <div className="mb-5 h-8 w-52 rounded-full bg-white/10" />
 
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-sky-300">
-                          {item.type} • {item.genre}
-                        </p>
-
-                        <h3 className="text-xl font-black leading-tight">
-                          {item.title}
-                        </h3>
-
-                        <p className="mt-2 line-clamp-3 text-xs text-white/50">
-                          {item.description}
-                        </p>
-
-                        <div className="mt-4 w-full rounded-full bg-white/10 px-4 py-2 text-center text-sm font-bold text-white opacity-0 transition group-hover:bg-sky-400 group-hover:text-black group-hover:opacity-100">
-                          Watch
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+            <div className="flex gap-5 overflow-hidden pb-8">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="w-[42vw] max-w-[170px] shrink-0 md:w-[220px] md:max-w-none"
+                >
+                  <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]" />
+                </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen overflow-x-hidden bg-black text-white">
+      <FeaturedCarousel items={content} />
+
+      <section className="space-y-8 px-4 pb-28 pt-4 md:-mt-16 md:space-y-14 md:px-12 md:pb-24 md:pt-0">
+        {urlType || urlGenre ? (
+          <FilteredResultsRail title={filteredTitle} items={filteredContent} />
+        ) : (
+          <>
+            <ContinueWatching />
+
+            <TopTenRail items={topTen} />
+
+            <ContentRail title="Today's Trending" items={todayTrending} />
+
+            {personalized.length > 0 && (
+              <ContentRail
+                title={`Recommended for ${profileName}`}
+                items={personalized}
+              />
+            )}
+
+            {favoriteGenreTitles.length > 0 && (
+              <ContentRail
+                title={`Because You Watch ${favoriteGenre}`}
+                items={favoriteGenreTitles}
+              />
+            )}
+
+            <PremiereRail items={content} />
+
+            <ContentRail title="Recently Added" items={recentlyAdded} />
+
+            <ContentRail title="Hidden Gems" items={hiddenGems} />
+
+            <ContentRail
+              title="Drama"
+              items={content.filter((item) => item.genre === "Drama")}
+            />
+
+            <ContentRail
+              title="Documentaries"
+              items={content.filter((item) => item.genre === "Documentary")}
+            />
+
+            <ContentRail
+              title="Animation"
+              items={content.filter((item) => item.genre === "Animation")}
+            />
+
+            <ContentRail title="All SourceTV Titles" items={content} />
+          </>
+        )}
       </section>
     </main>
+  );
+}
+
+function FilteredResultsRail({
+  title,
+  items,
+}: {
+  title: string;
+  items: ContentItem[];
+}) {
+  if (items.length === 0) {
+    return (
+      <section className="relative z-20 pt-10 md:pt-20">
+        <div className="mb-8">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
+            Home
+          </p>
+
+          <h1 className="mt-2 text-4xl font-black md:text-6xl">
+            {title || "Filtered Titles"}
+          </h1>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-white/50">
+          No titles found.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative z-20 overflow-visible pt-10 md:pt-20">
+      <div className="mb-8 flex items-end justify-between gap-5">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
+            Home
+          </p>
+
+          <h1 className="mt-2 text-4xl font-black md:text-6xl">{title}</h1>
+        </div>
+      </div>
+
+      <div className="-mx-6 flex gap-5 overflow-x-auto overflow-y-visible px-6 py-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {items.map((item) => (
+          <ContentCard
+            key={`filtered-${item.id}`}
+            id={item.id}
+            title={item.title}
+            description={item.description}
+            type={item.type}
+            genre={item.genre}
+            maturityRating={item.maturityRating}
+            runtime={item.runtime}
+            thumbnailUrl={item.thumbnailUrl}
+            backdropUrl={item.backdropUrl}
+            trailerUrl={item.trailerUrl}
+            views={item.views}
+            scheduledAt={item.scheduledAt}
+            status={item.status}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

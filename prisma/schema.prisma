@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../app/generated/prisma"
 }
 
@@ -7,15 +7,172 @@ datasource db {
   provider = "sqlite"
 }
 
-model ProjectSubmission {
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("user")
+  password  String
+
+  profiles              Profile[]
+  partnerApplications   PartnerApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  name      String
+  avatar    String?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  watchlist         Watchlist[]
+  continueWatching  ContinueWatching[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, projectId])
+}
+
+model ContinueWatching {
   id          String   @id @default(cuid())
-  title       String
-  type        String
-  genre       String
-  videoUrl    String
-  thumbnailUrl String?
-  description String
+
+  profileId   String
+  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  projectId   String
+  project     ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  progress    Int      @default(0)
+  currentTime Float    @default(0)
+  duration    Float    @default(0)
+
+  watchedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([profileId, projectId])
+}
+
+model ProjectSubmission {
+  id              String    @id @default(cuid())
+
+  title           String
+  description     String?
+  type            String?
+  genre           String?
+  year            Int?
+
+  videoUrl        String?
+  mainVideoUrl    String?
+  trailerUrl      String?
+  thumbnailUrl    String?
+  backdropUrl     String?
+    titleLogoUrl    String?
+    cardArtUrl String?
+
+  bunnyVideoId    String?
+  bunnyLibraryId  String?
+
+  maturityRating  String?
+  runtime         String?
+
+  creatorName     String?
+  creatorEmail    String?
+  creatorCompany  String?
+
+  revenueShare    Int       @default(50)
+
+  rightsOwner       String?
+  rightsContact     String?
+  licenseType       String?
+  licenseStartDate  DateTime?
+  licenseEndDate    DateTime?
+  territories       String?
+  exclusivity       String?
+
+  metadataNotes   String?
+  contentNotes    String?
+  rightsNotes     String?
+  reviewNotes     String?
+
+  workflowStage   String    @default("submission")
+  status          String    @default("pending")
+
+  featured        Boolean   @default(false)
+  featuredRank    Int?
+  editorPick      Boolean   @default(false)
+
+  recognitionLevel String?
+
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+  rejectedAt      DateTime?
+
+  views           Int       @default(0)
+
+  watchlist         Watchlist[]
+  continueWatching  ContinueWatching[]
+  partnerMessages   PartnerMessage[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model PartnerMessage {
+  id          String   @id @default(cuid())
+
+  projectId   String?
+  project     ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  subject     String
+  body        String
+  senderTeam  String   @default("SourceTV Partner Relations")
+
+  isRead      Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PartnerApplication {
+  id          String   @id @default(cuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName    String
+  email       String
+  company     String?
+  roleTitle   String?
+  website     String?
+  portfolio   String?
+
+  workType    String?
+  bio         String?
+  reason      String?
+
   status      String   @default("pending")
+  adminNotes  String?
+
+  reviewedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
