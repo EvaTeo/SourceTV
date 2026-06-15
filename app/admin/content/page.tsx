@@ -15,6 +15,8 @@ type ContentItem = {
   trailerUrl?: string | null;
   thumbnailUrl?: string | null;
   backdropUrl?: string | null;
+  cardArtUrl?: string | null;
+  titleLogoUrl?: string | null;
   maturityRating?: string | null;
   runtime?: string | null;
   creatorName?: string | null;
@@ -225,7 +227,7 @@ export default function AdminContentPage() {
           </p>
         </div>
 
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl md:p-5">
+        <section className="mt-8 border-b border-white/10 pb-5">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -233,20 +235,24 @@ export default function AdminContentPage() {
             className="w-full rounded-full border border-white/10 bg-black/45 px-5 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-sky-300 md:px-6 md:py-4"
           />
 
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {filters.map((filter) => (
-              <button
-                key={filter.value}
-                onClick={() => setActiveFilter(filter.value)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.12em] transition md:px-5 md:py-3 ${
-                  activeFilter === filter.value
-                    ? "border-sky-300 bg-sky-400 text-black shadow-[0_0_24px_rgba(56,189,248,0.35)]"
-                    : "border-white/10 bg-white/[0.04] text-white/55 hover:border-sky-300/40 hover:text-sky-200"
-                }`}
-              >
-                {filter.label} ({counts[filter.value] || 0})
-              </button>
-            ))}
+          <div className="mt-5 flex gap-6 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((filter) => {
+              const active = activeFilter === filter.value;
+
+              return (
+                <button
+                  key={filter.value}
+                  onClick={() => setActiveFilter(filter.value)}
+                  className={`shrink-0 text-xs font-black uppercase tracking-[0.16em] transition ${
+                    active
+                      ? "text-sky-300"
+                      : "text-white/45 hover:text-white"
+                  }`}
+                >
+                  {filter.label} ({counts[filter.value] || 0})
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -274,9 +280,13 @@ export default function AdminContentPage() {
                       className="relative min-h-[220px] bg-zinc-950 bg-cover bg-center md:min-h-full"
                       style={{
                         backgroundImage:
-                          item.backdropUrl || item.thumbnailUrl
+                          item.cardArtUrl ||
+                          item.backdropUrl ||
+                          item.thumbnailUrl
                             ? `linear-gradient(to top, rgba(0,0,0,0.94), rgba(0,0,0,0.2)), url(${
-                                item.backdropUrl || item.thumbnailUrl
+                                item.cardArtUrl ||
+                                item.backdropUrl ||
+                                item.thumbnailUrl
                               })`
                             : undefined,
                       }}

@@ -146,21 +146,25 @@ export default function AdminPartnersPage() {
           </p>
         </div>
 
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl md:p-5">
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`shrink-0 rounded-full border px-5 py-3 text-xs font-black uppercase tracking-[0.14em] transition ${
-                  activeFilter === filter
-                    ? "border-sky-300 bg-sky-400 text-black shadow-[0_0_24px_rgba(56,189,248,0.35)]"
-                    : "border-white/10 bg-white/[0.04] text-white/55 hover:border-sky-300/40 hover:text-sky-200"
-                }`}
-              >
-                {filter} ({counts[filter as keyof typeof counts]})
-              </button>
-            ))}
+        <section className="mt-8 border-b border-white/10 pb-4">
+          <div className="flex gap-6 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((filter) => {
+              const active = activeFilter === filter;
+
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`shrink-0 text-xs font-black uppercase tracking-[0.16em] transition ${
+                    active
+                      ? "text-sky-300"
+                      : "text-white/45 hover:text-white"
+                  }`}
+                >
+                  {filter} ({counts[filter as keyof typeof counts]})
+                </button>
+              );
+            })}
           </div>
         </section>
 
