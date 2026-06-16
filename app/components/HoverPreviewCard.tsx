@@ -1,59 +1,22 @@
 "use client";
 
-import Hls from "hls.js";
+import SourceTVPlayer from "@/app/components/SourceTVPlayer";
+import TrailerPreviewVideo from "@/app/components/TrailerPreviewVideo";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-function getHlsUrl(url?: string | null) {
-  if (!url) return "";
-
-  const match = url.match(/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
-  if (!match) return "";
-
-  const libraryId = match[1];
-  const videoGuid = match[2];
-
-  return `https://vz-${libraryId}.b-cdn.net/${videoGuid}/playlist.m3u8`;
-}
-
-function HoverTrailer({ url }: { url: string }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hlsUrl = getHlsUrl(url);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !hlsUrl) return;
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = hlsUrl;
-      video.play().catch(() => {});
-      return;
-    }
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({ maxBufferLength: 10 });
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-
-      return () => hls.destroy();
-    }
-  }, [hlsUrl]);
-
-  if (!hlsUrl) return null;
-
+function CloseIcon() {
   return (
-    <video
-      ref={videoRef}
-      muted
-      loop
-      playsInline
-      className="h-full w-full object-cover"
-    />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      className="h-6 w-6 stroke-[1.9]"
+    >
+      <path d="M6.5 6.5 17.5 17.5" strokeLinecap="round" />
+      <path d="M17.5 6.5 6.5 17.5" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -65,18 +28,27 @@ export default function HoverPreviewCard({
   index: number;
 }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const playerWrapRef = useRef<HTMLDivElement | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mounted, setMounted] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [popupReady, setPopupReady] = useState(false);
-  const [popupPosition, setPopupPosition] = useState({
-    left: 0,
-    top: 0,
-  });
+  const [hovered, setHovered] = useState(false);
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const [playerClosing, setPlayerClosing] = useState(false);
+  const [showPlayer, setShowPlayer] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(false);
+  const [popupPosition, setPopupPosition] = useState({ left: 0, top: 0 });
+  const [popupOrigin, setPopupOrigin] = useState("center center");
 
-  const previewSource = item.trailerUrl || item.mainVideoUrl || item.videoUrl;
+  const watchHref = `/watch/${item.id}`;
+  const playerUrl = item.mainVideoUrl || item.videoUrl;
+
+  const previewSource =
+    item.trailerUrl && item.trailerUrl.includes("playlist.m3u8")
+      ? item.trailerUrl
+      : "";
 
   useEffect(() => {
     setMounted(true);
@@ -87,6 +59,25 @@ export default function HoverPreviewCard({
     };
   }, []);
 
+  useEffect(() => {
+    if (!playerOpen) return;
+
+    function handleMouseMove(event: MouseEvent) {
+      if (playerClosing) return;
+
+      const nearTop = event.clientY <= 120;
+      const nearBottom = event.clientY >= window.innerHeight - 210;
+
+      setChromeVisible(nearTop || nearBottom);
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [playerOpen, playerClosing]);
+
   function openPreview() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     if (openTimer.current) clearTimeout(openTimer.current);
@@ -96,31 +87,46 @@ export default function HoverPreviewCard({
       if (!card) return;
 
       const rect = card.getBoundingClientRect();
-      const popupWidth = 350;
-      const popupHeight = 390;
-      const padding = 16;
-      const headerSafeTop = 88;
+      const popupWidth = 390;
+      const popupHeight = 415;
+      const safeEdge = window.innerWidth >= 768 ? 40 : 16;
+      const headerSafeTop = 86;
+      const bottomSafe = 20;
 
-      let centerX = rect.left + rect.width / 2;
-      let centerY = rect.top + rect.height / 2;
+      let left = rect.left + rect.width / 2 + window.scrollX;
+      let top = rect.top + rect.height / 2 + window.scrollY;
 
-      centerX = Math.max(
-        popupWidth / 2 + padding,
-        Math.min(centerX, window.innerWidth - popupWidth / 2 - padding)
-      );
+      const minLeft = window.scrollX + safeEdge + popupWidth / 2;
+      const maxLeft =
+        window.scrollX + window.innerWidth - safeEdge - popupWidth / 2;
+      const minTop = window.scrollY + headerSafeTop + popupHeight / 2;
+      const maxTop =
+        window.scrollY + window.innerHeight - bottomSafe - popupHeight / 2;
 
-      centerY = Math.max(
-        popupHeight / 2 + headerSafeTop,
-        Math.min(centerY, window.innerHeight - popupHeight / 2 - padding)
-      );
+      const originalLeft = left;
+      const originalTop = top;
 
-      setPopupPosition({ left: centerX, top: centerY });
+      left = Math.max(minLeft, Math.min(left, maxLeft));
+      top = Math.max(minTop, Math.min(top, maxTop));
+
+      let originX = "center";
+      let originY = "center";
+
+      if (left > originalLeft + 4) originX = "left";
+      if (left < originalLeft - 4) originX = "right";
+      if (top > originalTop + 4) originY = "top";
+      if (top < originalTop - 4) originY = "bottom";
+
+      setPopupPosition({ left, top });
+      setPopupOrigin(`${originX} ${originY}`);
       setPopupReady(true);
 
       requestAnimationFrame(() => {
-        setHovered(true);
+        requestAnimationFrame(() => {
+          setHovered(true);
+        });
       });
-    }, 450);
+    }, 575);
   }
 
   function closePreview() {
@@ -128,44 +134,87 @@ export default function HoverPreviewCard({
 
     closeTimer.current = setTimeout(() => {
       setHovered(false);
+    }, 160);
+  }
+
+  function keepPreviewOpen() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (openTimer.current) clearTimeout(openTimer.current);
+    setHovered(true);
+  }
+
+  async function openPlayer(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!playerUrl || !playerUrl.startsWith("http")) return;
+
+    setHovered(false);
+    setPlayerOpen(true);
+    setPlayerClosing(false);
+    setShowPlayer(false);
+    setChromeVisible(true);
+
+    setTimeout(() => {
+      setShowPlayer(true);
     }, 120);
+
+    setTimeout(async () => {
+      try {
+        await playerWrapRef.current?.requestFullscreen();
+      } catch {
+        // Browser may block fullscreen if unsupported.
+      }
+    }, 720);
+  }
+
+  async function closePlayer() {
+    setPlayerClosing(true);
+    setChromeVisible(false);
+
+    setTimeout(async () => {
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      } catch {
+        // Ignore fullscreen exit errors.
+      }
+
+      setPlayerOpen(false);
+      setShowPlayer(false);
+      setChromeVisible(false);
+      setPlayerClosing(false);
+    }, 450);
   }
 
   return (
     <>
       <div
         ref={cardRef}
-        className="group relative"
+        className="group relative overflow-visible"
         onMouseEnter={openPreview}
         onMouseLeave={closePreview}
       >
-        <Link href={`/watch/${item.id}`} className="block">
+        <Link href={watchHref} className="block" aria-label={item.title}>
           <div
-            className="relative aspect-[2/3] overflow-hidden rounded-[1.35rem] border border-white/10 bg-zinc-950 transition-all duration-300 group-hover:scale-[1.035] group-hover:border-sky-300/55 group-hover:shadow-[0_0_36px_rgba(14,165,233,0.28)]"
+            className="relative aspect-[2/3] overflow-hidden rounded-[0.85rem] bg-zinc-950 bg-cover bg-center shadow-[0_10px_26px_rgba(0,0,0,0.28)] transition duration-300 group-hover:scale-[1.055] group-hover:shadow-[0_18px_42px_rgba(0,0,0,0.55)]"
             style={{
               backgroundImage: item.thumbnailUrl
-                ? `linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.12)), url(${item.thumbnailUrl})`
+                ? `url(${item.thumbnailUrl})`
                 : undefined,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
 
-            <div className="relative z-10 flex h-full flex-col justify-between p-4">
-              <span className="w-fit rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-bold text-sky-200 backdrop-blur">
-                #{index + 1}
-              </span>
+            <div className="absolute inset-x-0 bottom-0 translate-y-3 p-3 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+              <h3 className="line-clamp-2 text-sm font-black leading-tight text-white md:text-base">
+                {item.title}
+              </h3>
 
-              <div>
-                <h3 className="line-clamp-2 text-lg font-black leading-tight md:text-xl">
-                  {item.title}
-                </h3>
-
-                <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-white/55">
-                  {item.type && <span>{item.type}</span>}
-                  {item.genre && <span>• {item.genre}</span>}
-                </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[10px] font-semibold text-white/60">
+                {item.type && <span>{item.type}</span>}
+                {item.genre && <span>• {item.genre}</span>}
               </div>
             </div>
           </div>
@@ -176,30 +225,30 @@ export default function HoverPreviewCard({
         popupReady &&
         createPortal(
           <div
-            onMouseEnter={() => {
-              if (closeTimer.current) clearTimeout(closeTimer.current);
-              if (openTimer.current) clearTimeout(openTimer.current);
-              setHovered(true);
-            }}
+            onMouseEnter={keepPreviewOpen}
             onMouseLeave={closePreview}
-            className={`fixed z-[9999] hidden w-[350px] overflow-hidden rounded-[1.6rem] border border-sky-300/25 bg-zinc-950 shadow-[0_0_65px_rgba(14,165,233,0.42)] backdrop-blur-xl transition-[opacity,transform] duration-300 ease-out md:block ${
+            className={`absolute z-[9999] hidden w-[390px] overflow-hidden rounded-[1rem] bg-zinc-950 shadow-[0_26px_90px_rgba(0,0,0,0.78)] ring-1 ring-white/10 transition-all duration-300 ease-out md:block ${
               hovered
-                ? "pointer-events-auto opacity-100"
-                : "pointer-events-none opacity-0"
+                ? "pointer-events-auto scale-100 opacity-100"
+                : "pointer-events-none scale-[0.965] opacity-0"
             }`}
             style={{
               left: popupPosition.left,
               top: popupPosition.top,
-              transform: hovered
-                ? "translate(-50%, -50%) scale(1)"
-                : "translate(-50%, -50%) scale(0.92)",
-              transformOrigin: "center center",
+              transform: "translate(-50%, -50%)",
+              transformOrigin: popupOrigin,
             }}
           >
-            <Link href={`/watch/${item.id}`}>
+            <Link href={watchHref}>
               <div className="relative aspect-video bg-black">
-                {previewSource ? (
-                  <HoverTrailer url={previewSource} />
+                {previewSource && hovered ? (
+                  <TrailerPreviewVideo
+                    url={previewSource}
+                    muted
+                    loop
+                    autoPlay
+                    className="h-full w-full object-cover"
+                  />
                 ) : item.backdropUrl || item.thumbnailUrl ? (
                   <div
                     className="h-full w-full bg-cover bg-center"
@@ -211,38 +260,89 @@ export default function HoverPreviewCard({
                   />
                 ) : null}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
               </div>
             </Link>
 
-            <div className="p-5">
-              <h3 className="text-2xl font-black leading-tight">
+            <div className="p-4">
+              <h3 className="line-clamp-1 text-lg font-black leading-tight">
                 {item.title}
               </h3>
 
-              <div className="mt-3 flex flex-wrap gap-x-2 gap-y-1 text-xs font-semibold text-white/50">
+              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-white/55">
                 {item.type && <span>{item.type}</span>}
                 {item.genre && <span>• {item.genre}</span>}
                 {item.maturityRating && <span>• {item.maturityRating}</span>}
                 {item.runtime && <span>• {item.runtime}</span>}
               </div>
 
-              <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/58">
+              <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/55">
                 {item.description}
               </p>
 
-              <div className="mt-5 flex gap-3">
-                <Link
-                  href={`/watch/${item.id}`}
-                  className="rounded-full bg-sky-400 px-5 py-2 text-sm font-black text-black shadow-[0_0_24px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={openPlayer}
+                  disabled={!playerUrl || !playerUrl.startsWith("http")}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-black text-black shadow-[0_0_22px_rgba(255,255,255,0.14)] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={`Play ${item.title}`}
                 >
-                  Play
-                </Link>
-
-                <button className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm font-bold text-white/80 transition hover:border-sky-300/50 hover:text-sky-200">
-                  Add List
+                  ▶
                 </button>
+
+                <Link
+                  href={watchHref}
+                  className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-bold text-white/80 transition hover:border-white/30 hover:bg-white/[0.08] hover:text-white"
+                >
+                  More Info
+                </Link>
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {mounted &&
+        playerOpen &&
+        createPortal(
+          <div
+            ref={playerWrapRef}
+            className={`fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden bg-black transition-opacity duration-500 ${
+              playerClosing ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <button
+              onClick={closePlayer}
+              className={`absolute left-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/18 text-white/88 shadow-[0_12px_34px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-500 hover:scale-110 hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-100 md:left-7 md:top-6 md:h-12 md:w-12 ${
+                chromeVisible && !playerClosing
+                  ? "translate-y-0 opacity-100"
+                  : "pointer-events-none -translate-y-3 opacity-0"
+              }`}
+              aria-label="Close player"
+            >
+              <CloseIcon />
+            </button>
+
+            <div
+              className={`w-full transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                playerClosing
+                  ? "scale-[1.04] opacity-0 blur-md"
+                  : showPlayer
+                  ? "scale-100 opacity-100 blur-0"
+                  : "scale-[1.045] opacity-0 blur-md"
+              }`}
+            >
+              {showPlayer && playerUrl && (
+                <SourceTVPlayer
+                  url={playerUrl}
+                  poster={item.thumbnailUrl}
+                  title={item.title}
+                  slug={item.id}
+                  type={item.type}
+                  autoPlay
+                />
+              )}
             </div>
           </div>,
           document.body

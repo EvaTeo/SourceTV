@@ -44,59 +44,62 @@ export default function ContentRail({
     const rail = railRef.current;
     if (!rail) return;
 
-    const isVertical = Math.abs(e.deltaY) > Math.abs(e.deltaX);
+    const wantsHorizontal = e.shiftKey || Math.abs(e.deltaX) > 0;
 
-    if (isVertical && !e.shiftKey) {
-      e.preventDefault();
-      window.scrollBy({
-        top: e.deltaY,
-        behavior: "auto",
-      });
-      return;
-    }
-
-    if (e.shiftKey || Math.abs(e.deltaX) > 0) {
+    if (wantsHorizontal) {
       e.preventDefault();
       rail.scrollLeft += e.shiftKey ? e.deltaY : e.deltaX;
     }
   }
 
   return (
-    <section className="group/rail relative overflow-visible">
-      <div className="mb-4 flex items-center justify-between gap-4 md:mb-5">
-        <h2 className="text-xl font-black tracking-tight md:text-3xl">
-          {title}
-        </h2>
+    <section className="group/rail relative overflow-visible py-1">
+      <div className="mb-0 flex items-center justify-between gap-4 px-5 md:px-12">
+        <button
+          type="button"
+          className="group/title flex items-center gap-2 text-left"
+          aria-label={`Explore ${title}`}
+        >
+          <h2 className="text-[15px] font-bold tracking-tight text-white transition group-hover/title:text-sky-100 md:text-[1.32rem]">
+            {title}
+          </h2>
 
-        <div className="hidden gap-2 opacity-0 transition group-hover/rail:opacity-100 md:flex">
+          <span className="translate-x-[-4px] text-sm font-black text-sky-300/0 transition-all duration-300 group-hover/rail:translate-x-0 group-hover/rail:text-sky-300">
+            Explore All →
+          </span>
+        </button>
+
+        <div className="hidden gap-2 opacity-0 transition duration-300 group-hover/rail:opacity-100 md:flex">
           <button
-            onClick={() => scrollByAmount(-760)}
-            className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-black text-white/70 backdrop-blur hover:border-sky-300/50 hover:text-sky-200"
+            onClick={() => scrollByAmount(-900)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-lg font-light text-white/75 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
+            aria-label={`Scroll ${title} left`}
           >
-            ←
+            ‹
           </button>
 
           <button
-            onClick={() => scrollByAmount(760)}
-            className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-black text-white/70 backdrop-blur hover:border-sky-300/50 hover:text-sky-200"
+            onClick={() => scrollByAmount(900)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-lg font-light text-white/75 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
+            aria-label={`Scroll ${title} right`}
           >
-            →
+            ›
           </button>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-0 left-0 top-10 z-10 hidden w-12 bg-gradient-to-r from-black to-transparent md:block" />
-      <div className="pointer-events-none absolute bottom-0 right-0 top-10 z-10 hidden w-12 bg-gradient-to-l from-black to-transparent md:block" />
+      <div className="pointer-events-none absolute bottom-0 left-0 top-8 z-20 hidden w-16 bg-gradient-to-r from-black via-black/60 to-transparent opacity-0 transition duration-300 group-hover/rail:opacity-100 md:block" />
+      <div className="pointer-events-none absolute bottom-0 right-0 top-8 z-20 hidden w-20 bg-gradient-to-l from-black via-black/60 to-transparent opacity-0 transition duration-300 group-hover/rail:opacity-100 md:block" />
 
       <div
         ref={railRef}
         onWheel={handleWheel}
-        className="flex touch-pan-x snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible pb-8 pt-1 scroll-smooth overscroll-x-contain [scrollbar-width:none] md:gap-6 md:pb-10 md:pt-2 [&::-webkit-scrollbar]:hidden"
+        className="flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-visible px-5 pb-5 pt-3 scroll-smooth overscroll-x-contain [scrollbar-width:none] md:gap-4 md:px-12 md:pb-6 md:pt-4 [&::-webkit-scrollbar]:hidden"
       >
         {items.map((item, index) => (
           <div
             key={`${title}-${item.id}`}
-            className="w-[38vw] min-w-[138px] max-w-[165px] shrink-0 snap-start md:w-[220px] md:min-w-0 md:max-w-none"
+            className="w-[34vw] min-w-[124px] max-w-[150px] shrink-0 snap-start transition duration-300 group-hover/rail:opacity-80 hover:!opacity-100 md:w-[192px] md:min-w-0 md:max-w-none"
           >
             <HoverPreviewCard item={item} index={index} />
           </div>

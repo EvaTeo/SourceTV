@@ -53,10 +53,10 @@ export default function PremiereRail({ items }: { items: ContentItem[] }) {
           <Link
             key={item.id}
             href={`/watch/${item.id}?preview=admin`}
-            className="group w-[78vw] max-w-[330px] shrink-0 md:w-[420px] md:max-w-none"
+className="group w-[72vw] max-w-[300px] shrink-0 md:w-[360px] md:max-w-none"
           >
             <div
-              className="relative aspect-video overflow-hidden rounded-[2rem] border border-sky-300/20 bg-zinc-950 p-5 shadow-2xl transition duration-300 group-hover:-translate-y-2 group-hover:border-sky-300/60 group-hover:shadow-[0_0_50px_rgba(14,165,233,0.32)]"
+              className="relative aspect-video overflow-hidden rounded-[1.25rem] border border-sky-300/20 bg-zinc-950 p-5 shadow-2xl transition duration-300 group-hover:-translate-y-2 group-hover:border-sky-300/60 group-hover:shadow-[0_0_50px_rgba(14,165,233,0.32)]"
               style={{
                 backgroundImage:
                   item.backdropUrl || item.thumbnailUrl
@@ -77,11 +77,11 @@ export default function PremiereRail({ items }: { items: ContentItem[] }) {
                   {formatPremiere(item.scheduledAt)}
                 </p>
 
-                <h3 className="mt-2 line-clamp-2 text-2xl font-black leading-tight">
+                <h3 className="mt-2 line-clamp-2 text-xl font-black leading-tight">
                   {item.title}
                 </h3>
 
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/58">
+<p className="mt-2 line-clamp-2 text-sm leading-6 text-white/48">
                   {item.description}
                 </p>
 

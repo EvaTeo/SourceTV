@@ -4,20 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-const categoryLinks = [
-  { label: "All Titles", href: "/browse" },
-  { label: "Drama", href: "/browse?genre=Drama" },
-  { label: "Comedy", href: "/browse?genre=Comedy" },
-  { label: "Action", href: "/browse?genre=Action" },
-  { label: "Horror", href: "/browse?genre=Horror" },
-  { label: "Documentary", href: "/browse?genre=Documentary" },
-  { label: "Sci-Fi", href: "/browse?genre=Sci-Fi" },
-  { label: "Romance", href: "/browse?genre=Romance" },
-  { label: "Thriller", href: "/browse?genre=Thriller" },
-  { label: "Reality", href: "/browse?genre=Reality" },
-  { label: "Game Shows", href: "/browse?genre=Game%20Show" },
-];
-
 const adminLinks = [
   { label: "Admin Home", href: "/admin" },
   { label: "Content", href: "/admin/content" },
@@ -98,29 +84,33 @@ export default function Header() {
       <div
         className={`absolute inset-0 ${
           isViewer
-            ? "bg-gradient-to-b from-black/88 via-black/38 to-transparent backdrop-blur-[2px]"
+            ? "bg-gradient-to-b from-black/78 via-black/30 to-transparent backdrop-blur-[1.5px]"
             : "border-b border-white/10 bg-black/92 backdrop-blur-xl"
         }`}
       />
 
       <div className="relative flex w-full items-center justify-between px-4 py-4 text-white md:px-10">
-        <div className="flex items-center gap-7">
+        <div className="flex min-w-0 items-center gap-7">
           <Link
             href={logoHref}
-            className="text-[1.55rem] font-black tracking-tight text-white"
+            className="shrink-0 text-[1.55rem] font-black tracking-tight text-white"
           >
             Source<span className="text-sky-400">TV</span>
           </Link>
 
           {isViewer && (
-            <nav className="hidden items-center gap-6 md:flex">
+            <nav className="hidden items-center gap-5 md:flex">
               <HeaderLink
                 href="/browse"
                 label="Home"
                 active={pathname === "/browse"}
               />
 
-              <HeaderLink href="/browse?type=Film" label="Films" active={false} />
+              <HeaderLink
+                href="/browse?type=Film"
+                label="Films"
+                active={false}
+              />
 
               <HeaderLink
                 href="/browse?type=Series"
@@ -137,22 +127,59 @@ export default function Header() {
               <div ref={categoriesRef} className="relative">
                 <button
                   onClick={() => setCategoriesOpen((value) => !value)}
-                  className="text-sm font-semibold text-white/68 transition hover:text-white"
+                  className={`text-sm font-semibold transition ${
+                    categoriesOpen ? "text-sky-300" : "text-white/68 hover:text-white"
+                  }`}
                 >
-                  Categories ▾
+                  Categories
                 </button>
 
                 {categoriesOpen && (
-                  <div className="absolute left-0 top-full mt-4 w-64 overflow-hidden rounded-3xl border border-white/10 bg-black/90 p-3 shadow-[0_25px_70px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
-                    <div className="pointer-events-none absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
+                  <div className="absolute left-0 top-full mt-5 w-[380px] overflow-hidden rounded-2xl border border-white/10 bg-black/92 p-3 shadow-[0_28px_80px_rgba(0,0,0,0.72)] backdrop-blur-2xl">
+                    <nav className="grid grid-cols-2 gap-1">
+                      <div className="col-span-2 px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+                        Popular Genres
+                      </div>
 
-                    <nav className="grid gap-1">
-                      {categoryLinks.map((link) => (
+                      {[
+                        { label: "Drama", href: "/browse?genre=Drama" },
+                        { label: "Comedy", href: "/browse?genre=Comedy" },
+                        { label: "Action", href: "/browse?genre=Action" },
+                        { label: "Horror", href: "/browse?genre=Horror" },
+                      ].map((link) => (
                         <Link
                           key={link.href}
                           href={link.href}
                           onClick={() => setCategoriesOpen(false)}
-                          className="rounded-2xl px-4 py-3 text-sm font-bold text-white/68 transition hover:bg-white/[0.07] hover:text-sky-200"
+                          className="rounded-xl px-3 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white"
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+
+                      <div className="col-span-2 mt-2 px-3 pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+                        More Genres
+                      </div>
+
+                      {[
+                        {
+                          label: "Documentary",
+                          href: "/browse?genre=Documentary",
+                        },
+                        { label: "Sci-Fi", href: "/browse?genre=Sci-Fi" },
+                        { label: "Romance", href: "/browse?genre=Romance" },
+                        { label: "Thriller", href: "/browse?genre=Thriller" },
+                        { label: "Reality", href: "/browse?genre=Reality" },
+                        {
+                          label: "Game Shows",
+                          href: "/browse?genre=Game%20Show",
+                        },
+                      ].map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setCategoriesOpen(false)}
+                          className="rounded-xl px-3 py-2.5 text-sm font-semibold text-white/60 transition hover:bg-white/[0.07] hover:text-white"
                         >
                           {link.label}
                         </Link>
@@ -165,7 +192,7 @@ export default function Header() {
           )}
 
           {isAdmin && (
-            <nav className="hidden items-center gap-6 md:flex">
+            <nav className="hidden items-center gap-5 md:flex">
               {adminLinks.map((link) => (
                 <HeaderLink
                   key={link.href}
@@ -178,7 +205,7 @@ export default function Header() {
           )}
 
           {isPartner && !isAdmin && (
-            <nav className="hidden items-center gap-6 md:flex">
+            <nav className="hidden items-center gap-5 md:flex">
               {partnerLinks.map((link) => (
                 <HeaderLink
                   key={link.href}
@@ -267,8 +294,16 @@ export default function Header() {
               </div>
 
               <Link
+                href="/watchlist"
+                className="rounded-full border border-white/10 bg-black/35 px-4 py-2 text-sm font-bold text-white/70 backdrop-blur-xl transition hover:border-white/25 hover:bg-white/[0.08] hover:text-white"
+              >
+                My List
+              </Link>
+
+              <Link
                 href="/profiles"
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-xl transition hover:border-sky-300/40"
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-black/35 backdrop-blur-xl transition hover:border-white/25 hover:bg-white/[0.08]"
+                aria-label="Profiles"
               >
                 <div className="h-5 w-5 rounded-full bg-white/70" />
               </Link>
@@ -295,8 +330,6 @@ export default function Header() {
 
       {mobileOpen && (
         <div className="relative z-50 mx-4 mt-2 overflow-hidden rounded-[2rem] border border-white/10 bg-[rgba(10,10,10,0.78)] p-4 shadow-[0_20px_55px_rgba(0,0,0,0.45)] backdrop-blur-3xl md:hidden">
-          <div className="pointer-events-none absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-sky-300/50 to-transparent shadow-[0_0_18px_rgba(56,189,248,0.55)]" />
-
           <nav className="grid gap-2">
             {isLanding &&
               [
@@ -322,7 +355,7 @@ export default function Header() {
                 { label: "Action", href: "/browse?genre=Action" },
                 { label: "Horror", href: "/browse?genre=Horror" },
                 { label: "Search", href: "/search" },
-                { label: "Watchlist", href: "/watchlist" },
+                { label: "My List", href: "/watchlist" },
                 { label: "Profiles", href: "/profiles" },
                 { label: "Partner Program", href: "/partner/apply" },
               ].map((link) => (

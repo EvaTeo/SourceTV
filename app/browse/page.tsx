@@ -19,6 +19,7 @@ type ContentItem = {
   trailerUrl?: string | null;
   thumbnailUrl?: string | null;
   backdropUrl?: string | null;
+  titleLogoUrl?: string | null;
   description: string;
   status: string;
   views?: number;
@@ -104,12 +105,12 @@ export default function BrowsePage() {
       const itemGenre = normalize(item.genre);
 
       const matchesType = cleanType
-  ? itemType.includes(cleanType) || cleanType.includes(itemType)
-  : true;
+        ? itemType.includes(cleanType) || cleanType.includes(itemType)
+        : true;
 
-const matchesGenre = cleanGenre
-  ? itemGenre.includes(cleanGenre) || cleanGenre.includes(itemGenre)
-  : true;
+      const matchesGenre = cleanGenre
+        ? itemGenre.includes(cleanGenre) || cleanGenre.includes(itemGenre)
+        : true;
 
       return matchesType && matchesGenre;
     });
@@ -249,58 +250,62 @@ const matchesGenre = cleanGenre
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-black text-white">
+    <main className="relative min-h-screen overflow-x-hidden bg-transparent text-white">
       <FeaturedCarousel items={content} />
 
-      <section className="space-y-8 px-4 pb-28 pt-4 md:-mt-16 md:space-y-14 md:px-12 md:pb-24 md:pt-0">
-        {urlType || urlGenre ? (
-          <FilteredResultsRail title={filteredTitle} items={filteredContent} />
-        ) : (
-          <>
-            <ContinueWatching />
+      <section className="relative z-30 -mt-52 overflow-visible px-0 pb-28 pt-0 md:-mt-[24rem] md:px-0 md:pb-32">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 top-20 z-0 bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.92)_7rem,#000_15rem,#000_100%)]" />
 
-            <TopTenRail items={topTen} />
+        <div className="relative z-10 space-y-1 md:space-y-2">
+          {urlType || urlGenre ? (
+            <FilteredResultsRail title={filteredTitle} items={filteredContent} />
+          ) : (
+            <>
+              <ContinueWatching />
 
-            <ContentRail title="Today's Trending" items={todayTrending} />
+              <TopTenRail items={topTen} />
 
-            {personalized.length > 0 && (
+              <ContentRail title="Today's Trending" items={todayTrending} />
+
+              {personalized.length > 0 && (
+                <ContentRail
+                  title={`Recommended for ${profileName}`}
+                  items={personalized}
+                />
+              )}
+
+              {favoriteGenreTitles.length > 0 && (
+                <ContentRail
+                  title={`Because You Watch ${favoriteGenre}`}
+                  items={favoriteGenreTitles}
+                />
+              )}
+
+              <PremiereRail items={content} />
+
+              <ContentRail title="Recently Added" items={recentlyAdded} />
+
+              <ContentRail title="Hidden Gems" items={hiddenGems} />
+
               <ContentRail
-                title={`Recommended for ${profileName}`}
-                items={personalized}
+                title="Drama"
+                items={content.filter((item) => item.genre === "Drama")}
               />
-            )}
 
-            {favoriteGenreTitles.length > 0 && (
               <ContentRail
-                title={`Because You Watch ${favoriteGenre}`}
-                items={favoriteGenreTitles}
+                title="Documentaries"
+                items={content.filter((item) => item.genre === "Documentary")}
               />
-            )}
 
-            <PremiereRail items={content} />
+              <ContentRail
+                title="Animation"
+                items={content.filter((item) => item.genre === "Animation")}
+              />
 
-            <ContentRail title="Recently Added" items={recentlyAdded} />
-
-            <ContentRail title="Hidden Gems" items={hiddenGems} />
-
-            <ContentRail
-              title="Drama"
-              items={content.filter((item) => item.genre === "Drama")}
-            />
-
-            <ContentRail
-              title="Documentaries"
-              items={content.filter((item) => item.genre === "Documentary")}
-            />
-
-            <ContentRail
-              title="Animation"
-              items={content.filter((item) => item.genre === "Animation")}
-            />
-
-            <ContentRail title="All SourceTV Titles" items={content} />
-          </>
-        )}
+              <ContentRail title="All SourceTV Titles" items={content} />
+            </>
+          )}
+        </div>
       </section>
     </main>
   );
@@ -315,7 +320,7 @@ function FilteredResultsRail({
 }) {
   if (items.length === 0) {
     return (
-      <section className="relative z-20 pt-10 md:pt-20">
+      <section className="relative z-20 px-4 pt-10 md:px-12 md:pt-20">
         <div className="mb-8">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
             Home
@@ -334,7 +339,7 @@ function FilteredResultsRail({
   }
 
   return (
-    <section className="relative z-20 overflow-visible pt-10 md:pt-20">
+    <section className="relative z-20 overflow-visible px-4 pt-10 md:px-12 md:pt-20">
       <div className="mb-8 flex items-end justify-between gap-5">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
@@ -345,7 +350,7 @@ function FilteredResultsRail({
         </div>
       </div>
 
-      <div className="-mx-6 flex gap-5 overflow-x-auto overflow-y-visible px-6 py-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-5 overflow-x-auto overflow-y-visible pb-8 pt-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => (
           <ContentCard
             key={`filtered-${item.id}`}

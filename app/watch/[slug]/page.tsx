@@ -1,3 +1,4 @@
+import WatchHeroTrailer from "./WatchHeroTrailer";
 import TrackView from "./TrackView";
 import AddToWatchlistButton from "./AddToWatchlistButton";
 import SaveToContinueWatching from "./SaveToContinueWatching";
@@ -41,8 +42,12 @@ export default async function WatchPage({
 
   const playerUrl = item.mainVideoUrl || item.videoUrl;
 
-  const otherContent = content.filter((c) => c.id !== item.id);
+  const trailerPreviewUrl =
+    item.trailerUrl && item.trailerUrl.includes("playlist.m3u8")
+      ? item.trailerUrl
+      : "";
 
+  const otherContent = content.filter((c) => c.id !== item.id);
   const sameGenre = otherContent.filter((c) => c.genre === item.genre);
 
   const moreLikeThis =
@@ -76,18 +81,20 @@ export default async function WatchPage({
       <TrackView projectId={item.id} />
 
       <section
-        className="relative min-h-screen overflow-hidden px-4 pb-14 pt-24 md:px-12 md:pb-20 md:pt-32"
+        className="relative min-h-screen overflow-hidden px-4 pb-12 pt-24 md:px-12 md:pb-16 md:pt-32"
         style={{
           backgroundImage:
             item.backdropUrl || item.thumbnailUrl
               ? `url(${item.backdropUrl || item.thumbnailUrl})`
-              : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.28), transparent 34%), linear-gradient(to right, black, #020617)",
+              : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.18), transparent 34%), linear-gradient(to right, black, #020617)",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/72 to-black/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/14 to-black/30" />
+        {trailerPreviewUrl && <WatchHeroTrailer url={trailerPreviewUrl} />}
+
+        <div className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/42 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-[46vh] bg-gradient-to-t from-black via-black/50 to-transparent" />
 
         {isAdminPreview && (
           <div className="absolute left-4 top-24 z-20 flex flex-wrap items-center gap-3 md:left-12 md:top-28">
@@ -104,21 +111,21 @@ export default async function WatchPage({
           </div>
         )}
 
-        <div className="relative z-10 flex min-h-[calc(100vh-10rem)] items-end">
-          <div className="w-full max-w-[760px] pb-8 md:pb-10">
+        <div className="relative z-10 flex min-h-[calc(100vh-9rem)] items-end">
+          <div className="w-full max-w-[820px] pb-8 md:pb-12">
             {item.titleLogoUrl ? (
-  <img
-    src={item.titleLogoUrl}
-    alt={item.title}
-    className="max-h-[130px] w-auto max-w-[85vw] object-contain drop-shadow-[0_12px_35px_rgba(0,0,0,0.65)] md:max-h-[220px] md:max-w-[620px]"
-  />
-) : (
-  <h1 className="max-w-5xl text-5xl font-black leading-[0.88] tracking-tight md:text-8xl">
-    {item.title}
-  </h1>
-)}
+              <img
+                src={item.titleLogoUrl}
+                alt={item.title}
+                className="max-h-[175px] w-auto max-w-[92vw] object-contain drop-shadow-[0_14px_38px_rgba(0,0,0,0.72)] md:max-h-[360px] md:max-w-[960px]"
+              />
+            ) : (
+              <h1 className="max-w-5xl text-5xl font-black leading-[0.88] tracking-tight md:text-8xl">
+                {item.title}
+              </h1>
+            )}
 
-            <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-white/64 md:text-sm">
+            <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-white/68 md:mt-7 md:text-sm">
               {details.map((detail, index) => (
                 <span key={`${detail}-${index}`}>
                   {index > 0 && <span className="mr-2 text-white/35">•</span>}
@@ -138,7 +145,11 @@ export default async function WatchPage({
               )}
             </div>
 
-            <div className="mt-7">
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-white/76 md:mt-6 md:text-lg md:leading-8">
+              {item.description}
+            </p>
+
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               {playerUrl && playerUrl.startsWith("http") ? (
                 <FullscreenPlayButton
                   url={playerUrl}
@@ -152,9 +163,7 @@ export default async function WatchPage({
                   No Video
                 </button>
               )}
-            </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
               <AddToWatchlistButton
                 title={item.title}
                 slug={item.id}
@@ -187,10 +196,6 @@ export default async function WatchPage({
                 </svg>
               </button>
             </div>
-
-            <p className="mt-6 max-w-2xl text-sm leading-7 text-white/72 md:mt-7 md:text-lg md:leading-8">
-              {item.description}
-            </p>
           </div>
         </div>
       </section>
@@ -206,7 +211,7 @@ export default async function WatchPage({
         />
       )}
 
-      <section className="space-y-10 px-4 pb-28 pt-10 md:space-y-14 md:px-12 md:pb-24 md:pt-14">
+      <section className="space-y-6 px-0 pb-28 pt-8 md:space-y-8 md:pb-24 md:pt-10">
         {becauseYouWatched.length > 0 && (
           <ContentRail
             title={`Because You Watched ${item.title}`}

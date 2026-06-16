@@ -65,11 +65,24 @@ async function uploadToBunny(title: string, file: File) {
     throw new Error("Failed to upload Bunny video");
   }
 
-  return {
-    guid: createdVideo.guid,
-    playbackUrl: `https://iframe.mediadelivery.net/embed/${libraryId}/${createdVideo.guid}`,
-    thumbnailUrl: `https://vz-${libraryId}.b-cdn.net/${createdVideo.guid}/thumbnail.jpg`,
-  };
+  const cdnHost = process.env.BUNNY_STREAM_CDN_HOST;
+
+if (!cdnHost) {
+  throw new Error("Missing BUNNY_STREAM_CDN_HOST");
+}
+
+const cdnHost = process.env.BUNNY_STREAM_CDN_HOST;
+
+if (!cdnHost) {
+  throw new Error("Missing BUNNY_STREAM_CDN_HOST");
+}
+
+return {
+  guid: createdVideo.guid,
+  iframeUrl: `https://iframe.mediadelivery.net/embed/${libraryId}/${createdVideo.guid}`,
+  hlsUrl: `https://${cdnHost}/${createdVideo.guid}/playlist.m3u8`,
+  thumbnailUrl: `https://${cdnHost}/${createdVideo.guid}/thumbnail.jpg`,
+};
 }
 
 export async function POST(req: Request) {
@@ -143,7 +156,7 @@ export async function POST(req: Request) {
         videoUrl: mainVideo.playbackUrl,
         mainVideoUrl: mainVideo.playbackUrl,
 
-        trailerUrl: trailerVideo?.playbackUrl || "",
+trailerUrl: trailerVideo?.hlsUrl || "",
 
         thumbnailUrl: finalThumbnailUrl,
         backdropUrl: finalBackdropUrl,

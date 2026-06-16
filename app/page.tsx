@@ -130,8 +130,8 @@ export default function HomePage() {
   }, [content]);
 
   const movingPosters = useMemo(() => {
-    const repeated = [...posters, ...fallbackPosters, ...posters];
-    return repeated.slice(0, 22);
+    const repeated = [...posters, ...fallbackPosters, ...posters, ...posters];
+    return repeated.slice(0, 28);
   }, [posters]);
 
   const trendingToday = useMemo(() => {
@@ -149,13 +149,13 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-black text-white">
-      <section className="relative min-h-[82vh] overflow-hidden px-5 pb-6 pt-28 md:px-12 md:pb-8 md:pt-32">
-        <div className="absolute inset-0 opacity-95">
-          <div className="poster-marquee absolute left-0 top-16 flex gap-5">
+      <section className="relative min-h-screen overflow-hidden px-5 pb-20 pt-28 md:px-12 md:pb-28 md:pt-32">
+        <div className="absolute inset-0 opacity-70">
+          <div className="poster-marquee absolute left-0 top-20 flex gap-4 md:gap-5">
             {movingPosters.map((item, index) => (
               <div
                 key={`${item.id}-top-${index}`}
-                className="h-64 w-44 shrink-0 rounded-3xl border border-white/10 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/70 md:h-80 md:w-56"
+                className="h-56 w-40 shrink-0 rounded-2xl border border-white/8 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/70 md:h-80 md:w-56 md:rounded-3xl"
                 style={{
                   backgroundImage: item.thumbnailUrl
                     ? `url(${item.thumbnailUrl})`
@@ -165,11 +165,11 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="poster-marquee-reverse absolute bottom-6 left-0 flex gap-5">
+          <div className="poster-marquee-reverse absolute bottom-20 left-0 flex gap-4 md:bottom-8 md:gap-5">
             {movingPosters.map((item, index) => (
               <div
                 key={`${item.id}-bottom-${index}`}
-                className="h-56 w-40 shrink-0 rounded-3xl border border-white/10 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/70 md:h-72 md:w-52"
+                className="h-52 w-40 shrink-0 rounded-2xl border border-white/8 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/70 md:h-72 md:w-52 md:rounded-3xl"
                 style={{
                   backgroundImage:
                     item.backdropUrl || item.thumbnailUrl
@@ -181,32 +181,32 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/28 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/5 to-black/35" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(56,189,248,0.08),transparent_30%)]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/72 to-black/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/18 to-black/45" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_38%,rgba(56,189,248,0.15),transparent_34%),radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.08),transparent_30%)]" />
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(82vh-7rem)] max-w-7xl items-center">
+        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-10rem)] max-w-7xl items-center">
           <div className="max-w-4xl">
             <p className="text-xs font-black uppercase tracking-[0.38em] text-sky-300 md:text-sm">
               Watch Free
             </p>
 
-            <h1 className="mt-5 max-w-5xl text-[3.4rem] font-black leading-[0.86] tracking-tight md:text-8xl">
+            <h1 className="mt-5 max-w-5xl text-[3.2rem] font-black leading-[0.86] tracking-tight md:text-8xl">
               The Next Generation of Entertainment.
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/76 md:text-2xl md:leading-10">
+            <p className="mt-6 max-w-2xl text-base leading-7 text-white/74 md:text-2xl md:leading-10">
               A new home for films, series, documentaries, animation, and
               creators.
             </p>
 
-            <p className="mt-3 text-base font-bold text-white/60 md:text-lg">
+            <p className="mt-3 text-sm font-bold text-white/55 md:text-lg">
               Watch free. Discover what&apos;s next.
             </p>
 
             <form
               onSubmit={handleEmailSubmit}
-              className="mt-8 flex max-w-2xl flex-col gap-3 rounded-[2rem] border border-white/12 bg-black/50 p-2 shadow-2xl backdrop-blur-2xl sm:flex-row"
+              className="mt-8 flex max-w-2xl flex-col gap-3 rounded-[1.4rem] border border-white/12 bg-black/46 p-2 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:flex-row sm:rounded-full"
             >
               <input
                 value={email}
@@ -216,7 +216,7 @@ export default function HomePage() {
                 }}
                 type="email"
                 placeholder="Enter your email to get updates"
-                className="min-h-14 flex-1 rounded-full bg-white/[0.07] px-5 text-sm font-semibold text-white outline-none placeholder:text-white/38 focus:bg-white/[0.1]"
+                className="min-h-14 flex-1 rounded-full bg-white/[0.06] px-5 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:bg-white/[0.1]"
               />
 
               <button className="rounded-full bg-white px-7 py-4 text-sm font-black text-black transition hover:bg-sky-200">
@@ -233,14 +233,14 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/browse"
-                className="rounded-full bg-white px-8 py-4 text-center text-base font-black text-black transition hover:bg-sky-200"
+                className="rounded-md bg-white px-8 py-4 text-center text-base font-black text-black shadow-[0_14px_34px_rgba(0,0,0,0.35)] transition hover:scale-[1.025] hover:bg-sky-200"
               >
-                ▶ Play
+                Watch Free
               </Link>
 
               <Link
                 href="/partner/apply"
-                className="rounded-full border border-white/15 bg-white/[0.08] px-8 py-4 text-center text-base font-black text-white backdrop-blur-xl transition hover:border-sky-300/50 hover:text-sky-200"
+                className="rounded-md border border-white/15 bg-white/[0.075] px-8 py-4 text-center text-base font-black text-white backdrop-blur-xl transition hover:scale-[1.025] hover:border-sky-300/50 hover:bg-sky-300/10 hover:text-sky-200"
               >
                 Become a Partner
               </Link>
@@ -255,10 +255,10 @@ export default function HomePage() {
         items={trendingToday}
       />
 
-      <section className="relative px-5 py-20 md:px-12 md:py-28">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(185,28,28,0.2),transparent_32%),radial-gradient(circle_at_80%_45%,rgba(56,189,248,0.12),transparent_35%)]" />
+      <section className="relative px-5 py-14 md:px-12 md:py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.08),transparent_32%),radial-gradient(circle_at_80%_45%,rgba(56,189,248,0.1),transparent_35%)]" />
 
-        <div className="relative mx-auto grid max-w-7xl gap-10 rounded-[2.5rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:grid-cols-[1fr_0.9fr] md:p-12">
+        <div className="relative mx-auto grid max-w-7xl gap-10 rounded-[2.2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl md:grid-cols-[1fr_0.9fr] md:p-12">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.35em] text-sky-300">
               Partner Program
@@ -278,14 +278,14 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/partner/apply"
-                className="rounded-full bg-sky-400 px-8 py-4 text-center text-base font-black text-black shadow-[0_0_35px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
+                className="rounded-md bg-sky-400 px-8 py-4 text-center text-base font-black text-black shadow-[0_0_35px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
               >
                 Apply to Partner
               </Link>
 
               <Link
                 href="/creator/submit"
-                className="rounded-full border border-white/15 bg-black/30 px-8 py-4 text-center text-base font-black text-white transition hover:border-sky-300/50 hover:text-sky-200"
+                className="rounded-md border border-white/15 bg-black/30 px-8 py-4 text-center text-base font-black text-white transition hover:border-sky-300/50 hover:text-sky-200"
               >
                 Submit a Project
               </Link>
@@ -309,7 +309,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative z-10 px-5 pb-32 md:px-12">
+      <section className="relative z-10 px-5 pb-24 md:px-12">
         <div className="mx-auto max-w-5xl">
           <p className="text-sm font-black uppercase tracking-[0.35em] text-sky-300">
             Partner FAQ
@@ -323,7 +323,7 @@ export default function HomePage() {
             {partnerFaqs.map((faq, index) => (
               <div
                 key={faq.question}
-                className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] backdrop-blur-xl"
+                className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl"
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
@@ -353,7 +353,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="mt-10 rounded-[2rem] border border-white/10 bg-gradient-to-br from-red-950/45 via-black to-sky-950/35 p-6 text-center md:p-10">
+          <div className="mt-10 rounded-[2rem] border border-white/10 bg-gradient-to-br from-sky-950/35 via-black to-sky-950/20 p-6 text-center md:p-10">
             <h3 className="text-3xl font-black md:text-5xl">
               Bring your work to SourceTV.
             </h3>
@@ -365,7 +365,7 @@ export default function HomePage() {
 
             <Link
               href="/partner/apply"
-              className="mt-7 inline-flex rounded-full bg-white px-8 py-4 text-base font-black text-black transition hover:bg-sky-200"
+              className="mt-7 inline-flex rounded-md bg-white px-8 py-4 text-base font-black text-black transition hover:bg-sky-200"
             >
               Become a Partner
             </Link>
@@ -396,12 +396,14 @@ export default function HomePage() {
 
         .poster-marquee {
           width: max-content;
-          animation: poster-marquee 55s linear infinite;
+          animation: poster-marquee 58s linear infinite;
+          will-change: transform;
         }
 
         .poster-marquee-reverse {
           width: max-content;
-          animation: poster-marquee-reverse 65s linear infinite;
+          animation: poster-marquee-reverse 68s linear infinite;
+          will-change: transform;
         }
       `}</style>
     </main>
@@ -418,51 +420,45 @@ function ContentRail({
   items: PosterItem[];
 }) {
   return (
-    <section className="relative z-10 -mt-12 overflow-visible px-5 py-8 md:-mt-16 md:px-12 md:py-10">
+    <section className="relative z-30 -mt-24 overflow-visible px-5 pb-10 pt-0 md:-mt-32 md:px-12 md:pb-12">
       <div className="mx-auto max-w-7xl overflow-visible">
         <div className="mb-3 flex items-end justify-between gap-5">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-300 md:text-xs">
               {eyebrow}
             </p>
 
-            <h2 className="mt-2 text-3xl font-black md:text-5xl">{title}</h2>
+            <h2 className="mt-1 text-lg font-bold tracking-tight md:text-xl">
+              {title}
+            </h2>
           </div>
 
           <Link
             href="/browse"
-            className="hidden text-sm font-black text-white/45 transition hover:text-sky-300 md:block"
+            className="hidden text-xs font-bold text-white/45 transition hover:text-sky-300 md:block"
           >
             View All
           </Link>
         </div>
 
-        <div className="-mx-6 flex gap-4 overflow-x-auto overflow-y-visible px-6 py-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-8 pt-4 [scrollbar-width:none] md:gap-4 md:pb-9 md:pt-5 [&::-webkit-scrollbar]:hidden">
           {items.map((item, index) => (
             <Link
               key={`${item.id}-${index}`}
               href={
                 item.id.startsWith("fallback") ? "/browse" : `/watch/${item.id}`
               }
-              className="group w-[155px] shrink-0 overflow-visible md:w-[210px]"
+              className="group w-[132px] shrink-0 overflow-visible md:w-[185px]"
+              aria-label={item.title}
             >
               <div
-                className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/50 transition duration-300 group-hover:scale-[1.045] group-hover:border-sky-300/40"
+                className="aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-zinc-900 bg-cover bg-center shadow-2xl shadow-black/50 transition duration-300 group-hover:scale-[1.045] group-hover:border-sky-300/40 md:rounded-2xl"
                 style={{
                   backgroundImage: item.thumbnailUrl
                     ? `url(${item.thumbnailUrl})`
                     : undefined,
                 }}
               />
-
-              <h3 className="mt-3 line-clamp-1 text-sm font-black text-white/82">
-                {item.title}
-              </h3>
-
-              <p className="mt-1 line-clamp-1 text-xs font-bold text-white/38">
-                {[item.type, item.genre].filter(Boolean).join(" • ") ||
-                  "SourceTV"}
-              </p>
             </Link>
           ))}
         </div>

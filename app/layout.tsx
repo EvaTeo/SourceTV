@@ -31,31 +31,22 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="bg-black text-white antialiased">
+      <body className="min-h-screen bg-black text-white antialiased">
         <Header />
 
         <PageTransition>{children}</PageTransition>
 
         <footer className="border-t border-white/10 bg-black px-6 py-10 text-center text-sm text-white/40">
           <div className="mx-auto flex max-w-5xl flex-wrap justify-center gap-6">
-            <Link
-              href="/terms"
-              className="transition hover:text-sky-300"
-            >
+            <Link href="/terms" className="transition hover:text-sky-300">
               Terms
             </Link>
 
-            <Link
-              href="/privacy"
-              className="transition hover:text-sky-300"
-            >
+            <Link href="/privacy" className="transition hover:text-sky-300">
               Privacy
             </Link>
 
-            <Link
-              href="/dmca"
-              className="transition hover:text-sky-300"
-            >
+            <Link href="/dmca" className="transition hover:text-sky-300">
               DMCA
             </Link>
 

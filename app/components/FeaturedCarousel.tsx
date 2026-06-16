@@ -1,8 +1,8 @@
 "use client";
 
-import Hls from "hls.js";
+import TrailerPreviewVideo from "@/app/components/TrailerPreviewVideo";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ContentItem = {
   id: string;
@@ -10,88 +10,15 @@ type ContentItem = {
   description?: string | null;
   type?: string | null;
   genre?: string | null;
-  views?: number | null;
   runtime?: string | null;
   maturityRating?: string | null;
   thumbnailUrl?: string | null;
   backdropUrl?: string | null;
   trailerUrl?: string | null;
-  mainVideoUrl?: string | null;
-  videoUrl?: string | null;
+  titleLogoUrl?: string | null;
 };
 
-function getHlsUrl(url?: string | null) {
-  if (!url) return "";
-
-  const match = url.match(/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
-  if (!match) return "";
-
-  const libraryId = match[1];
-  const videoGuid = match[2];
-
-  return `https://vz-${libraryId}.b-cdn.net/${videoGuid}/playlist.m3u8`;
-}
-
-function HeroTrailer({
-  url,
-  active,
-  muted,
-}: {
-  url?: string | null;
-  active: boolean;
-  muted: boolean;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hlsUrl = getHlsUrl(url);
-
-  useEffect(() => {
-    const video = videoRef.current;
-
-    if (!video || !hlsUrl || !active) return;
-
-    video.muted = muted;
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = hlsUrl;
-      video.play().catch(() => {});
-      return;
-    }
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        maxBufferLength: 10,
-      });
-
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-
-      return () => hls.destroy();
-    }
-  }, [hlsUrl, active, muted]);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = muted;
-    }
-  }, [muted]);
-
-  if (!hlsUrl) return null;
-
-  return (
-    <video
-      ref={videoRef}
-      muted={muted}
-      autoPlay
-      playsInline
-      loop
-      className="absolute inset-0 h-full w-full object-cover"
-    />
-  );
-}
+const HERO_DURATION = 9000;
 
 function VolumeIcon({ muted }: { muted: boolean }) {
   return (
@@ -114,57 +41,94 @@ function VolumeIcon({ muted }: { muted: boolean }) {
         </>
       ) : (
         <>
-          <path d="M16 9.2c.9.8 1.4 1.8 1.4 2.8s-.5 2-1.4 2.8" strokeLinecap="round" />
-          <path d="M18.7 7c1.4 1.3 2.3 3 2.3 5s-.9 3.7-2.3 5" strokeLinecap="round" />
+          <path
+            d="M16 9.2c.9.8 1.4 1.8 1.4 2.8s-.5 2-1.4 2.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M18.7 7c1.4 1.3 2.3 3 2.3 5s-.9 3.7-2.3 5"
+            strokeLinecap="round"
+          />
         </>
       )}
     </svg>
   );
 }
 
-export default function FeaturedCarousel({
-  items,
-}: {
-  items: ContentItem[];
-}) {
+export default function FeaturedCarousel({ items }: { items: ContentItem[] }) {
   const featuredItems = useMemo(() => items.slice(0, 6), [items]);
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sourcetv_trailer_muted");
+
+    if (saved !== null) {
+      setMuted(saved === "true");
+    }
+
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem("sourcetv_trailer_muted", String(muted));
+  }, [muted, mounted]);
 
   useEffect(() => {
     if (featuredItems.length <= 1) return;
 
+    setProgress(0);
+    const startedAt = Date.now();
+
     const timer = setInterval(() => {
-      setActiveIndex((current) => (current + 1) % featuredItems.length);
-    }, 8000);
+      const elapsed = Date.now() - startedAt;
+      const nextProgress = Math.min(100, (elapsed / HERO_DURATION) * 100);
+
+      setProgress(nextProgress);
+
+      if (nextProgress >= 100) {
+        setActiveIndex((current) => (current + 1) % featuredItems.length);
+      }
+    }, 80);
 
     return () => clearInterval(timer);
-  }, [featuredItems.length]);
+  }, [activeIndex, featuredItems.length]);
 
   const featured = featuredItems[activeIndex];
+
+  const details = [
+    featured?.maturityRating,
+    featured?.type,
+    featured?.genre,
+    featured?.runtime,
+  ].filter(Boolean);
 
   if (!featured) return null;
 
   return (
-    <section className="relative min-h-[56vh] overflow-hidden md:min-h-[92vh]">
+    <section className="relative min-h-[68vh] overflow-hidden bg-black md:min-h-[105vh]">
       {featuredItems.map((item, index) => {
         const active = index === activeIndex;
+
         const previewSource =
-          item.trailerUrl || item.mainVideoUrl || item.videoUrl;
+          item.trailerUrl && item.trailerUrl.includes("playlist.m3u8")
+            ? item.trailerUrl
+            : "";
 
         return (
           <div
             key={item.id}
-            className={`absolute inset-0 transition-all duration-[1800ms] ease-out ${
-              active
-                ? "scale-100 opacity-100"
-                : "pointer-events-none scale-[1.05] opacity-0"
+            className={`absolute inset-0 overflow-hidden transition-opacity duration-[1200ms] ease-out ${
+              active ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
             {(item.backdropUrl || item.thumbnailUrl) && (
               <div
-                className="absolute inset-0"
+                className="absolute inset-[-28px] scale-[1.04]"
                 style={{
                   backgroundImage: `url(${
                     item.backdropUrl || item.thumbnailUrl
@@ -175,86 +139,120 @@ export default function FeaturedCarousel({
               />
             )}
 
-            <HeroTrailer url={previewSource} active={active} muted={muted} />
+            {previewSource && active && mounted && (
+              <div className="absolute inset-[-28px] opacity-100 transition-opacity duration-700">
+                <TrailerPreviewVideo
+                  url={previewSource}
+                  muted={muted}
+                  loop
+                  autoPlay
+                  className="h-[calc(100%+56px)] w-[calc(100%+56px)] object-cover"
+                />
+              </div>
+            )}
 
-            <div className="absolute inset-0 bg-black/45" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/65 to-black/10" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/68 via-black/28 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-[78vh] bg-gradient-to-t from-black via-black/52 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-[38vh] bg-gradient-to-t from-black via-black/88 to-transparent" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_42%,rgba(56,189,248,0.11),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(56,189,248,0.055),transparent_34%)]" />
           </div>
         );
       })}
 
-      <button
-        onClick={() => setMuted((value) => !value)}
-        className="absolute right-4 top-24 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/75 shadow-[0_0_24px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition duration-300 hover:scale-105 hover:border-sky-300/50 hover:text-sky-200 md:right-10 md:top-32 md:h-11 md:w-11"
-        aria-label={muted ? "Unmute trailer" : "Mute trailer"}
-      >
-        <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-white/[0.08] to-transparent" />
-        <span className="relative">
-          <VolumeIcon muted={muted} />
-        </span>
-      </button>
-
-      <div className="relative z-10 flex min-h-[56vh] items-end px-4 pb-8 pt-24 md:min-h-[92vh] md:px-12 md:pb-20">
-        <div className="w-full max-w-3xl">
+      <div className="relative z-10 flex min-h-[62vh] items-end px-4 pb-60 pt-28 md:min-h-[96vh] md:px-12 md:pb-[18rem]">
+        <div className="w-full -translate-y-16 md:-translate-y-36">
           <div
             key={featured.id}
-            className="animate-[heroContentFade_900ms_ease]"
+            className="max-w-4xl animate-[heroContentFade_900ms_ease]"
           >
-            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.32em] text-sky-300 md:mb-4 md:text-sm">
+            <p className="mb-4 text-[10px] font-black uppercase tracking-[0.35em] text-sky-300/90 md:text-xs">
               Featured on SourceTV
             </p>
 
-            <h1 className="max-w-[90%] text-3xl font-black leading-[0.95] md:text-8xl">
-              {featured.title}
-            </h1>
+            {featured.titleLogoUrl ? (
+              <img
+                src={featured.titleLogoUrl}
+                alt={featured.title}
+                className="max-h-[150px] w-auto max-w-[92vw] object-contain drop-shadow-[0_14px_42px_rgba(0,0,0,0.75)] md:max-h-[340px] md:max-w-[880px]"
+              />
+            ) : (
+              <h1 className="max-w-[92%] text-4xl font-black leading-[0.9] tracking-tight drop-shadow-[0_12px_38px_rgba(0,0,0,0.7)] md:text-8xl">
+                {featured.title}
+              </h1>
+            )}
 
-            <p className="mt-3 max-w-xl text-sm leading-6 text-white/70 md:mt-6 md:text-lg md:leading-8">
+            {details.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2 text-xs font-black text-white/68 md:mt-6 md:text-sm">
+                {details.map((detail, index) => (
+                  <span key={`${detail}-${index}`}>
+                    {index > 0 && <span className="mr-2 text-white/34">•</span>}
+                    {detail}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/76 md:mt-5 md:text-lg md:leading-8">
               {featured.description ||
                 "A curated SourceTV title ready to watch."}
             </p>
+          </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-white/55 md:mt-5 md:gap-3 md:text-sm">
-              {featured.type && <span>{featured.type}</span>}
-              {featured.genre && <span>• {featured.genre}</span>}
-              {featured.maturityRating && (
-                <span>• {featured.maturityRating}</span>
-              )}
-              {featured.runtime && <span>• {featured.runtime}</span>}
-              <span>• {featured.views || 0} views</span>
-            </div>
-
-            <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex w-full items-center justify-between gap-4 md:mt-7">
+            <div className="flex flex-wrap gap-3">
               <Link
                 href={`/watch/${featured.id}`}
-                className="rounded-full bg-sky-400 px-6 py-3 text-sm font-black text-black shadow-[0_0_35px_rgba(56,189,248,0.45)] transition hover:scale-105 hover:bg-sky-300 md:px-8 md:py-4 md:text-base"
+                className="rounded-md bg-white px-7 py-3.5 text-sm font-black text-black shadow-[0_16px_34px_rgba(0,0,0,0.32)] transition hover:scale-[1.025] hover:bg-sky-200 md:px-9 md:py-4 md:text-base"
               >
-                Watch Now
+                ▶ Watch Now
               </Link>
 
               <Link
-                href="/watchlist"
-                className="rounded-full border border-white/15 bg-black/35 px-6 py-3 text-sm font-bold text-white backdrop-blur-xl transition hover:border-sky-300 hover:text-sky-200 md:px-8 md:py-4 md:text-base"
+                href={`/watch/${featured.id}`}
+                className="rounded-md border border-white/16 bg-white/[0.06] px-7 py-3.5 text-sm font-black text-white/88 backdrop-blur-xl transition hover:scale-[1.025] hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 md:px-9 md:py-4 md:text-base"
               >
-                My List
+                More Info
               </Link>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMuted((value) => !value)}
+                className="relative z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-black/35 text-white/74 shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition duration-300 hover:scale-105 hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 md:h-11 md:w-11"
+                aria-label={muted ? "Unmute trailer" : "Mute trailer"}
+              >
+                <VolumeIcon muted={muted} />
+              </button>
             </div>
           </div>
 
           {featuredItems.length > 1 && (
-            <div className="mt-7 flex gap-2">
-              {featuredItems.map((item, index) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveIndex(index)}
-                  className={`h-1.5 rounded-full transition-all duration-500 ${
-                    activeIndex === index
-                      ? "w-10 bg-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.95)]"
-                      : "w-4 bg-white/25 hover:bg-white/60"
-                  }`}
-                  aria-label={`Show ${item.title}`}
-                />
-              ))}
+            <div className="mt-7 flex items-center gap-2 md:mt-8">
+              {featuredItems.map((item, index) => {
+                const active = activeIndex === index;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveIndex(index);
+                      setProgress(0);
+                    }}
+                    className={`relative h-1.5 overflow-hidden rounded-full bg-white/18 transition-all duration-500 hover:bg-white/35 ${
+                      active ? "w-16" : "w-6"
+                    }`}
+                    aria-label={`Show ${item.title}`}
+                  >
+                    {active && (
+                      <span
+                        className="absolute left-0 top-0 h-full rounded-full bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.85)]"
+                        style={{ width: `${progress}%` }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -264,7 +262,7 @@ export default function FeaturedCarousel({
         @keyframes heroContentFade {
           from {
             opacity: 0;
-            transform: translateY(14px);
+            transform: translateY(18px);
           }
 
           to {

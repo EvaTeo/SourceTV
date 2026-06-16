@@ -11,6 +11,8 @@ type SourceProfile = {
   image?: string;
 };
 
+const MAX_PROFILES = 5;
+
 const defaultProfiles: SourceProfile[] = [
   {
     id: "main",
@@ -35,6 +37,21 @@ const avatarColors = [
   "from-white to-zinc-500",
 ];
 
+function createNewProfile(): SourceProfile {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `profile-${Date.now()}`;
+
+  return {
+    id,
+    name: "",
+    avatar: "+",
+    color: "from-sky-300 to-blue-600",
+    image: "",
+  };
+}
+
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<SourceProfile[]>(defaultProfiles);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
@@ -42,6 +59,7 @@ export default function ProfilesPage() {
     null
   );
   const [editingName, setEditingName] = useState("");
+  const [creatingProfile, setCreatingProfile] = useState(false);
 
   useEffect(() => {
     try {
@@ -75,7 +93,6 @@ export default function ProfilesPage() {
         }));
 
         setProfiles(repaired);
-
         localStorage.setItem("sourcetv_profiles", JSON.stringify(repaired));
       }
 
@@ -104,7 +121,9 @@ export default function ProfilesPage() {
     setProfiles(nextProfiles);
     localStorage.setItem("sourcetv_profiles", JSON.stringify(nextProfiles));
 
-    const active = nextProfiles.find((profile) => profile.id === activeProfileId);
+    const active = nextProfiles.find(
+      (profile) => profile.id === activeProfileId
+    );
 
     if (active) {
       localStorage.setItem("sourcetv_active_profile", JSON.stringify(active));
@@ -114,35 +133,87 @@ export default function ProfilesPage() {
   function chooseProfile(profile: SourceProfile) {
     localStorage.setItem("sourcetv_active_profile", JSON.stringify(profile));
     setActiveProfileId(profile.id);
-    window.location.href = "/browse";
+
+    document.body.classList.add("profile-exit");
+
+    setTimeout(() => {
+      window.location.href = "/browse";
+    }, 520);
   }
 
   function openEditor(profile: SourceProfile) {
+    setCreatingProfile(false);
     setEditingProfile(profile);
     setEditingName(profile.name);
+  }
+
+  function openCreateProfile() {
+    if (profiles.length >= MAX_PROFILES) return;
+
+    const profile = createNewProfile();
+
+    setCreatingProfile(true);
+    setEditingProfile(profile);
+    setEditingName("");
   }
 
   function closeEditor() {
     setEditingProfile(null);
     setEditingName("");
+    setCreatingProfile(false);
   }
 
   function saveProfileEdits() {
     if (!editingProfile) return;
 
+    const cleanName =
+      editingName.trim() ||
+      (creatingProfile ? `Profile ${profiles.length + 1}` : editingProfile.name);
+
+    const updatedProfile = {
+      ...editingProfile,
+      name: cleanName,
+      avatar: cleanName.charAt(0).toUpperCase(),
+    };
+
+    if (creatingProfile) {
+      const nextProfiles = [...profiles, updatedProfile].slice(0, MAX_PROFILES);
+      saveProfiles(nextProfiles);
+      closeEditor();
+      return;
+    }
+
     const nextProfiles = profiles.map((profile) => {
       if (profile.id !== editingProfile.id) return profile;
-
-      const cleanName = editingName.trim() || profile.name;
-
-      return {
-        ...profile,
-        name: cleanName,
-        avatar: cleanName.charAt(0).toUpperCase(),
-      };
+      return updatedProfile;
     });
 
     saveProfiles(nextProfiles);
+    closeEditor();
+  }
+
+  function deleteProfile() {
+    if (!editingProfile || creatingProfile) return;
+
+    if (profiles.length <= 1) {
+      alert("You need at least one profile.");
+      return;
+    }
+
+    const nextProfiles = profiles.filter(
+      (profile) => profile.id !== editingProfile.id
+    );
+
+    const deletedActive = activeProfileId === editingProfile.id;
+    const nextActive = deletedActive ? nextProfiles[0] : null;
+
+    saveProfiles(nextProfiles);
+
+    if (nextActive) {
+      setActiveProfileId(nextActive.id);
+      localStorage.setItem("sourcetv_active_profile", JSON.stringify(nextActive));
+    }
+
     closeEditor();
   }
 
@@ -155,6 +226,8 @@ export default function ProfilesPage() {
     };
 
     setEditingProfile(updatedProfile);
+
+    if (creatingProfile) return;
 
     const nextProfiles = profiles.map((profile) =>
       profile.id === updatedProfile.id ? updatedProfile : profile
@@ -181,6 +254,8 @@ export default function ProfilesPage() {
 
       setEditingProfile(updatedProfile);
 
+      if (creatingProfile) return;
+
       const nextProfiles = profiles.map((profile) =>
         profile.id === updatedProfile.id ? updatedProfile : profile
       );
@@ -191,38 +266,44 @@ export default function ProfilesPage() {
     reader.readAsDataURL(file);
   }
 
+  const canAddProfile = profiles.length < MAX_PROFILES;
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-black px-5 pb-32 pt-24 text-white md:px-10 md:pb-16 md:pt-28">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.18),transparent_34%),linear-gradient(to_bottom,#020617_0%,#000_72%)]" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.16),transparent_32%),radial-gradient(circle_at_80%_15%,rgba(56,189,248,0.08),transparent_30%),linear-gradient(to_bottom,#020617_0%,#000_72%)]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/62" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-[-18vh] h-[38vh] bg-[radial-gradient(ellipse_at_bottom,rgba(56,189,248,0.13),transparent_68%)] blur-3xl" />
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-9rem)] max-w-6xl flex-col items-center justify-center text-center">
         <Link href="/" className="text-3xl font-black tracking-tight">
           Source<span className="text-sky-400">TV</span>
         </Link>
 
-        <p className="mt-8 text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:mt-10 md:text-sm">
-          Profile Selection
+        <p className="mt-8 text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:mt-10 md:text-xs">
+          Choose Profile
         </p>
 
-        <h1 className="mt-4 text-4xl font-black leading-[0.95] md:text-7xl">
+        <h1 className="mt-4 text-4xl font-black leading-[0.95] tracking-tight md:text-7xl">
           Who’s watching?
         </h1>
 
-        <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/55 md:text-base md:leading-7">
-          Choose a profile to continue watching, save titles, and personalize
-          your SourceTV experience.
+        <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/48 md:text-base md:leading-7">
+          Pick a profile to continue your SourceTV experience.
         </p>
 
-        <div className="mt-9 grid w-full max-w-4xl grid-cols-2 gap-5 md:mt-14 md:grid-cols-4 md:gap-7">
-          {profiles.map((profile) => {
+        <div className="mt-9 grid w-full max-w-5xl grid-cols-2 gap-6 md:mt-14 md:grid-cols-5 md:gap-8">
+          {profiles.map((profile, index) => {
             const active = activeProfileId === profile.id;
 
             return (
-              <div key={profile.id} className="group text-center">
+              <div
+                key={profile.id}
+                className="group text-center opacity-0 animate-[profileCardIn_560ms_ease_forwards]"
+                style={{ animationDelay: `${index * 90}ms` }}
+              >
                 <button
                   onClick={() => chooseProfile(profile)}
-                  className="w-full"
+                  className="w-full outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 focus-visible:ring-offset-4 focus-visible:ring-offset-black"
                 >
                   <ProfileAvatar profile={profile} active={active} />
 
@@ -230,41 +311,72 @@ export default function ProfilesPage() {
                     className={`mt-4 text-base font-black transition md:text-lg ${
                       active
                         ? "text-sky-200"
-                        : "text-white/65 group-hover:text-white"
+                        : "text-white/62 group-hover:text-white"
                     }`}
                   >
                     {profile.name}
                   </p>
 
-                  {active && (
-                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-sky-300/70">
-                      Active
-                    </p>
-                  )}
+                  <p
+                    className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] transition ${
+                      active
+                        ? "text-sky-300/70"
+                        : "text-transparent group-hover:text-white/30"
+                    }`}
+                  >
+                    {active ? "Active" : "Select"}
+                  </p>
                 </button>
 
                 <button
                   onClick={() => openEditor(profile)}
-                  className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black text-white/50 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200"
+                  className="mt-3 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-black text-white/45 backdrop-blur-xl transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
                 >
                   Edit
                 </button>
               </div>
             );
           })}
+
+          <div
+            className="group text-center opacity-0 animate-[profileCardIn_560ms_ease_forwards]"
+            style={{ animationDelay: `${profiles.length * 90}ms` }}
+          >
+            <button
+              onClick={openCreateProfile}
+              disabled={!canAddProfile}
+              className="w-full disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <div className="relative mx-auto flex aspect-square w-full max-w-[155px] items-center justify-center overflow-hidden rounded-[1.35rem] border border-dashed border-white/18 bg-white/[0.025] transition-all duration-500 md:max-w-[190px] group-hover:-translate-y-2 group-hover:scale-[1.035] group-hover:border-sky-300/55 group-hover:bg-sky-300/8 group-hover:shadow-[0_0_40px_rgba(56,189,248,0.2)]">
+                <span className="text-5xl font-extralight text-white/42 transition group-hover:text-sky-200 md:text-6xl">
+                  +
+                </span>
+
+                <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] ring-1 ring-inset ring-white/8" />
+              </div>
+
+              <p className="mt-4 text-base font-black text-white/52 transition group-hover:text-white md:text-lg">
+                Add Profile
+              </p>
+
+              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/28">
+                {canAddProfile ? `${profiles.length}/${MAX_PROFILES}` : "Max"}
+              </p>
+            </button>
+          </div>
         </div>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/browse"
-            className="rounded-full bg-sky-400 px-8 py-3 text-sm font-black text-black shadow-[0_0_35px_rgba(56,189,248,0.4)] transition hover:bg-sky-300"
+            className="rounded-md bg-white px-8 py-3 text-sm font-black text-black shadow-[0_14px_32px_rgba(0,0,0,0.35)] transition hover:scale-[1.025] hover:bg-sky-200"
           >
             Continue
           </Link>
 
           <button
             onClick={() => openEditor(profiles[0])}
-            className="rounded-full border border-white/15 bg-white/[0.05] px-8 py-3 text-sm font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200"
+            className="rounded-md border border-white/15 bg-white/[0.045] px-8 py-3 text-sm font-black text-white/66 backdrop-blur-xl transition hover:scale-[1.025] hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
           >
             Manage Profiles
           </button>
@@ -272,24 +384,27 @@ export default function ProfilesPage() {
       </div>
 
       {editingProfile && (
-        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/60 px-4 backdrop-blur-sm md:items-center">
-          <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] border border-white/10 bg-[rgba(10,10,10,0.78)] p-5 shadow-[0_0_80px_rgba(0,0,0,0.65)] backdrop-blur-3xl md:rounded-[2rem] md:p-7">
+        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/66 px-4 backdrop-blur-sm md:items-center">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-t-[2rem] border border-white/10 bg-black/82 p-5 shadow-[0_0_90px_rgba(0,0,0,0.72)] backdrop-blur-3xl animate-[profileEditorIn_260ms_ease-out] md:rounded-[2rem] md:p-7">
             <div className="pointer-events-none absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-sky-300/60 to-transparent shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
 
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300">
-                  Edit Profile
+                  {creatingProfile ? "Create Profile" : "Edit Profile"}
                 </p>
 
                 <h2 className="mt-2 text-3xl font-black">
-                  {editingProfile.name}
+                  {creatingProfile
+                    ? "New Profile"
+                    : editingProfile.name || "Profile"}
                 </h2>
               </div>
 
               <button
                 onClick={closeEditor}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl font-black text-white/65 transition hover:border-sky-300/40 hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-white"
+                aria-label="Close editor"
               >
                 ×
               </button>
@@ -297,9 +412,18 @@ export default function ProfilesPage() {
 
             <div className="mt-7 grid gap-6 md:grid-cols-[150px_1fr] md:items-start">
               <div className="mx-auto w-[150px]">
-                <ProfileAvatar profile={editingProfile} active />
+                <ProfileAvatar
+                  profile={{
+                    ...editingProfile,
+                    name: editingName || editingProfile.name || "New Profile",
+                    avatar: (editingName || editingProfile.name || "+")
+                      .charAt(0)
+                      .toUpperCase(),
+                  }}
+                  active
+                />
 
-                <label className="mt-4 block cursor-pointer rounded-full border border-white/15 bg-white/[0.05] px-4 py-3 text-center text-xs font-black text-white/70 backdrop-blur-xl transition hover:border-sky-300/50 hover:text-sky-200">
+                <label className="mt-4 block cursor-pointer rounded-md border border-white/15 bg-white/[0.05] px-4 py-3 text-center text-xs font-black text-white/70 backdrop-blur-xl transition hover:border-sky-300/50 hover:bg-sky-300/10 hover:text-sky-200">
                   Upload Photo
                   <input
                     type="file"
@@ -320,6 +444,7 @@ export default function ProfilesPage() {
                   onChange={(e) => setEditingName(e.target.value)}
                   className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 font-bold text-white outline-none backdrop-blur-xl placeholder:text-white/30 focus:border-sky-300/60"
                   placeholder="Profile name"
+                  autoFocus
                 />
 
                 <p className="mt-5 text-xs font-black uppercase tracking-[0.25em] text-white/45">
@@ -344,18 +469,27 @@ export default function ProfilesPage() {
                 <div className="mt-7 flex gap-3">
                   <button
                     onClick={saveProfileEdits}
-                    className="flex-1 rounded-full bg-sky-400 px-6 py-3 text-sm font-black text-black shadow-[0_0_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
+                    className="flex-1 rounded-md bg-white px-6 py-3 text-sm font-black text-black shadow-[0_12px_30px_rgba(0,0,0,0.32)] transition hover:bg-sky-200"
                   >
-                    Save
+                    {creatingProfile ? "Create" : "Save"}
                   </button>
 
                   <button
                     onClick={closeEditor}
-                    className="flex-1 rounded-full border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-black text-white/65 backdrop-blur-xl transition hover:border-white/30 hover:text-white"
+                    className="flex-1 rounded-md border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-black text-white/65 backdrop-blur-xl transition hover:border-white/30 hover:text-white"
                   >
                     Cancel
                   </button>
                 </div>
+
+                {!creatingProfile && (
+                  <button
+                    onClick={deleteProfile}
+                    className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-red-300/55 transition hover:text-red-200"
+                  >
+                    Delete Profile
+                  </button>
+                )}
 
                 <p className="mt-4 text-xs leading-5 text-white/35">
                   Uploaded photos are saved locally in your browser for now.
@@ -366,6 +500,51 @@ export default function ProfilesPage() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes profileCardIn {
+          from {
+            opacity: 0;
+            transform: translateY(18px) scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes profileEditorIn {
+          from {
+            opacity: 0;
+            transform: translateY(18px) scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        :global(body.profile-exit) main {
+          animation: profilePageExit 520ms cubic-bezier(0.16, 1, 0.3, 1)
+            forwards;
+        }
+
+        @keyframes profilePageExit {
+          from {
+            opacity: 1;
+            transform: scale(1);
+            filter: blur(0);
+          }
+
+          to {
+            opacity: 0;
+            transform: scale(1.045);
+            filter: blur(10px);
+          }
+        }
+      `}</style>
     </main>
   );
 }
@@ -379,15 +558,15 @@ function ProfileAvatar({
 }) {
   return (
     <div
-      className={`relative mx-auto flex aspect-square w-full max-w-[155px] items-center justify-center overflow-hidden rounded-[2rem] border transition-all duration-300 md:max-w-[190px] ${
+      className={`relative mx-auto flex aspect-square w-full max-w-[155px] items-center justify-center overflow-hidden rounded-[1.35rem] border transition-all duration-500 md:max-w-[190px] ${
         active
-          ? "border-sky-300 shadow-[0_0_45px_rgba(56,189,248,0.42)]"
-          : "border-white/10 shadow-2xl shadow-black/40 group-hover:border-sky-300/60 group-hover:shadow-[0_0_35px_rgba(56,189,248,0.28)]"
+          ? "border-sky-300/80 shadow-[0_0_46px_rgba(56,189,248,0.4)]"
+          : "border-white/10 shadow-[0_20px_46px_rgba(0,0,0,0.45)] group-hover:-translate-y-2 group-hover:scale-[1.035] group-hover:border-sky-300/55 group-hover:shadow-[0_0_40px_rgba(56,189,248,0.24)]"
       }`}
     >
       {profile.image ? (
         <div
-          className="absolute inset-0 bg-cover bg-center"
+          className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
           style={{ backgroundImage: `url(${profile.image})` }}
         />
       ) : (
@@ -406,7 +585,9 @@ function ProfileAvatar({
         </>
       )}
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/24 via-transparent to-white/10" />
+
+      <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] ring-1 ring-inset ring-white/10" />
 
       {active && (
         <div className="absolute left-0 top-0 h-[3px] w-full bg-gradient-to-r from-transparent via-sky-200 to-transparent shadow-[0_0_22px_rgba(56,189,248,0.95)]" />
