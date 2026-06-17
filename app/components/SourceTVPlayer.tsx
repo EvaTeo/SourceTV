@@ -149,26 +149,6 @@ export default function SourceTVPlayer({
     }
   }
 
-  useEffect(() => {
-  function handleMouseMove(event: MouseEvent) {
-    const nearBottom = event.clientY >= window.innerHeight - 230;
-
-    if (nearBottom || settingsOpen) {
-      showControls();
-      return;
-    }
-
-    if (!settingsOpen) {
-      setControlsVisible(false);
-    }
-  }
-
-  window.addEventListener("mousemove", handleMouseMove);
-
-  return () => {
-    window.removeEventListener("mousemove", handleMouseMove);
-  };
-}, [settingsOpen]);
 
   useEffect(() => {
     function handleMouseMove(event: MouseEvent) {

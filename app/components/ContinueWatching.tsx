@@ -151,8 +151,6 @@ export default function ContinueWatching() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/10 opacity-75 transition duration-500 group-hover:opacity-95" />
 
-                  <div className="absolute inset-0 scale-100 transition duration-700 group-hover:scale-105" />
-
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 transition duration-300 group-hover:opacity-100">
                     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-[0_12px_28px_rgba(0,0,0,0.45)] transition group-hover:scale-105 md:h-12 md:w-12">
                       <PlayIcon />

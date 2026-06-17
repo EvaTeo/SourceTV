@@ -19,25 +19,80 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const { title, type, genre, videoUrl, description } = body;
+    const {
+      title,
+      description,
+      type,
+      genre,
+      year,
+      videoUrl,
+      mainVideoUrl,
+      trailerUrl,
+      thumbnailUrl,
+      backdropUrl,
+      titleLogoUrl,
+      maturityRating,
+      runtime,
+      creatorName,
+      creatorCompany,
+      revenueShare,
+    } = body;
 
-    if (!title || !videoUrl) {
+    if (!title || !description) {
       return NextResponse.json(
-        { error: "Title and video URL are required" },
+        { error: "Title and description are required" },
         { status: 400 }
       );
     }
 
+    if (!videoUrl && !mainVideoUrl) {
+      return NextResponse.json(
+        { error: "A main video URL is required" },
+        { status: 400 }
+      );
+    }
+
+    const parsedYear =
+      year === "" || year === null || year === undefined
+        ? null
+        : Number(year);
+
+    const parsedRevenueShare =
+      revenueShare === "" || revenueShare === null || revenueShare === undefined
+        ? 50
+        : Number(revenueShare);
+
     const submission = await prisma.projectSubmission.create({
       data: {
-        title,
-        type,
-        genre,
-        videoUrl,
-        description,
+        title: String(title).trim(),
+        description: String(description).trim(),
 
-        creatorName: user.name || "SourceTV Partner",
+        type: type || "Film",
+        genre: genre || "Drama",
+        year:
+          parsedYear && Number.isFinite(parsedYear) ? parsedYear : undefined,
+
+        videoUrl: mainVideoUrl || videoUrl,
+        mainVideoUrl: mainVideoUrl || videoUrl,
+        trailerUrl: trailerUrl || null,
+        thumbnailUrl: thumbnailUrl || null,
+        backdropUrl: backdropUrl || null,
+        titleLogoUrl: titleLogoUrl || null,
+
+        maturityRating: maturityRating || "Not Rated",
+        runtime: runtime || null,
+
+        creatorName:
+          creatorName?.trim() || user.name || "SourceTV Partner",
         creatorEmail: user.email,
+        creatorCompany: creatorCompany || null,
+
+        revenueShare:
+          Number.isFinite(parsedRevenueShare) &&
+          parsedRevenueShare >= 0 &&
+          parsedRevenueShare <= 100
+            ? parsedRevenueShare
+            : 50,
 
         workflowStage: "submission",
         status: "pending",

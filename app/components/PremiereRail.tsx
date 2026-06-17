@@ -52,7 +52,7 @@ export default function PremiereRail({ items }: { items: ContentItem[] }) {
         {upcoming.map((item) => (
           <Link
             key={item.id}
-            href={`/watch/${item.id}?preview=admin`}
+href={`/watch/${item.id}`}
 className="group w-[72vw] max-w-[300px] shrink-0 md:w-[360px] md:max-w-none"
           >
             <div

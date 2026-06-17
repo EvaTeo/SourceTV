@@ -37,9 +37,12 @@ function formatDate(date?: string | null) {
 }
 
 function badgeClass(status: string) {
-  if (status === "approved") return "bg-green-400 text-black";
-  if (status === "rejected") return "bg-red-500 text-white";
-  return "bg-yellow-400 text-black";
+  if (status === "approved")
+    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
+  if (status === "rejected")
+    return "border-red-400/40 bg-red-500/12 text-red-200";
+
+  return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
 }
 
 export default function AdminPartnersPage() {
@@ -47,6 +50,7 @@ export default function AdminPartnersPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("pending");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function loadApplications() {
     try {
@@ -83,6 +87,15 @@ export default function AdminPartnersPage() {
       rejected: applications.filter((app) => app.status === "rejected").length,
     };
   }, [applications]);
+
+  const stats = useMemo(() => {
+    return [
+      { label: "Total", value: applications.length },
+      { label: "Pending", value: counts.pending },
+      { label: "Approved", value: counts.approved },
+      { label: "Rejected", value: counts.rejected },
+    ];
+  }, [applications.length, counts]);
 
   const filtered = useMemo(() => {
     if (activeFilter === "all") return applications;
@@ -129,25 +142,42 @@ export default function AdminPartnersPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="mx-auto max-w-7xl">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-            SourceTV Operations
-          </p>
+    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
 
-          <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
-            Partner Applications
-          </h1>
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
+              SourceTV Operations
+            </p>
 
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-            Review filmmakers, studios, producers, documentarians, and
-            distributors applying to become SourceTV partners.
-          </p>
+            <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
+              Partner Applications
+            </h1>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
+              Review filmmakers, studios, producers, documentarians, and
+              distributors applying to become SourceTV partners.
+            </p>
+          </div>
+
+          <button
+            onClick={loadApplications}
+            className="w-fit rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
+          >
+            Refresh
+          </button>
         </div>
 
-        <section className="mt-8 border-b border-white/10 pb-4">
-          <div className="flex gap-6 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <section className="mt-8 grid gap-3 md:grid-cols-4">
+          {stats.map((stat) => (
+            <AdminStat key={stat.label} label={stat.label} value={stat.value} />
+          ))}
+        </section>
+
+        <section className="mt-7 rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
+          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((filter) => {
               const active = activeFilter === filter;
 
@@ -155,10 +185,10 @@ export default function AdminPartnersPage() {
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
-                  className={`shrink-0 text-xs font-black uppercase tracking-[0.16em] transition ${
+                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
                     active
-                      ? "text-sky-300"
-                      : "text-white/45 hover:text-white"
+                      ? "border-sky-300 text-sky-300"
+                      : "border-transparent text-white/38 hover:text-white/72"
                   }`}
                 >
                   {filter} ({counts[filter as keyof typeof counts]})
@@ -180,50 +210,55 @@ export default function AdminPartnersPage() {
           <section className="mt-8 grid gap-5">
             {filtered.map((application) => {
               const saving = savingId === application.id;
+              const expanded = expandedId === application.id;
 
               return (
                 <article
                   key={application.id}
-                  className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-7"
+                  className="overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl transition hover:border-sky-300/20 md:p-6"
                 >
                   <div className="flex flex-col justify-between gap-5 md:flex-row">
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex flex-wrap gap-2">
                         <span
-                          className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${badgeClass(
+                          className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] backdrop-blur-xl ${badgeClass(
                             application.status
                           )}`}
                         >
                           {application.status}
                         </span>
 
-                        <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">
                           Current Role: {application.user.role}
                         </span>
+
+                        {application.workType && (
+                          <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-200">
+                            {application.workType}
+                          </span>
+                        )}
                       </div>
 
-                      <h2 className="mt-4 text-2xl font-black md:text-4xl">
+                      <h2 className="mt-4 text-2xl font-black leading-tight md:text-4xl">
                         {application.fullName}
                       </h2>
 
-                      <p className="mt-2 text-sm font-bold text-sky-300">
+                      <p className="mt-2 break-words text-sm font-bold text-sky-300">
                         {application.email}
                       </p>
 
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-white/45">
+                      <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-white/45">
                         {application.company && (
                           <span>Company: {application.company}</span>
                         )}
                         {application.roleTitle && (
                           <span>• Role: {application.roleTitle}</span>
                         )}
-                        {application.workType && (
-                          <span>• Work: {application.workType}</span>
-                        )}
+                        <span>• Submitted {formatDate(application.createdAt)}</span>
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-row gap-2 md:flex-col">
+                    <div className="flex shrink-0 flex-wrap gap-2 md:flex-col">
                       {application.status === "pending" && (
                         <>
                           <button
@@ -231,9 +266,9 @@ export default function AdminPartnersPage() {
                             onClick={() =>
                               updateApplication(application.id, "approve")
                             }
-                            className="rounded-full bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-50"
+                            className="rounded-md bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-50"
                           >
-                            {saving ? "Saving..." : "Approve Partner"}
+                            {saving ? "Saving..." : "Approve"}
                           </button>
 
                           <button
@@ -241,16 +276,26 @@ export default function AdminPartnersPage() {
                             onClick={() =>
                               updateApplication(application.id, "reject")
                             }
-                            className="rounded-full border border-red-400/30 bg-red-500/10 px-5 py-3 text-xs font-black text-red-300 transition hover:border-red-400/60 disabled:opacity-50"
+                            className="rounded-md border border-red-400/30 bg-red-500/10 px-5 py-3 text-xs font-black text-red-300 transition hover:border-red-400/60 disabled:opacity-50"
                           >
                             Reject
                           </button>
                         </>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedId(expanded ? null : application.id)
+                        }
+                        className="rounded-md border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-black text-white/50 transition hover:border-white/25 hover:text-white"
+                      >
+                        {expanded ? "Hide Details" : "Details"}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <div className="mt-6 grid gap-4 md:grid-cols-4">
                     <InfoBox
                       label="Website"
                       value={application.website || "Not provided"}
@@ -260,36 +305,46 @@ export default function AdminPartnersPage() {
                       value={application.portfolio || "Not provided"}
                     />
                     <InfoBox
-                      label="Submitted"
-                      value={formatDate(application.createdAt)}
-                    />
-                    <InfoBox
                       label="Reviewed"
                       value={formatDate(application.reviewedAt)}
                     />
-                  </div>
-
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <TextBox
-                      label="Bio"
-                      value={application.bio || "No bio provided."}
-                    />
-                    <TextBox
-                      label="Reason"
-                      value={application.reason || "No reason provided."}
+                    <InfoBox
+                      label="User Account"
+                      value={application.user.email}
                     />
                   </div>
 
-                  {application.adminNotes && (
-                    <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                        Admin Notes
-                      </p>
-                      <p className="mt-3 text-sm leading-7 text-white/60">
-                        {application.adminNotes}
-                      </p>
+                  <div
+                    className={`grid transition-all duration-300 ${
+                      expanded
+                        ? "mt-6 grid-rows-[1fr] opacity-100"
+                        : "grid-rows-[0fr] opacity-0"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <TextBox
+                          label="Bio"
+                          value={application.bio || "No bio provided."}
+                        />
+                        <TextBox
+                          label="Reason"
+                          value={application.reason || "No reason provided."}
+                        />
+                      </div>
+
+                      {application.adminNotes && (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+                          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                            Admin Notes
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-white/60">
+                            {application.adminNotes}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </article>
               );
             })}
@@ -297,6 +352,18 @@ export default function AdminPartnersPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function AdminStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 type ContentItem = {
   id: string;
@@ -19,9 +19,37 @@ type ContentItem = {
   thumbnailUrl?: string | null;
 };
 
+const filters = ["all", "pending", "approved", "scheduled", "rejected"];
+
+function formatDate(date?: string | null) {
+  if (!date) return "Not set";
+
+  return new Date(date).toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function statusBadgeClass(status: string) {
+  if (status === "approved")
+    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
+  if (status === "rejected")
+    return "border-red-400/40 bg-red-500/12 text-red-200";
+  if (status === "private")
+    return "border-purple-300/40 bg-purple-400/12 text-purple-200";
+  if (status === "unlisted")
+    return "border-blue-300/40 bg-blue-400/12 text-blue-200";
+  if (status === "archived")
+    return "border-zinc-400/30 bg-zinc-400/10 text-zinc-200";
+
+  return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
+}
+
 export default function AdminReviewPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("pending");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const [scheduleItem, setScheduleItem] = useState<ContentItem | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -29,12 +57,18 @@ export default function AdminReviewPage() {
 
   async function loadItems() {
     try {
-      const res = await fetch("/api/admin/content");
+      setLoading(true);
+
+      const res = await fetch("/api/admin/content", {
+        cache: "no-store",
+      });
+
       const data = await res.json();
 
-      setItems(data);
+      setItems(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load admin content:", error);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -45,24 +79,34 @@ export default function AdminReviewPage() {
     status: string,
     scheduledAt?: string | null
   ) {
-    const res = await fetch(`/api/admin/content/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ status, scheduledAt }),
-    });
+    try {
+      setSavingId(id);
 
-    const data = await res.json();
+      const res = await fetch(`/api/admin/content/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status, scheduledAt }),
+      });
 
-    if (!res.ok) {
-      console.error("Failed to update status:", data);
-      alert(data?.message || data?.error || "Failed to update status");
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Failed to update status:", data);
+        alert(data?.message || data?.error || "Failed to update status");
+        return false;
+      }
+
+      await loadItems();
+      return true;
+    } catch (error) {
+      console.error("STATUS UPDATE ERROR:", error);
+      alert("Failed to update status.");
       return false;
+    } finally {
+      setSavingId(null);
     }
-
-    await loadItems();
-    return true;
   }
 
   function openScheduleModal(item: ContentItem) {
@@ -117,188 +161,299 @@ export default function AdminReviewPage() {
     loadItems();
   }, []);
 
+  const counts = useMemo(() => {
+    const scheduled = items.filter(
+      (item) => item.scheduledAt && new Date(item.scheduledAt) > new Date()
+    ).length;
+
+    return {
+      all: items.length,
+      pending: items.filter((item) => item.status === "pending").length,
+      approved: items.filter((item) => item.status === "approved").length,
+      scheduled,
+      rejected: items.filter((item) => item.status === "rejected").length,
+    };
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (activeFilter === "all") return items;
+
+    if (activeFilter === "scheduled") {
+      return items.filter(
+        (item) => item.scheduledAt && new Date(item.scheduledAt) > new Date()
+      );
+    }
+
+    return items.filter((item) => item.status === activeFilter);
+  }, [items, activeFilter]);
+
+  const stats = [
+    { label: "All Titles", value: counts.all },
+    { label: "Pending", value: counts.pending },
+    { label: "Approved", value: counts.approved },
+    { label: "Scheduled", value: counts.scheduled },
+  ];
+
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-7xl">
-        <Link href="/admin" className="text-sm font-bold text-sky-300">
-          ← Back to Admin
-        </Link>
+    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
 
-        <div className="mt-8">
-          <p className="text-sm font-black uppercase tracking-[0.35em] text-sky-300">
-            SourceTV Review Queue
-          </p>
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
+              SourceTV Review Queue
+            </p>
 
-          <h1 className="mt-3 text-5xl font-black">Content Approval</h1>
+            <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
+              Content Approval
+            </h1>
 
-          <p className="mt-4 max-w-2xl text-white/60">
-            Review uploaded titles before they appear publicly.
-          </p>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
+              Review uploaded titles before they appear publicly. Approve,
+              schedule, reject, archive, or preview each submission.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/content"
+              className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
+            >
+              Content Center
+            </Link>
+
+            <button
+              onClick={loadItems}
+              className="rounded-md bg-sky-400 px-4 py-2.5 text-xs font-black text-black shadow-[0_0_28px_rgba(56,189,248,0.3)] transition hover:bg-sky-300"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
+        <section className="mt-8 grid gap-3 md:grid-cols-4">
+          {stats.map((stat) => (
+            <AdminStat key={stat.label} label={stat.label} value={stat.value} />
+          ))}
+        </section>
+
+        <section className="mt-7 rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
+          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((filter) => {
+              const active = activeFilter === filter;
+
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
+                    active
+                      ? "border-sky-300 text-sky-300"
+                      : "border-transparent text-white/38 hover:text-white/72"
+                  }`}
+                >
+                  {filter} ({counts[filter as keyof typeof counts]})
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {loading ? (
-          <p className="mt-10 text-white/50">Loading review queue...</p>
+          <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
+            Loading review queue...
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
+            No uploaded content found for this view.
+          </div>
         ) : (
-          <div className="mt-10 grid gap-6">
-            {items.map((item) => {
+          <section className="mt-8 grid gap-5">
+            {filteredItems.map((item) => {
+              const saving = savingId === item.id;
+
               const isFutureScheduled =
                 item.scheduledAt && new Date(item.scheduledAt) > new Date();
 
               return (
-                <div
+                <article
                   key={item.id}
-                  className="grid gap-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:grid-cols-[180px_1fr]"
+                  className="overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.045] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl transition hover:border-sky-300/20"
                 >
-                  <div
-                    className="aspect-[2/3] rounded-2xl bg-zinc-900"
-                    style={{
-                      backgroundImage: item.thumbnailUrl
-                        ? `url(${item.thumbnailUrl})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  />
-
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                          item.status === "approved"
-                            ? "bg-green-400 text-black"
-                            : item.status === "rejected"
-                            ? "bg-red-500 text-white"
-                            : item.status === "private"
-                            ? "bg-purple-400 text-black"
-                            : item.status === "unlisted"
-                            ? "bg-blue-400 text-black"
-                            : item.status === "archived"
-                            ? "bg-white/20 text-white"
-                            : "bg-yellow-400 text-black"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-
-                      {isFutureScheduled && (
-                        <span className="rounded-full bg-sky-400 px-3 py-1 text-xs font-black uppercase text-black shadow-[0_0_18px_rgba(56,189,248,0.8)]">
-                          📅 Scheduled Premiere
+                  <div className="grid gap-0 md:grid-cols-[210px_1fr]">
+                    <div
+                      className="relative min-h-[230px] bg-zinc-950 bg-cover bg-center md:min-h-full"
+                      style={{
+                        backgroundImage: item.thumbnailUrl
+                          ? `linear-gradient(to top, rgba(0,0,0,0.94), rgba(0,0,0,0.16)), url(${item.thumbnailUrl})`
+                          : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.18), transparent 34%), linear-gradient(to right, black, #020617)",
+                      }}
+                    >
+                      <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] backdrop-blur-xl ${statusBadgeClass(
+                            item.status
+                          )}`}
+                        >
+                          {item.status}
                         </span>
-                      )}
 
-                      {item.scheduledAt && (
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/70">
-                          Releases{" "}
-                          {new Date(item.scheduledAt).toLocaleString([], {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </span>
-                      )}
+                        {isFutureScheduled && (
+                          <span className="rounded-full border border-sky-300/45 bg-sky-300/14 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 backdrop-blur-xl">
+                            Scheduled
+                          </span>
+                        )}
+                      </div>
 
-                      <span className="text-sm text-white/45">
-                        {item.type} • {item.genre} •{" "}
-                        {item.maturityRating || "Not Rated"}
-                      </span>
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">
+                          {item.type || "Title"}{" "}
+                          {item.genre ? `• ${item.genre}` : ""}
+                        </p>
+                      </div>
                     </div>
 
-                    <h2 className="mt-4 text-3xl font-black">{item.title}</h2>
+                    <div className="p-5 md:p-6">
+                      <div className="flex flex-col justify-between gap-5 md:flex-row">
+                        <div className="min-w-0">
+                          <h2 className="text-2xl font-black leading-tight md:text-4xl">
+                            {item.title}
+                          </h2>
 
-                    <p className="mt-3 max-w-3xl text-white/60">
-                      {item.description}
-                    </p>
+                          <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-white/58">
+                            {item.description || "No description provided."}
+                          </p>
 
-                    <div className="mt-5 grid gap-2 text-sm text-white/45 md:grid-cols-2">
-                      <p>Creator: {item.creatorName || "Unknown"}</p>
-                      <p>Runtime: {item.runtime || "Not listed"}</p>
-                      <p>Views: {item.views || 0}</p>
-                      <p>Revenue Share: {item.revenueShare || 50}%</p>
-                    </div>
+                          <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-white/45">
+                            <span>Creator: {item.creatorName || "Unknown"}</span>
+                            <span>Runtime: {item.runtime || "Not listed"}</span>
+                            <span>Views: {item.views || 0}</span>
+                            <span>Revenue Share: {item.revenueShare || 50}%</span>
+                            <span>{item.maturityRating || "Not Rated"}</span>
+                          </div>
+                        </div>
 
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        onClick={() => updateStatus(item.id, "approved", null)}
-                        className="rounded-full bg-sky-400 px-5 py-3 font-black text-black"
-                      >
-                        Approve Now
-                      </button>
+                        <div className="flex shrink-0 flex-row gap-2 md:flex-col">
+                          <Link
+                            href={`/watch/${item.id}?preview=admin`}
+                            className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+                          >
+                            Preview
+                          </Link>
 
-                      <button
-                        onClick={() => openScheduleModal(item)}
-                        className="rounded-full border border-sky-300/40 px-5 py-3 font-bold text-sky-200"
-                      >
-                        Schedule Premiere
-                      </button>
+                          <Link
+                            href={`/admin/content/${item.id}/edit`}
+                            className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => updateStatus(item.id, "rejected")}
-                        className="rounded-full bg-red-500 px-5 py-3 font-black text-white"
-                      >
-                        Reject
-                      </button>
+                      <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        <InfoBox
+                          label="Schedule"
+                          value={
+                            item.scheduledAt
+                              ? `Releases ${formatDate(item.scheduledAt)}`
+                              : "Not scheduled"
+                          }
+                        />
+                        <InfoBox
+                          label="Public Status"
+                          value={
+                            isFutureScheduled
+                              ? "Hidden until premiere"
+                              : item.status === "approved"
+                              ? "Visible if approved"
+                              : "Not public"
+                          }
+                        />
+                        <InfoBox
+                          label="Review Action"
+                          value={
+                            item.status === "pending"
+                              ? "Needs decision"
+                              : "Already processed"
+                          }
+                        />
+                      </div>
 
-                      <button
-                        onClick={() => updateStatus(item.id, "pending")}
-                        className="rounded-full border border-white/15 px-5 py-3 font-bold text-white/70"
-                      >
-                        Back to Pending
-                      </button>
+                      <div className="mt-6 flex flex-wrap gap-2">
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "approved", null)}
+                          variant="primary"
+                        >
+                          Approve Now
+                        </ActionButton>
 
-                      <button
-                        onClick={() => updateStatus(item.id, "private")}
-                        className="rounded-full border border-purple-300/30 px-5 py-3 font-bold text-purple-200"
-                      >
-                        Private
-                      </button>
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => openScheduleModal(item)}
+                          variant="blue"
+                        >
+                          Schedule Premiere
+                        </ActionButton>
 
-                      <button
-                        onClick={() => updateStatus(item.id, "unlisted")}
-                        className="rounded-full border border-blue-300/30 px-5 py-3 font-bold text-blue-200"
-                      >
-                        Unlisted
-                      </button>
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "rejected")}
+                          variant="red"
+                        >
+                          Reject
+                        </ActionButton>
 
-                      <button
-                        onClick={() => updateStatus(item.id, "archived")}
-                        className="rounded-full border border-white/15 px-5 py-3 font-bold text-white/50"
-                      >
-                        Archive
-                      </button>
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "pending")}
+                          variant="default"
+                        >
+                          Back to Pending
+                        </ActionButton>
 
-                      <Link
-                        href={`/watch/${item.id}?preview=admin`}
-                        className="rounded-full border border-sky-300/30 px-5 py-3 font-bold text-sky-200"
-                      >
-                        Preview
-                      </Link>
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "private")}
+                          variant="purple"
+                        >
+                          Private
+                        </ActionButton>
 
-                      <Link
-                        href={`/admin/content/${item.id}/edit`}
-                        className="rounded-full border border-white/15 px-5 py-3 font-bold text-white/70"
-                      >
-                        Edit
-                      </Link>
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "unlisted")}
+                          variant="blue"
+                        >
+                          Unlisted
+                        </ActionButton>
+
+                        <ActionButton
+                          disabled={saving}
+                          onClick={() => updateStatus(item.id, "archived")}
+                          variant="default"
+                        >
+                          Archive
+                        </ActionButton>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
-
-            {items.length === 0 && (
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-white/50">
-                No uploaded content found.
-              </div>
-            )}
-          </div>
+          </section>
         )}
       </div>
 
       {scheduleItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-sky-300/20 bg-zinc-950 p-6 shadow-2xl shadow-sky-500/10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/10 bg-black/88 p-6 shadow-[0_0_90px_rgba(0,0,0,0.72)] backdrop-blur-3xl">
+            <div className="pointer-events-none absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-sky-300/60 to-transparent shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
+
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-sky-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-300">
                   Schedule Premiere
                 </p>
 
@@ -306,14 +461,14 @@ export default function AdminReviewPage() {
                   {scheduleItem.title}
                 </h2>
 
-                <p className="mt-2 text-sm text-white/50">
+                <p className="mt-2 text-sm leading-6 text-white/50">
                   Pick the month, day, and time this title should become public.
                 </p>
               </div>
 
               <button
                 onClick={() => setScheduleItem(null)}
-                className="rounded-full border border-white/10 px-3 py-1 text-white/60"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:border-sky-300/40 hover:text-white"
               >
                 ✕
               </button>
@@ -329,7 +484,7 @@ export default function AdminReviewPage() {
                   type="date"
                   value={scheduleDate}
                   onChange={(e) => setScheduleDate(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-sky-300"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-white outline-none focus:border-sky-300"
                 />
               </div>
 
@@ -342,34 +497,34 @@ export default function AdminReviewPage() {
                   type="time"
                   value={scheduleTime}
                   onChange={(e) => setScheduleTime(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-sky-300"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-white outline-none focus:border-sky-300"
                 />
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/50">
-              Scheduled content will stay hidden from public browse until this
-              date and time passes.
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-white/50">
+              Scheduled content stays hidden from public browse until this date
+              and time passes.
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 onClick={saveSchedule}
-                className="rounded-full bg-sky-400 px-6 py-3 font-black text-black"
+                className="rounded-md bg-sky-400 px-6 py-3 text-sm font-black text-black transition hover:bg-sky-300"
               >
                 Save Premiere
               </button>
 
               <button
                 onClick={clearSchedule}
-                className="rounded-full border border-white/15 px-6 py-3 font-bold text-white/70"
+                className="rounded-md border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-bold text-white/70 transition hover:border-white/30 hover:text-white"
               >
                 Clear Schedule
               </button>
 
               <button
                 onClick={() => setScheduleItem(null)}
-                className="rounded-full border border-white/15 px-6 py-3 font-bold text-white/50"
+                className="rounded-md border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-bold text-white/50 transition hover:border-white/30 hover:text-white"
               >
                 Cancel
               </button>
@@ -378,5 +533,64 @@ export default function AdminReviewPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function AdminStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function InfoBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+        {label}
+      </p>
+
+      <p className="mt-2 text-sm font-bold text-white/70">{value}</p>
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  disabled,
+  onClick,
+  variant,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+  variant: "primary" | "blue" | "purple" | "red" | "default";
+}) {
+  const classes: Record<typeof variant, string> = {
+    primary:
+      "bg-sky-400 text-black hover:bg-sky-300 shadow-[0_0_24px_rgba(56,189,248,0.22)]",
+    blue:
+      "border border-sky-300/30 bg-sky-300/10 text-sky-200 hover:border-sky-300/60",
+    purple:
+      "border border-purple-400/30 bg-purple-500/10 text-purple-300 hover:border-purple-400/60",
+    red:
+      "border border-red-400/30 bg-red-500/10 text-red-300 hover:border-red-400/60",
+    default:
+      "border border-white/15 bg-white/[0.04] text-white/60 hover:border-white/30 hover:text-white",
+  };
+
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-md px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-35 ${classes[variant]}`}
+    >
+      {children}
+    </button>
   );
 }
