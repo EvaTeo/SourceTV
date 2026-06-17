@@ -134,6 +134,8 @@ export default function AdminContentPage() {
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [activeType, setActiveType] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -174,7 +176,20 @@ export default function AdminContentPage() {
     loadContent();
   }, []);
 
-  const filteredContent = useMemo(() => {
+  
+  const contentTypes = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        content
+          .map((item) => item.type)
+          .filter(Boolean)
+      )
+    ).sort();
+
+    return ["all", ...values];
+  }, [content]);
+
+const filteredContent = useMemo(() => {
     return content.filter((item) => {
       const cleanSearch = search.trim().toLowerCase();
 
@@ -196,9 +211,14 @@ export default function AdminContentPage() {
           ? Boolean(item.featured)
           : item.workflowStage === activeFilter;
 
-      return matchesSearch && matchesFilter;
+      const matchesType =
+        activeType === "all"
+          ? true
+          : (item.type || "").toLowerCase() === activeType.toLowerCase();
+
+      return matchesSearch && matchesFilter && matchesType;
     });
-  }, [content, search, activeFilter]);
+  }, [content, search, activeFilter, activeType]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = {
@@ -391,24 +411,97 @@ export default function AdminContentPage() {
             </button>
           </div>
 
-          <div className="mt-4 flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {filters.map((filter) => {
-              const active = activeFilter === filter.value;
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowFilters((current) => !current)}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-xs font-black uppercase tracking-[0.15em] text-white/70 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+            >
+              Filters
+              <span className="text-sky-300">
+                {showFilters ? "▲" : "▼"}
+              </span>
+            </button>
 
-              return (
-                <button
-                  key={filter.value}
-                  onClick={() => setActiveFilter(filter.value)}
-                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
-                    active
-                      ? "border-sky-300 text-sky-300"
-                      : "border-transparent text-white/38 hover:text-white/72"
-                  }`}
-                >
-                  {filter.label} ({counts[filter.value] || 0})
-                </button>
-              );
-            })}
+            {showFilters && (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                  Workflow Pipeline
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  {filters
+                    .filter(
+                      (filter) =>
+                        !["featured", "archived", "rejected", "all"].includes(
+                          filter.value
+                        )
+                    )
+                    .map((filter) => (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setActiveFilter(filter.value)}
+                        className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
+                          activeFilter === filter.value
+                            ? "bg-sky-300 text-black"
+                            : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {filter.label} ({counts[filter.value] || 0})
+                      </button>
+                    ))}
+                </div>
+
+                <p className="mb-3 mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                  Content Type
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  {contentTypes.map((type) => (
+                    <button
+                      key={String(type)}
+                      type="button"
+                      onClick={() => setActiveType(String(type))}
+                      className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
+                        activeType === type
+                          ? "bg-sky-300 text-black"
+                          : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      {type === "all" ? "All Types" : type}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-3 mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                  Special States
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  {filters
+                    .filter((filter) =>
+                      ["featured", "archived", "rejected"].includes(
+                        filter.value
+                      )
+                    )
+                    .map((filter) => (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setActiveFilter(filter.value)}
+                        className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
+                          activeFilter === filter.value
+                            ? "bg-sky-300 text-black"
+                            : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {filter.label} ({counts[filter.value] || 0})
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -488,6 +581,65 @@ export default function AdminContentPage() {
                           <h2 className="text-2xl font-black md:text-4xl">
                             {item.title}
                           </h2>
+
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                            {[
+                              "submission",
+                              "metadata_review",
+                              "content_review",
+                              "rights_review",
+                              "approved",
+                              "scheduled",
+                              "published",
+                            ].map((step, index, steps) => {
+                              const currentIndex = steps.indexOf(stage);
+                              const stepIndex = index;
+
+                              const state =
+                                stepIndex < currentIndex
+                                  ? "complete"
+                                  : stepIndex === currentIndex
+                                  ? "current"
+                                  : "future";
+
+                              return (
+                                <div key={step} className="flex items-center gap-2">
+                                  <span
+                                    className={
+                                      state === "current"
+                                        ? "text-sky-300"
+                                        : state === "complete"
+                                        ? "text-white/80"
+                                        : "text-white/25"
+                                    }
+                                  >
+                                    {state === "current"
+                                      ? "►"
+                                      : state === "complete"
+                                      ? "●"
+                                      : "○"}
+                                  </span>
+
+                                  <span
+                                    className={
+                                      state === "current"
+                                        ? "text-sky-300"
+                                        : state === "complete"
+                                        ? "text-white/65"
+                                        : "text-white/25"
+                                    }
+                                  >
+                                    {stageLabels[step]}
+                                  </span>
+
+                                  {index < steps.length - 1 && (
+                                    <span className="text-white/15">→</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
 
                           <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-white/58">
                             {item.description || "No description provided."}

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/app/lib/prisma";
+import { getCurrentUser } from "@/app/lib/auth";
 
 const stageLabels: Record<string, string> = {
   submission: "Submission Received",
@@ -54,12 +55,24 @@ export default async function PartnerProjectDetailsPage({
 }) {
   const { id } = await params;
 
+  const user = await getCurrentUser();
+
+if (!user) {
+  redirect("/login");
+}
+
   const project = await prisma.projectSubmission.findUnique({
     where: { id },
   });
 
-  if (!project) return notFound();
+if (!project) return notFound();
 
+if (
+  user.role !== "admin" &&
+  project.creatorEmail !== user.email
+) {
+  return notFound();
+}
   return (
     <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
       <div className="mx-auto max-w-7xl">
