@@ -52,6 +52,15 @@ export default function AdminPartnersPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(
+    null
+  );
+  const [reviewApplicationId, setReviewApplicationId] = useState<string | null>(
+    null
+  );
+  const [reviewNotes, setReviewNotes] = useState("");
+
   async function loadApplications() {
     try {
       setLoading(true);
@@ -102,16 +111,32 @@ export default function AdminPartnersPage() {
     return applications.filter((app) => app.status === activeFilter);
   }, [applications, activeFilter]);
 
-  async function updateApplication(applicationId: string, action: string) {
+  function openReviewModal(
+    applicationId: string,
+    action: "approve" | "reject"
+  ) {
+    setReviewApplicationId(applicationId);
+    setReviewAction(action);
+    setReviewNotes("");
+    setReviewModalOpen(true);
+  }
+
+  function closeReviewModal() {
+    if (savingId) return;
+
+    setReviewModalOpen(false);
+    setReviewApplicationId(null);
+    setReviewAction(null);
+    setReviewNotes("");
+  }
+
+  async function updateApplication(
+    applicationId: string,
+    action: string,
+    adminNotes: string
+  ) {
     try {
       setSavingId(applicationId);
-
-      const adminNotes =
-        window.prompt(
-          action === "approve"
-            ? "Approval notes for this partner?"
-            : "Why is this application being rejected?"
-        ) || "";
 
       const res = await fetch("/api/admin/partner-applications", {
         method: "PATCH",
@@ -133,6 +158,7 @@ export default function AdminPartnersPage() {
       }
 
       await loadApplications();
+      closeReviewModal();
     } catch (error) {
       console.error("PARTNER APPLICATION UPDATE ERROR:", error);
       alert("Could not update partner application.");
@@ -140,6 +166,25 @@ export default function AdminPartnersPage() {
       setSavingId(null);
     }
   }
+
+  async function submitReview() {
+    if (!reviewApplicationId || !reviewAction) return;
+
+    if (reviewAction === "reject" && !reviewNotes.trim()) {
+      alert("Please add a rejection reason.");
+      return;
+    }
+
+    await updateApplication(
+      reviewApplicationId,
+      reviewAction,
+      reviewNotes.trim()
+    );
+  }
+
+  const selectedApplication = applications.find(
+    (application) => application.id === reviewApplicationId
+  );
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
@@ -254,7 +299,9 @@ export default function AdminPartnersPage() {
                         {application.roleTitle && (
                           <span>• Role: {application.roleTitle}</span>
                         )}
-                        <span>• Submitted {formatDate(application.createdAt)}</span>
+                        <span>
+                          • Submitted {formatDate(application.createdAt)}
+                        </span>
                       </div>
                     </div>
 
@@ -264,7 +311,7 @@ export default function AdminPartnersPage() {
                           <button
                             disabled={saving}
                             onClick={() =>
-                              updateApplication(application.id, "approve")
+                              openReviewModal(application.id, "approve")
                             }
                             className="rounded-md bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-50"
                           >
@@ -274,7 +321,7 @@ export default function AdminPartnersPage() {
                           <button
                             disabled={saving}
                             onClick={() =>
-                              updateApplication(application.id, "reject")
+                              openReviewModal(application.id, "reject")
                             }
                             className="rounded-md border border-red-400/30 bg-red-500/10 px-5 py-3 text-xs font-black text-red-300 transition hover:border-red-400/60 disabled:opacity-50"
                           >
@@ -351,6 +398,88 @@ export default function AdminPartnersPage() {
           </section>
         )}
       </div>
+
+      {reviewModalOpen && reviewAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md">
+          <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#030712]/95 shadow-[0_30px_120px_rgba(0,0,0,0.85)]">
+            <div className="border-b border-white/10 bg-white/[0.035] px-6 py-5">
+              <p
+                className={`text-[10px] font-black uppercase tracking-[0.3em] ${
+                  reviewAction === "approve" ? "text-sky-300" : "text-red-300"
+                }`}
+              >
+                {reviewAction === "approve"
+                  ? "Approve Partner"
+                  : "Reject Application"}
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black text-white">
+                {selectedApplication?.fullName || "Partner Application"}
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-white/50">
+                {reviewAction === "approve"
+                  ? "Add optional approval notes before granting partner access."
+                  : "Add a clear rejection reason so the decision is documented."}
+              </p>
+            </div>
+
+            <div className="px-6 py-6">
+              <label className="text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
+                {reviewAction === "approve"
+                  ? "Approval Notes"
+                  : "Rejection Reason"}
+              </label>
+
+              <textarea
+                value={reviewNotes}
+                onChange={(event) => setReviewNotes(event.target.value)}
+                rows={6}
+                placeholder={
+                  reviewAction === "approve"
+                    ? "Example: Approved for partner access. Strong portfolio and clear fit for SourceTV."
+                    : "Example: Application rejected because portfolio or rights information was incomplete."
+                }
+                className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-black/65"
+              />
+
+              {reviewAction === "reject" && (
+                <p className="mt-2 text-xs font-bold text-red-200/70">
+                  Rejection reason is required.
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={!!savingId}
+                  onClick={closeReviewModal}
+                  className="rounded-md border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!!savingId}
+                  onClick={submitReview}
+                  className={`rounded-md px-5 py-3 text-xs font-black transition disabled:opacity-50 ${
+                    reviewAction === "approve"
+                      ? "bg-sky-400 text-black hover:bg-sky-300"
+                      : "border border-red-400/35 bg-red-500/15 text-red-200 hover:border-red-400/70 hover:bg-red-500/25"
+                  }`}
+                >
+                  {savingId
+                    ? "Saving..."
+                    : reviewAction === "approve"
+                    ? "Approve Partner"
+                    : "Reject Partner"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

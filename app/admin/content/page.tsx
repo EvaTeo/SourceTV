@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+type PartnerMessage = {
+  id: string;
+  senderTeam: string;
+  subject: string;
+  body: string;
+  isRead?: boolean;
+  createdAt: string;
+};
+
 type ContentItem = {
   id: string;
   title: string;
@@ -47,6 +56,7 @@ type ContentItem = {
   views?: number | null;
   createdAt: string;
   updatedAt: string;
+  partnerMessages?: PartnerMessage[];
 };
 
 const filters = [
@@ -113,6 +123,13 @@ function formatDate(date?: string | null) {
   });
 }
 
+function getMessageHistory(item: ContentItem) {
+  return [...(item.partnerMessages || [])].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 export default function AdminContentPage() {
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +137,14 @@ export default function AdminContentPage() {
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [messageTarget, setMessageTarget] = useState<ContentItem | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ContentItem | null>(null);
+  const [messageForm, setMessageForm] = useState({
+    senderTeam: "SourceTV Programming Team",
+    subject: "Message From SourceTV",
+    message: "",
+  });
+  const [rejectReason, setRejectReason] = useState("");
 
   async function loadContent() {
     try {
@@ -241,6 +266,69 @@ export default function AdminContentPage() {
     }
   }
 
+  function openMessageModal(item: ContentItem) {
+    setMessageTarget(item);
+    setMessageForm({
+      senderTeam: "SourceTV Programming Team",
+      subject: "Message From SourceTV",
+      message: "",
+    });
+  }
+
+  function closeMessageModal() {
+    if (savingId) return;
+
+    setMessageTarget(null);
+    setMessageForm({
+      senderTeam: "SourceTV Programming Team",
+      subject: "Message From SourceTV",
+      message: "",
+    });
+  }
+
+  async function sendPartnerMessage() {
+    if (!messageTarget || !messageForm.message.trim()) return;
+
+    await updateContent(messageTarget.id, {
+      action: "send_message",
+      senderTeam:
+        messageForm.senderTeam.trim() || "SourceTV Programming Team",
+      subject: messageForm.subject.trim() || "Message From SourceTV",
+      message: messageForm.message.trim(),
+    });
+
+    setMessageTarget(null);
+    setMessageForm({
+      senderTeam: "SourceTV Programming Team",
+      subject: "Message From SourceTV",
+      message: "",
+    });
+  }
+
+  function openRejectModal(item: ContentItem) {
+    setRejectTarget(item);
+    setRejectReason(item.reviewNotes || "");
+  }
+
+  function closeRejectModal() {
+    if (savingId) return;
+
+    setRejectTarget(null);
+    setRejectReason("");
+  }
+
+  async function rejectContent() {
+    if (!rejectTarget) return;
+
+    await updateContent(rejectTarget.id, {
+      action: "reject",
+      reviewNotes: rejectReason.trim() || rejectTarget.reviewNotes || "",
+    });
+
+    setRejectTarget(null);
+    setRejectReason("");
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
@@ -340,6 +428,8 @@ export default function AdminContentPage() {
               const expanded = expandedId === item.id;
               const artwork =
                 item.cardArtUrl || item.backdropUrl || item.thumbnailUrl || "";
+              const messageHistory = getMessageHistory(item);
+              const latestMessage = messageHistory[0];
 
               return (
                 <article
@@ -373,6 +463,13 @@ export default function AdminContentPage() {
                         {item.recognitionLevel && (
                           <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/75 backdrop-blur-xl">
                             {item.recognitionLevel}
+                          </span>
+                        )}
+
+                        {messageHistory.length > 0 && (
+                          <span className="rounded-full border border-cyan-300/35 bg-cyan-300/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100 backdrop-blur-xl">
+                            {messageHistory.length} Message
+                            {messageHistory.length === 1 ? "" : "s"}
                           </span>
                         )}
                       </div>
@@ -445,6 +542,39 @@ export default function AdminContentPage() {
                           label="Recognition"
                           value={item.recognitionLevel || "Not assigned"}
                         />
+                      </div>
+
+                      <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
+                              Partner Communication
+                            </p>
+
+                            <p className="mt-2 text-sm font-bold text-white/70">
+                              {messageHistory.length > 0
+                                ? `${messageHistory.length} message${
+                                    messageHistory.length === 1 ? "" : "s"
+                                  } sent`
+                                : "No partner messages recorded yet"}
+                            </p>
+
+                            {latestMessage && (
+                              <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/45">
+                                Latest: {latestMessage.subject} •{" "}
+                                {formatDate(latestMessage.createdAt)}
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(expanded ? null : item.id)}
+                            className="w-fit rounded-md border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200 transition hover:border-cyan-300/55 hover:bg-cyan-300/15"
+                          >
+                            {expanded ? "Hide History" : "View History"}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
@@ -525,30 +655,7 @@ export default function AdminContentPage() {
 
                         <ActionButton
                           disabled={saving}
-                          onClick={() => {
-                            const senderTeam =
-                              window.prompt(
-                                "Team Name",
-                                "SourceTV Programming Team"
-                              ) || "SourceTV Programming Team";
-
-                            const subject =
-                              window.prompt(
-                                "Subject",
-                                "Message From SourceTV"
-                              ) || "Message From SourceTV";
-
-                            const message = window.prompt("Message") || "";
-
-                            if (!message.trim()) return;
-
-                            updateContent(item.id, {
-                              action: "send_message",
-                              senderTeam,
-                              subject,
-                              message,
-                            });
-                          }}
+                          onClick={() => openMessageModal(item)}
                           variant="purple"
                         >
                           Message
@@ -556,16 +663,7 @@ export default function AdminContentPage() {
 
                         <ActionButton
                           disabled={saving}
-                          onClick={() => {
-                            const note = window.prompt(
-                              "Why is this title being rejected?"
-                            );
-
-                            updateContent(item.id, {
-                              action: "reject",
-                              reviewNotes: note || item.reviewNotes || "",
-                            });
-                          }}
+                          onClick={() => openRejectModal(item)}
                           variant="red"
                         >
                           Reject
@@ -631,6 +729,8 @@ export default function AdminContentPage() {
                               ]}
                             />
                           </div>
+
+                          <MessageHistoryBlock messages={messageHistory} />
                         </div>
                       </div>
                     </div>
@@ -641,7 +741,265 @@ export default function AdminContentPage() {
           </section>
         )}
       </div>
+
+      {messageTarget && (
+        <SourceModal
+          title="Message Partner"
+          eyebrow="SourceTV Communication"
+          description={`Send a note to ${
+            messageTarget.creatorCompany ||
+            messageTarget.creatorName ||
+            messageTarget.creatorEmail ||
+            "this partner"
+          } about ${messageTarget.title}.`}
+          onClose={closeMessageModal}
+        >
+          <div className="grid gap-4">
+            <ModalField label="Team Name">
+              <input
+                value={messageForm.senderTeam}
+                onChange={(e) =>
+                  setMessageForm((current) => ({
+                    ...current,
+                    senderTeam: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/60 focus:bg-black/70"
+                placeholder="SourceTV Programming Team"
+              />
+            </ModalField>
+
+            <ModalField label="Subject">
+              <input
+                value={messageForm.subject}
+                onChange={(e) =>
+                  setMessageForm((current) => ({
+                    ...current,
+                    subject: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/60 focus:bg-black/70"
+                placeholder="Message From SourceTV"
+              />
+            </ModalField>
+
+            <ModalField label="Message Body">
+              <textarea
+                value={messageForm.message}
+                onChange={(e) =>
+                  setMessageForm((current) => ({
+                    ...current,
+                    message: e.target.value,
+                  }))
+                }
+                className="min-h-36 w-full resize-none rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm font-semibold leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/60 focus:bg-black/70"
+                placeholder="Write the message the partner will see in their inbox..."
+              />
+            </ModalField>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={Boolean(savingId)}
+              onClick={closeMessageModal}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={Boolean(savingId) || !messageForm.message.trim()}
+              onClick={sendPartnerMessage}
+              className="rounded-xl bg-sky-400 px-5 py-3 text-xs font-black text-black shadow-[0_0_28px_rgba(56,189,248,0.28)] transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              {savingId === messageTarget.id ? "Sending..." : "Send Message"}
+            </button>
+          </div>
+        </SourceModal>
+      )}
+
+      {rejectTarget && (
+        <SourceModal
+          title="Reject Title"
+          eyebrow="Review Decision"
+          description={`Reject ${rejectTarget.title} and save the reason to the title review notes.`}
+          onClose={closeRejectModal}
+        >
+          <ModalField label="Rejection Reason">
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="min-h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm font-semibold leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-red-300/60 focus:bg-black/70"
+              placeholder="Explain why this title is being rejected..."
+            />
+          </ModalField>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={Boolean(savingId)}
+              onClick={closeRejectModal}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={Boolean(savingId)}
+              onClick={rejectContent}
+              className="rounded-xl border border-red-400/35 bg-red-500/15 px-5 py-3 text-xs font-black text-red-200 transition hover:border-red-300/70 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              {savingId === rejectTarget.id ? "Rejecting..." : "Reject Title"}
+            </button>
+          </div>
+        </SourceModal>
+      )}
     </main>
+  );
+}
+
+function SourceModal({
+  title,
+  eyebrow,
+  description,
+  children,
+  onClose,
+}: {
+  title: string;
+  eyebrow: string;
+  description?: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+      <button
+        type="button"
+        aria-label="Close modal"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/78 backdrop-blur-xl"
+      />
+
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950/90 p-5 shadow-[0_30px_120px_rgba(0,0,0,0.7)] ring-1 ring-sky-300/10 md:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(56,189,248,0.18),transparent_34%),linear-gradient(to_bottom,rgba(255,255,255,0.04),transparent)]" />
+
+        <div className="relative">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-300">
+                {eyebrow}
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black text-white md:text-4xl">
+                {title}
+              </h2>
+
+              {description && (
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
+                  {description}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-black text-white/50 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mt-6">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+        {label}
+      </span>
+
+      {children}
+    </label>
+  );
+}
+
+function MessageHistoryBlock({ messages }: { messages: PartnerMessage[] }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
+      <div className="flex flex-col justify-between gap-2 border-b border-white/10 pb-4 md:flex-row md:items-end">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+            Message History
+          </p>
+
+          <p className="mt-2 text-sm font-bold text-white/55">
+            Admin messages sent to the partner for this title.
+          </p>
+        </div>
+
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-white/28">
+          {messages.length} Total
+        </p>
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/[0.025] p-4">
+          <p className="text-sm font-bold text-white/45">
+            No messages have been sent for this title yet.
+          </p>
+
+          <p className="mt-2 text-xs leading-5 text-white/32">
+            Use the Message button above to contact the partner. Once the admin
+            content API includes partnerMessages, the sent history will appear
+            here automatically.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className="rounded-xl border border-white/10 bg-white/[0.035] p-4"
+            >
+              <div className="flex flex-col justify-between gap-2 md:flex-row md:items-start">
+                <div>
+                  <p className="text-sm font-black text-white">
+                    {message.subject}
+                  </p>
+
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-300/75">
+                    {message.senderTeam}
+                  </p>
+                </div>
+
+                <p className="shrink-0 text-xs font-bold text-white/35">
+                  {formatDate(message.createdAt)}
+                </p>
+              </div>
+
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/58">
+                {message.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

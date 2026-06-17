@@ -18,6 +18,8 @@ type Message = {
   } | null;
 };
 
+const filters = ["all", "unread", "read"];
+
 function formatDate(date: string) {
   return new Date(date).toLocaleString([], {
     dateStyle: "medium",
@@ -25,9 +27,43 @@ function formatDate(date: string) {
   });
 }
 
+function formatShortDate(date: string) {
+  return new Date(date).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function stageLabel(stage?: string | null) {
+  if (!stage) return "General";
+
+  return stage.replaceAll("_", " ");
+}
+
+function stageBadgeClass(stage?: string | null) {
+  if (stage === "published")
+    return "border-emerald-300/35 bg-emerald-300/10 text-emerald-200";
+  if (stage === "approved")
+    return "border-sky-300/35 bg-sky-300/10 text-sky-200";
+  if (stage === "scheduled")
+    return "border-violet-300/35 bg-violet-300/10 text-violet-200";
+  if (stage === "rejected")
+    return "border-red-400/35 bg-red-500/10 text-red-200";
+  if (stage === "rights_review")
+    return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
+  if (stage === "content_review")
+    return "border-blue-300/35 bg-blue-300/10 text-blue-200";
+  if (stage === "metadata_review")
+    return "border-cyan-300/35 bg-cyan-300/10 text-cyan-200";
+
+  return "border-white/10 bg-white/[0.04] text-white/55";
+}
+
 export default function PartnerInboxPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState("all");
 
   async function loadMessages() {
     try {
@@ -36,6 +72,11 @@ export default function PartnerInboxPage() {
       const res = await fetch("/api/partner/messages", {
         cache: "no-store",
       });
+
+      if (res.status === 403 || res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
 
       const data = await res.json();
 
@@ -49,6 +90,37 @@ export default function PartnerInboxPage() {
       setMessages([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openMessage(message: Message) {
+    setSelectedMessage(selectedMessage === message.id ? null : message.id);
+
+    if (message.isRead) return;
+
+    try {
+      await fetch("/api/partner/messages", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId: message.id,
+        }),
+      });
+
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === message.id
+            ? {
+                ...item,
+                isRead: true,
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("MARK READ ERROR:", error);
     }
   }
 
@@ -75,96 +147,338 @@ export default function PartnerInboxPage() {
     [messages]
   );
 
+  const readCount = useMemo(
+    () => messages.filter((message) => message.isRead).length,
+    [messages]
+  );
+
+  const filteredMessages = useMemo(() => {
+    if (activeFilter === "unread") {
+      return messages.filter((message) => !message.isRead);
+    }
+
+    if (activeFilter === "read") {
+      return messages.filter((message) => message.isRead);
+    }
+
+    return messages;
+  }, [messages, activeFilter]);
+
+  const filterCounts = {
+    all: messages.length,
+    unread: unreadCount,
+    read: readCount,
+  };
+
+  const latestMessage = messages[0];
+
   return (
-    <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
-      <div className="mx-auto max-w-6xl">
-        <Link href="/partner" className="text-sm font-bold text-sky-300">
+    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(56,189,248,0.14),transparent_30%),radial-gradient(circle_at_85%_0%,rgba(14,165,233,0.08),transparent_26%),linear-gradient(to_bottom,#020617_0%,#000_46%)]" />
+
+      <div className="relative z-10 mx-auto max-w-6xl">
+        <Link
+          href="/partner"
+          className="inline-flex items-center text-sm font-black text-sky-300 transition hover:text-sky-200"
+        >
           ← Back to Partner Dashboard
         </Link>
 
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-            SourceTV Partner Portal
-          </p>
+        <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.045] shadow-2xl backdrop-blur-xl">
+          <div className="border-b border-white/10 bg-white/[0.025] p-6 md:p-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
+              SourceTV Partner Portal
+            </p>
 
-          <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-4xl font-black leading-[0.95] md:text-7xl">
-                Partner Inbox
-              </h1>
+            <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div>
+                <h1 className="text-4xl font-black leading-[0.95] md:text-7xl">
+                  Partner Inbox
+                </h1>
 
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-                Official communications from SourceTV teams.
-              </p>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
+                  Official communications from SourceTV review, rights,
+                  publishing, and content operations teams.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-center">
+                  <p className="text-2xl font-black text-sky-200">
+                    {unreadCount}
+                  </p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-sky-200/65">
+                    Unread
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-4 text-center">
+                  <p className="text-2xl font-black text-white">
+                    {messages.length}
+                  </p>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                    Total
+                  </p>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="rounded-full border border-sky-300/20 bg-sky-300/10 px-5 py-3 text-sm font-black text-sky-200">
-              {unreadCount} Unread
+          {latestMessage && (
+            <div className="grid gap-4 p-5 md:grid-cols-[1.3fr_0.7fr] md:p-6">
+              <div className="rounded-[1.4rem] border border-white/10 bg-black/25 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
+                  Latest Message
+                </p>
+
+                <h2 className="mt-3 line-clamp-2 text-xl font-black text-white">
+                  {latestMessage.subject}
+                </h2>
+
+                <p className="mt-2 text-xs font-bold text-white/45">
+                  {latestMessage.senderTeam} •{" "}
+                  {formatDate(latestMessage.createdAt)}
+                </p>
+              </div>
+
+              <button
+                onClick={loadMessages}
+                className="rounded-[1.4rem] border border-white/10 bg-white/[0.035] p-5 text-left transition hover:border-sky-300/35 hover:bg-sky-300/10"
+              >
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                  Sync Inbox
+                </p>
+
+                <p className="mt-3 text-sm font-bold leading-6 text-white/55">
+                  Refresh partner communications from SourceTV operations.
+                </p>
+              </button>
             </div>
+          )}
+        </section>
+
+        <section className="mt-7 rounded-[1.5rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
+          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((filter) => {
+              const active = activeFilter === filter;
+
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
+                    active
+                      ? "border-sky-300 text-sky-300"
+                      : "border-transparent text-white/38 hover:text-white/72"
+                  }`}
+                >
+                  {filter} ({filterCounts[filter as keyof typeof filterCounts]})
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        <section className="mt-8 grid gap-4">
+        <section className="mt-8">
           {loading ? (
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-              Loading messages...
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
+              Loading partner messages...
             </div>
           ) : messages.length === 0 ? (
-            <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-              No partner messages yet.
+            <EmptyInbox />
+          ) : filteredMessages.length === 0 ? (
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
+              No messages found for this view.
             </div>
           ) : (
-            messages.map((message) => (
-              <article
-                key={message.id}
-                className={`rounded-[2rem] border p-5 shadow-2xl backdrop-blur-xl transition md:p-7 ${
-                  !message.isRead
-                    ? "border-sky-300/30 bg-sky-300/[0.08]"
-                    : "border-white/10 bg-white/[0.045]"
-                }`}
-              >
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-sky-400 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-black">
-                    {message.senderTeam}
-                  </span>
+            <div className="grid gap-3">
+              {filteredMessages.map((message) => {
+                const expanded = selectedMessage === message.id;
 
-                  {message.project && (
-                    <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
-                      {message.project.title}
-                    </span>
-                  )}
+                return (
+                  <article
+                    key={message.id}
+                    className={`overflow-hidden rounded-[1.4rem] border shadow-[0_18px_55px_rgba(0,0,0,0.35)] transition-all duration-300 ${
+                      !message.isRead
+                        ? "border-sky-300/35 bg-sky-300/[0.055]"
+                        : "border-white/10 bg-white/[0.032]"
+                    } ${expanded ? "bg-white/[0.05]" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openMessage(message)}
+                      className="w-full text-left"
+                    >
+                      <div className="grid gap-4 p-5 md:grid-cols-[auto_1fr_auto] md:items-center">
+                        <div className="flex items-center gap-4">
+                          {!message.isRead ? (
+                            <div className="h-3 w-3 rounded-full bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.95)]" />
+                          ) : (
+                            <div className="h-3 w-3 rounded-full bg-white/12" />
+                          )}
 
-                  {!message.isRead && (
-                    <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">
-                      New
-                    </span>
-                  )}
-                </div>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-sm font-black text-sky-200">
+                            {message.senderTeam
+                              .split(" ")
+                              .map((word) => word[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </div>
+                        </div>
 
-                <h2 className="mt-4 text-2xl font-black md:text-3xl">
-                  {message.subject}
-                </h2>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="truncate text-lg font-black text-white md:text-xl">
+                              {message.subject}
+                            </h2>
 
-                <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-white/35">
-                  {formatDate(message.createdAt)}
-                </p>
+                            {!message.isRead && (
+                              <span className="rounded-full bg-sky-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black">
+                                New
+                              </span>
+                            )}
 
-                <p className="mt-4 text-sm leading-7 text-white/60 md:text-base">
-                  {message.body}
-                </p>
+                            {message.project?.workflowStage && (
+                              <span
+                                className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${stageBadgeClass(
+                                  message.project.workflowStage
+                                )}`}
+                              >
+                                {stageLabel(message.project.workflowStage)}
+                              </span>
+                            )}
+                          </div>
 
-                {message.project?.recognitionLevel && (
-                  <div className="mt-4">
-                    <span className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black text-white">
-                      {message.project.recognitionLevel}
-                    </span>
-                  </div>
-                )}
-              </article>
-            ))
+                          <p className="mt-1 text-xs font-bold text-white/42">
+                            {message.senderTeam} • {formatDate(message.createdAt)}
+                          </p>
+
+                          <p className="mt-3 line-clamp-1 text-sm leading-6 text-white/42">
+                            {message.body}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 md:justify-end">
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/28">
+                            {formatShortDate(message.createdAt)}
+                          </p>
+
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white/45 transition ${
+                              expanded ? "rotate-180" : ""
+                            }`}
+                          >
+                            ↓
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+
+                    <div
+                      className={`grid transition-all duration-300 ${
+                        expanded
+                          ? "grid-rows-[1fr] opacity-100"
+                          : "grid-rows-[0fr] opacity-0"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="border-t border-white/10 px-5 py-6 md:px-8">
+                          <div className="rounded-[1.4rem] border border-white/10 bg-black/30 p-5 md:p-6">
+                            <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-5 md:flex-row md:items-start">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+                                  {message.senderTeam}
+                                </p>
+
+                                <h3 className="mt-2 text-2xl font-black text-white">
+                                  {message.subject}
+                                </h3>
+                              </div>
+
+                              <p className="shrink-0 text-xs font-bold text-white/38">
+                                {formatDate(message.createdAt)}
+                              </p>
+                            </div>
+
+                            <p className="mt-5 whitespace-pre-line text-sm leading-7 text-white/68 md:text-base md:leading-8">
+                              {message.body}
+                            </p>
+
+                            {message.project && (
+                              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+                                  Related Project
+                                </p>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <span className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black text-white/75">
+                                    {message.project.title}
+                                  </span>
+
+                                  <span
+                                    className={`rounded-full border px-3 py-2 text-xs font-black capitalize ${stageBadgeClass(
+                                      message.project.workflowStage
+                                    )}`}
+                                  >
+                                    {stageLabel(message.project.workflowStage)}
+                                  </span>
+
+                                  {message.project.recognitionLevel && (
+                                    <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-black text-sky-200">
+                                      {message.project.recognitionLevel}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function EmptyInbox() {
+  return (
+    <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/[0.04] shadow-2xl backdrop-blur-xl">
+      <div className="border-b border-white/10 bg-white/[0.025] p-8 md:p-10">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-300/10 text-2xl">
+          ✉
+        </div>
+
+        <h2 className="mt-6 text-3xl font-black text-white">
+          Your SourceTV communications will appear here.
+        </h2>
+
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">
+          Messages from content reviewers, rights teams, publishing staff, and
+          partner operations will be delivered directly to this inbox.
+        </p>
+      </div>
+
+      <div className="grid gap-4 p-6 md:grid-cols-3">
+        <EmptyFeature title="Review Notes" body="Metadata, content, and rights feedback." />
+        <EmptyFeature title="Publishing Updates" body="Scheduling, approval, and release status." />
+        <EmptyFeature title="Partner Support" body="Direct updates from SourceTV teams." />
+      </div>
+    </div>
+  );
+}
+
+function EmptyFeature({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+      <p className="text-sm font-black text-white">{title}</p>
+      <p className="mt-2 text-xs leading-6 text-white/45">{body}</p>
+    </div>
   );
 }
