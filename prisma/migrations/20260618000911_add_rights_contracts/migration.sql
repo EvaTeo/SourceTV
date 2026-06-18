@@ -1,0 +1,25 @@
+-- CreateTable
+CREATE TABLE "RightsContract" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "projectId" TEXT NOT NULL,
+    "partnerEmail" TEXT,
+    "partnerName" TEXT,
+    "rightsOwner" TEXT,
+    "rightsContact" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'draft',
+    "licenseType" TEXT,
+    "licenseStartDate" DATETIME,
+    "licenseEndDate" DATETIME,
+    "territories" TEXT,
+    "exclusivity" TEXT,
+    "revenueShare" INTEGER NOT NULL DEFAULT 50,
+    "contractText" TEXT,
+    "partnerNotes" TEXT,
+    "adminNotes" TEXT,
+    "sentAt" DATETIME,
+    "viewedAt" DATETIME,
+    "signedAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "RightsContract_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "ProjectSubmission" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

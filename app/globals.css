@@ -65,3 +65,19 @@ body {
     transform: scale(1.08);
   }
 }
+
+.input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: white;
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(56, 189, 248, 0.6);
+}

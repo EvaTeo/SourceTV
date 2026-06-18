@@ -131,6 +131,7 @@ model ProjectSubmission {
   watchlist         Watchlist[]
   continueWatching  ContinueWatching[]
   partnerMessages   PartnerMessage[]
+  rightsContracts RightsContract[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -175,4 +176,41 @@ model PartnerApplication {
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+model RightsContract {
+  id               String   @id @default(cuid())
+
+  projectId        String
+  project          ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  partnerEmail     String?
+  partnerName      String?
+  rightsOwner      String?
+  rightsContact    String?
+
+  status           String   @default("draft")
+  // draft, sent, viewed, signed, changes_requested, cancelled, expired
+
+  licenseType      String?
+  licenseStartDate DateTime?
+  licenseEndDate   DateTime?
+  territories      String?
+  exclusivity      String?
+  revenueShare     Int      @default(50)
+
+  contractText     String?
+  partnerNotes     String?
+  adminNotes       String?
+
+  sentAt           DateTime?
+  viewedAt         DateTime?
+  signedAt         DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  partnerSignatureName String?
+partnerSignatureDataUrl String?
+partnerSignedIp String?
+
 }

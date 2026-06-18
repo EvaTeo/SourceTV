@@ -654,7 +654,9 @@ const filteredContent = useMemo(() => {
                             {item.maturityRating && (
                               <span>• {item.maturityRating}</span>
                             )}
-                            <span>• Internal views: {item.views || 0}</span>
+                            {item.scheduledAt && (
+                              <span>• Scheduled: {formatDate(item.scheduledAt)}</span>
+                            )}
                           </div>
                         </div>
 
@@ -675,91 +677,24 @@ const filteredContent = useMemo(() => {
                         </div>
                       </div>
 
-                      <div className="mt-6 grid gap-4 md:grid-cols-4">
+                      <div className="mt-6 grid gap-4 md:grid-cols-3">
                         <InfoBox
-                          label="Rights"
-                          value={item.rightsOwner || "Rights not verified"}
-                        />
-                        <InfoBox
-                          label="License Window"
-                          value={`${formatDate(
-                            item.licenseStartDate
-                          )} → ${formatDate(item.licenseEndDate)}`}
+                          label="Current Stage"
+                          value={stageLabels[stage] || stage.replaceAll("_", " ")}
                         />
                         <InfoBox
                           label="Schedule"
                           value={formatDate(item.scheduledAt)}
                         />
                         <InfoBox
-                          label="Recognition"
-                          value={item.recognitionLevel || "Not assigned"}
+                          label="Partner"
+                          value={
+                            item.creatorCompany ||
+                            item.creatorName ||
+                            item.creatorEmail ||
+                            "Unknown"
+                          }
                         />
-                      </div>
-
-                      <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
-                        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
-                              Partner Communication
-                            </p>
-
-                            <p className="mt-2 text-sm font-bold text-white/70">
-                              {messageHistory.length > 0
-                                ? `${messageHistory.length} message${
-                                    messageHistory.length === 1 ? "" : "s"
-                                  } sent`
-                                : "No partner messages recorded yet"}
-                            </p>
-
-                            {latestMessage && (
-                              <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/45">
-                                Latest: {latestMessage.subject} •{" "}
-                                {formatDate(latestMessage.createdAt)}
-                              </p>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setExpandedId(expanded ? null : item.id)}
-                            className="w-fit rounded-md border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-200 transition hover:border-cyan-300/55 hover:bg-cyan-300/15"
-                          >
-                            {expanded ? "Hide History" : "View History"}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
-                          Recognition Level
-                        </p>
-
-                        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
-                          <select
-                            disabled={saving}
-                            value={item.recognitionLevel || ""}
-                            onChange={(e) =>
-                              updateContent(item.id, {
-                                recognitionLevel: e.target.value || null,
-                              })
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-sm font-bold text-white outline-none focus:border-sky-300 md:max-w-xs"
-                          >
-                            <option value="">No Recognition</option>
-                            {recognitionLevels
-                              .filter((level) => level !== "")
-                              .map((level) => (
-                                <option key={level} value={level}>
-                                  {level}
-                                </option>
-                              ))}
-                          </select>
-
-                          <p className="text-xs leading-5 text-white/40">
-                            Assign SourceTV Selection, Featured Selection,
-                            Editor&apos;s Selection, or Premier Selection.
-                          </p>
-                        </div>
                       </div>
 
                       <div className="mt-6 flex flex-wrap gap-2">
@@ -880,6 +815,53 @@ const filteredContent = useMemo(() => {
                                   : "General: none",
                               ]}
                             />
+                          </div>
+
+                          <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 md:grid-cols-3">
+                            <DetailBlock
+                              title="Admin Summary"
+                              lines={[
+                                `Internal views: ${item.views || 0}`,
+                                `Featured: ${item.featured ? "Yes" : "No"}`,
+                                `Messages: ${messageHistory.length}`,
+                                latestMessage
+                                  ? `Latest: ${latestMessage.subject}`
+                                  : "Latest: none",
+                              ]}
+                            />
+
+                            <div className="md:col-span-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                                Recognition Level
+                              </p>
+
+                              <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+                                <select
+                                  disabled={saving}
+                                  value={item.recognitionLevel || ""}
+                                  onChange={(e) =>
+                                    updateContent(item.id, {
+                                      recognitionLevel: e.target.value || null,
+                                    })
+                                  }
+                                  className="w-full rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-sm font-bold text-white outline-none focus:border-sky-300 md:max-w-xs"
+                                >
+                                  <option value="">No Recognition</option>
+                                  {recognitionLevels
+                                    .filter((level) => level !== "")
+                                    .map((level) => (
+                                      <option key={level} value={level}>
+                                        {level}
+                                      </option>
+                                    ))}
+                                </select>
+
+                                <p className="text-xs leading-5 text-white/40">
+                                  Assign SourceTV Selection, Featured Selection,
+                                  Editor&apos;s Selection, or Premier Selection.
+                                </p>
+                              </div>
+                            </div>
                           </div>
 
                           <MessageHistoryBlock messages={messageHistory} />
