@@ -49,6 +49,7 @@ type RightsContract = {
 
 const filters = [
   { label: "All", value: "all" },
+  { label: "Needs Action", value: "needs_action" },
   { label: "Draft", value: "draft" },
   { label: "Sent", value: "sent" },
   { label: "Viewed", value: "viewed" },
@@ -84,6 +85,10 @@ function statusClass(status: string) {
 
 function statusLabel(status: string) {
   return status.replaceAll("_", " ");
+}
+
+function needsAction(contract: RightsContract) {
+  return contract.status === "draft" || contract.status === "changes_requested";
 }
 
 export default function AdminContractsPage() {
@@ -166,6 +171,7 @@ export default function AdminContractsPage() {
   const counts = useMemo(() => {
     return {
       all: contracts.length,
+      needs_action: contracts.filter((contract) => needsAction(contract)).length,
       draft: contracts.filter((contract) => contract.status === "draft").length,
       sent: contracts.filter((contract) => contract.status === "sent").length,
       viewed: contracts.filter((contract) => contract.status === "viewed").length,
@@ -185,7 +191,11 @@ export default function AdminContractsPage() {
 
     return contracts.filter((contract) => {
       const matchesFilter =
-        activeFilter === "all" ? true : contract.status === activeFilter;
+        activeFilter === "all"
+          ? true
+          : activeFilter === "needs_action"
+          ? needsAction(contract)
+          : contract.status === activeFilter;
 
       const matchesSearch =
         !cleanSearch ||
@@ -211,8 +221,8 @@ export default function AdminContractsPage() {
   }, [projects, contracts]);
 
   const stats = [
+    { label: "Needs Action", value: counts.needs_action },
     { label: "Drafts", value: counts.draft },
-    { label: "Sent", value: counts.sent },
     { label: "Viewed", value: counts.viewed },
     { label: "Signed", value: counts.signed },
   ];
@@ -239,6 +249,13 @@ export default function AdminContractsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/rights"
+              className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
+            >
+              Rights Dashboard
+            </Link>
+
             <Link
               href="/admin/content"
               className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
@@ -403,6 +420,13 @@ export default function AdminContractsPage() {
                             className="rounded-md bg-sky-400 px-4 py-2 text-center text-xs font-black text-black transition hover:bg-sky-300"
                           >
                             Open Contract
+                          </Link>
+
+                          <Link
+                            href={`/admin/contracts/${contract.id}/print`}
+                            className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+                          >
+                            Print Record
                           </Link>
 
                           <Link
