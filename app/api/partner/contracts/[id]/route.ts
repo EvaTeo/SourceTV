@@ -8,31 +8,24 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(
-  request: Request,
-  context: RouteContext
-) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const { id } = await context.params;
 
-    const contract =
-      await prisma.rightsContract.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          project: true,
-        },
-      });
+    const contract = await prisma.rightsContract.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        project: true,
+      },
+    });
 
     if (!contract) {
       return NextResponse.json(
@@ -41,21 +34,12 @@ export async function GET(
       );
     }
 
-    if (
-      user.role !== "admin" &&
-      contract.partnerEmail !== user.email
-    ) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+    if (user.role !== "admin" && contract.partnerEmail !== user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    if (
-      contract.status === "sent" &&
-      !contract.viewedAt
-    ) {
-      await prisma.rightsContract.update({
+    if (contract.status === "sent" && !contract.viewedAt) {
+      const viewedContract = await prisma.rightsContract.update({
         where: {
           id,
         },
@@ -63,9 +47,12 @@ export async function GET(
           status: "viewed",
           viewedAt: new Date(),
         },
+        include: {
+          project: true,
+        },
       });
 
-      contract.status = "viewed";
+      return NextResponse.json(viewedContract);
     }
 
     return NextResponse.json(contract);
@@ -80,32 +67,25 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  context: RouteContext
-) {
+export async function PATCH(request: Request, context: RouteContext) {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const { id } = await context.params;
     const body = await request.json();
 
-    const contract =
-      await prisma.rightsContract.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          project: true,
-        },
-      });
+    const contract = await prisma.rightsContract.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        project: true,
+      },
+    });
 
     if (!contract) {
       return NextResponse.json(
@@ -114,50 +94,68 @@ export async function PATCH(
       );
     }
 
-    if (
-      user.role !== "admin" &&
-      contract.partnerEmail !== user.email
-    ) {
+    if (user.role !== "admin" && contract.partnerEmail !== user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    if (contract.status === "signed") {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
+        {
+          error:
+            "This contract has already been signed and can no longer be changed.",
+        },
+        { status: 409 }
       );
     }
 
-   if (body.action === "sign") {
-  const signatureName = String(body.signatureName || "").trim();
-  const signatureDataUrl = String(body.signatureDataUrl || "").trim();
+    if (
+      contract.status === "cancelled" ||
+      contract.status === "expired"
+    ) {
+      return NextResponse.json(
+        {
+          error: "This contract is no longer active.",
+        },
+        { status: 409 }
+      );
+    }
 
-  if (!signatureName || !signatureDataUrl) {
-    return NextResponse.json(
-      {
-        error: "Signature name and drawn signature are required.",
-      },
-      { status: 400 }
-    );
-  }
+    if (body.action === "sign") {
+      const signatureName = String(body.signatureName || "").trim();
+      const signatureDataUrl = String(body.signatureDataUrl || "").trim();
 
-  const updated = await prisma.rightsContract.update({
-    where: {
-      id,
-    },
-    data: {
-      status: "signed",
-      signedAt: new Date(),
-      partnerSignatureName: signatureName,
-      partnerSignatureDataUrl: signatureDataUrl,
-    },
-    include: {
-      project: true,
-    },
-  });
+      if (!signatureName || !signatureDataUrl) {
+        return NextResponse.json(
+          {
+            error: "Signature name and drawn signature are required.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.rightsContract.update({
+        where: {
+          id,
+        },
+        data: {
+          status: "signed",
+          signedAt: new Date(),
+          partnerSignatureName: signatureName,
+          partnerSignatureDataUrl: signatureDataUrl,
+        },
+        include: {
+          project: true,
+        },
+      });
 
       await prisma.partnerMessage.create({
         data: {
           projectId: contract.projectId,
           senderTeam: "Partner",
           subject: "Contract Signed",
-          body: `${contract.partnerName || contract.partnerEmail} signed the streaming rights agreement.`,
+          body: `${
+            contract.partnerName || contract.partnerEmail
+          } signed the streaming rights agreement.`,
         },
       });
 
@@ -165,29 +163,36 @@ export async function PATCH(
     }
 
     if (body.action === "request_changes") {
-      const updated =
-        await prisma.rightsContract.update({
-          where: {
-            id,
+      const partnerNotes = String(body.partnerNotes || "").trim();
+
+      if (!partnerNotes) {
+        return NextResponse.json(
+          {
+            error: "Please explain what changes you are requesting.",
           },
-          data: {
-            status: "changes_requested",
-            partnerNotes:
-              body.partnerNotes || "",
-          },
-          include: {
-            project: true,
-          },
-        });
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.rightsContract.update({
+        where: {
+          id,
+        },
+        data: {
+          status: "changes_requested",
+          partnerNotes,
+        },
+        include: {
+          project: true,
+        },
+      });
 
       await prisma.partnerMessage.create({
         data: {
           projectId: contract.projectId,
           senderTeam: "Partner",
           subject: "Contract Changes Requested",
-          body:
-            body.partnerNotes ||
-            "Changes requested.",
+          body: partnerNotes,
         },
       });
 
