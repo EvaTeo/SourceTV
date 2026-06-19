@@ -8,6 +8,8 @@ const adminLinks = [
   { label: "Admin Home", href: "/admin" },
   { label: "Content", href: "/admin/content" },
   { label: "Applications", href: "/admin/partners" },
+  { label: "Contracts", href: "/admin/contracts" },
+  { label: "Rights", href: "/admin/rights" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Revenue", href: "/admin/revenue" },
 ];
@@ -15,6 +17,7 @@ const adminLinks = [
 const partnerLinks = [
   { label: "Dashboard", href: "/partner" },
   { label: "Inbox", href: "/partner/inbox" },
+  { label: "Contracts", href: "/partner/contracts" },
   { label: "Submit", href: "/creator/submit" },
 ];
 

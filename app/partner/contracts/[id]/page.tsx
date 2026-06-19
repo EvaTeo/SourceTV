@@ -31,6 +31,7 @@ type Contract = {
   sentAt?: string | null;
   viewedAt?: string | null;
   signedAt?: string | null;
+  createdAt?: string | null;
   project?: {
     id: string;
     title: string;
@@ -130,7 +131,7 @@ export default function PartnerContractDetailPage() {
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-ctx.strokeStyle = "#111111";
+    ctx.strokeStyle = "#111111";
 
     if (signatureDataUrl) {
       const img = new Image();
@@ -405,6 +406,20 @@ ctx.strokeStyle = "#111111";
           </div>
         </section>
 
+        <ContractTimeline contract={contract} />
+
+        {locked && (
+          <section className="mt-6 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">
+              Executed Agreement
+            </p>
+
+            <h2 className="mt-2 text-xl font-black text-white">
+              This agreement has been signed and locked.
+            </h2>
+          </section>
+        )}
+
         {showChangeBox && !locked && (
           <section className="mt-6 rounded-[1.6rem] border border-yellow-300/20 bg-yellow-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-yellow-100">
@@ -542,16 +557,16 @@ ctx.strokeStyle = "#111111";
                 </div>
 
                 <canvas
-  ref={canvasRef}
-  onMouseDown={startDrawing}
-  onMouseMove={drawSignature}
-  onMouseUp={stopDrawing}
-  onMouseLeave={stopDrawing}
-  onTouchStart={startDrawing}
-  onTouchMove={drawSignature}
-  onTouchEnd={stopDrawing}
-  className="h-48 w-full touch-none rounded-2xl border border-slate-300 bg-white"
-/>
+                  ref={canvasRef}
+                  onMouseDown={startDrawing}
+                  onMouseMove={drawSignature}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={drawSignature}
+                  onTouchEnd={stopDrawing}
+                  className="h-48 w-full touch-none rounded-2xl border border-slate-300 bg-white"
+                />
 
                 <p className="mt-2 text-xs leading-5 text-white/35">
                   Use your mouse, trackpad, finger, or stylus to draw your
@@ -598,6 +613,73 @@ ctx.strokeStyle = "#111111";
         </div>
       )}
     </main>
+  );
+}
+
+function ContractTimeline({ contract }: { contract: Contract }) {
+  const steps = [
+    {
+      label: "Created",
+      date: contract.createdAt,
+      complete: Boolean(contract.createdAt),
+    },
+    {
+      label: "Sent",
+      date: contract.sentAt,
+      complete: Boolean(contract.sentAt),
+    },
+    {
+      label: "Viewed",
+      date: contract.viewedAt,
+      complete: Boolean(contract.viewedAt),
+    },
+    {
+      label: "Signed",
+      date: contract.signedAt,
+      complete: Boolean(contract.signedAt),
+    },
+  ];
+
+  return (
+    <section className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+        Contract Timeline
+      </p>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
+        {steps.map((step, index) => (
+          <div key={step.label} className="relative">
+            {index < steps.length - 1 && (
+              <div
+                className={`absolute left-7 top-6 hidden h-px w-[calc(100%_-_1rem)] md:block ${
+                  step.complete ? "bg-sky-300/70" : "bg-white/10"
+                }`}
+              />
+            )}
+
+            <div className="relative z-10 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black ${
+                  step.complete
+                    ? "border-sky-300/60 bg-sky-300/15 text-sky-200"
+                    : "border-white/10 bg-white/[0.04] text-white/30"
+                }`}
+              >
+                {step.complete ? "✓" : index + 1}
+              </div>
+
+              <p className="mt-3 text-sm font-black text-white">
+                {step.label}
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-white/40">
+                {formatDate(step.date)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -26,6 +26,7 @@ type Contract = {
   sentAt?: string | null;
   viewedAt?: string | null;
   signedAt?: string | null;
+  createdAt?: string | null;
   project?: {
     id: string;
     title: string;
@@ -75,6 +76,8 @@ export default function AdminContractEditorPage() {
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const isSigned = contract?.status === "signed";
 
   async function loadContract() {
     try {
@@ -226,7 +229,7 @@ export default function AdminContractEditorPage() {
 
             <div className="flex flex-wrap gap-2">
               <button
-                disabled={saving}
+                disabled={saving || isSigned}
                 onClick={() => saveContract()}
                 className="rounded-md bg-sky-400 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-40"
               >
@@ -234,7 +237,7 @@ export default function AdminContractEditorPage() {
               </button>
 
               <button
-                disabled={saving}
+                disabled={saving || isSigned}
                 onClick={() => saveContract("send")}
                 className="rounded-md border border-purple-300/35 bg-purple-400/10 px-4 py-2.5 text-xs font-black text-purple-200 transition hover:border-purple-300/70 disabled:opacity-40"
               >
@@ -257,7 +260,7 @@ export default function AdminContractEditorPage() {
               </Link>
 
               <button
-                disabled={saving}
+                disabled={saving || isSigned}
                 onClick={() => saveContract("cancel")}
                 className="rounded-md border border-red-400/35 bg-red-500/10 px-4 py-2.5 text-xs font-black text-red-200 transition hover:border-red-400/70 disabled:opacity-40"
               >
@@ -266,6 +269,20 @@ export default function AdminContractEditorPage() {
             </div>
           </div>
         </section>
+
+        <ContractTimeline contract={contract} />
+
+        {isSigned && (
+          <section className="mt-6 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">
+              Executed Agreement
+            </p>
+
+            <h2 className="mt-2 text-xl font-black text-white">
+              This agreement has been signed and locked.
+            </h2>
+          </section>
+        )}
 
         {contract.partnerSignatureName && (
           <section className="mt-8 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
@@ -278,8 +295,14 @@ export default function AdminContractEditorPage() {
                 label="Signed By"
                 value={contract.partnerSignatureName}
               />
-              <InfoBox label="Signed Date" value={formatDate(contract.signedAt)} />
-              <InfoBox label="Viewed Date" value={formatDate(contract.viewedAt)} />
+              <InfoBox
+                label="Signed Date"
+                value={formatDate(contract.signedAt)}
+              />
+              <InfoBox
+                label="Viewed Date"
+                value={formatDate(contract.viewedAt)}
+              />
 
               {contract.partnerSignatureDataUrl && (
                 <div className="rounded-2xl border border-white/10 bg-black/25 p-4 md:col-span-3">
@@ -303,6 +326,7 @@ export default function AdminContractEditorPage() {
             <EditorPanel title="Partner">
               <Field label="Partner Name">
                 <input
+                  disabled={isSigned}
                   value={contract.partnerName || ""}
                   onChange={(event) =>
                     setContract({ ...contract, partnerName: event.target.value })
@@ -313,6 +337,7 @@ export default function AdminContractEditorPage() {
 
               <Field label="Partner Email">
                 <input
+                  disabled={isSigned}
                   value={contract.partnerEmail || ""}
                   onChange={(event) =>
                     setContract({
@@ -326,6 +351,7 @@ export default function AdminContractEditorPage() {
 
               <Field label="Rights Owner">
                 <input
+                  disabled={isSigned}
                   value={contract.rightsOwner || ""}
                   onChange={(event) =>
                     setContract({ ...contract, rightsOwner: event.target.value })
@@ -336,6 +362,7 @@ export default function AdminContractEditorPage() {
 
               <Field label="Rights Contact">
                 <input
+                  disabled={isSigned}
                   value={contract.rightsContact || ""}
                   onChange={(event) =>
                     setContract({
@@ -351,6 +378,7 @@ export default function AdminContractEditorPage() {
             <EditorPanel title="License Terms">
               <Field label="License Type">
                 <input
+                  disabled={isSigned}
                   value={contract.licenseType || ""}
                   onChange={(event) =>
                     setContract({ ...contract, licenseType: event.target.value })
@@ -363,6 +391,7 @@ export default function AdminContractEditorPage() {
                 <Field label="Start Date">
                   <input
                     type="date"
+                    disabled={isSigned}
                     value={formatDateInput(contract.licenseStartDate)}
                     onClick={(event) => event.currentTarget.showPicker?.()}
                     onChange={(event) =>
@@ -378,6 +407,7 @@ export default function AdminContractEditorPage() {
                 <Field label="End Date">
                   <input
                     type="date"
+                    disabled={isSigned}
                     value={formatDateInput(contract.licenseEndDate)}
                     onClick={(event) => event.currentTarget.showPicker?.()}
                     onChange={(event) =>
@@ -393,6 +423,7 @@ export default function AdminContractEditorPage() {
 
               <Field label="Territories">
                 <input
+                  disabled={isSigned}
                   value={contract.territories || ""}
                   onChange={(event) =>
                     setContract({ ...contract, territories: event.target.value })
@@ -403,6 +434,7 @@ export default function AdminContractEditorPage() {
 
               <Field label="Exclusivity">
                 <input
+                  disabled={isSigned}
                   value={contract.exclusivity || ""}
                   onChange={(event) =>
                     setContract({ ...contract, exclusivity: event.target.value })
@@ -414,6 +446,7 @@ export default function AdminContractEditorPage() {
               <Field label="Revenue Share">
                 <input
                   type="number"
+                  disabled={isSigned}
                   value={contract.revenueShare ?? 50}
                   onChange={(event) =>
                     setContract({
@@ -430,9 +463,13 @@ export default function AdminContractEditorPage() {
           <div className="space-y-6">
             <EditorPanel title="Contract Text">
               <textarea
+                disabled={isSigned}
                 value={contract.contractText || ""}
                 onChange={(event) =>
-                  setContract({ ...contract, contractText: event.target.value })
+                  setContract({
+                    ...contract,
+                    contractText: event.target.value,
+                  })
                 }
                 className="min-h-[620px] w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 font-mono text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
               />
@@ -440,9 +477,13 @@ export default function AdminContractEditorPage() {
 
             <EditorPanel title="Admin Notes">
               <textarea
+                disabled={isSigned}
                 value={contract.adminNotes || ""}
                 onChange={(event) =>
-                  setContract({ ...contract, adminNotes: event.target.value })
+                  setContract({
+                    ...contract,
+                    adminNotes: event.target.value,
+                  })
                 }
                 className="min-h-32 w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
                 placeholder="Internal notes for SourceTV only..."
@@ -460,6 +501,73 @@ export default function AdminContractEditorPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function ContractTimeline({ contract }: { contract: Contract }) {
+  const steps = [
+    {
+      label: "Created",
+      date: contract.createdAt,
+      complete: Boolean(contract.createdAt),
+    },
+    {
+      label: "Sent",
+      date: contract.sentAt,
+      complete: Boolean(contract.sentAt),
+    },
+    {
+      label: "Viewed",
+      date: contract.viewedAt,
+      complete: Boolean(contract.viewedAt),
+    },
+    {
+      label: "Signed",
+      date: contract.signedAt,
+      complete: Boolean(contract.signedAt),
+    },
+  ];
+
+  return (
+    <section className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+        Contract Timeline
+      </p>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
+        {steps.map((step, index) => (
+          <div key={step.label} className="relative">
+            {index < steps.length - 1 && (
+              <div
+                className={`absolute left-7 top-6 hidden h-px w-[calc(100%_-_1rem)] md:block ${
+                  step.complete ? "bg-sky-300/70" : "bg-white/10"
+                }`}
+              />
+            )}
+
+            <div className="relative z-10 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black ${
+                  step.complete
+                    ? "border-sky-300/60 bg-sky-300/15 text-sky-200"
+                    : "border-white/10 bg-white/[0.04] text-white/30"
+                }`}
+              >
+                {step.complete ? "✓" : index + 1}
+              </div>
+
+              <p className="mt-3 text-sm font-black text-white">
+                {step.label}
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-white/40">
+                {formatDate(step.date)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
