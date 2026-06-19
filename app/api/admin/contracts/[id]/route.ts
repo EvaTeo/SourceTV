@@ -75,6 +75,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const action = body.action;
 
+    if (existingContract.status === "signed" && action !== "mark_signed") {
+      return NextResponse.json(
+        {
+          error:
+            "This contract has already been signed and can no longer be edited.",
+        },
+        { status: 409 }
+      );
+    }
+
     if (action === "send") {
       const contract = await prisma.rightsContract.update({
         where: {
@@ -108,6 +118,10 @@ Status: Sent`,
     }
 
     if (action === "mark_signed") {
+      if (existingContract.status === "signed") {
+        return NextResponse.json(existingContract);
+      }
+
       const contract = await prisma.rightsContract.update({
         where: {
           id,
@@ -151,18 +165,17 @@ Status: Sent`,
         rightsContact: body.rightsContact ?? existingContract.rightsContact,
         licenseType: body.licenseType ?? existingContract.licenseType,
         licenseStartDate:
-  body.licenseStartDate === ""
-    ? null
-    : body.licenseStartDate
-    ? new Date(`${body.licenseStartDate}T12:00:00`)
-    : existingContract.licenseStartDate,
-
-licenseEndDate:
-  body.licenseEndDate === ""
-    ? null
-    : body.licenseEndDate
-    ? new Date(`${body.licenseEndDate}T12:00:00`)
-    : existingContract.licenseEndDate,
+          body.licenseStartDate === ""
+            ? null
+            : body.licenseStartDate
+            ? new Date(`${body.licenseStartDate}T12:00:00`)
+            : existingContract.licenseStartDate,
+        licenseEndDate:
+          body.licenseEndDate === ""
+            ? null
+            : body.licenseEndDate
+            ? new Date(`${body.licenseEndDate}T12:00:00`)
+            : existingContract.licenseEndDate,
         territories: body.territories ?? existingContract.territories,
         exclusivity: body.exclusivity ?? existingContract.exclusivity,
         revenueShare:
