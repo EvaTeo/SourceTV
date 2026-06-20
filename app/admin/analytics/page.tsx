@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
@@ -9,12 +10,18 @@ export default async function AdminAnalyticsPage() {
     redirect("/login");
   }
 
-  const [titles, partnerApplications] = await Promise.all([
+  const [titles, partnerApplications, contracts] = await Promise.all([
     prisma.projectSubmission.findMany({
       orderBy: { createdAt: "desc" },
     }),
     prisma.partnerApplication.findMany({
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.rightsContract.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: {
+        project: true,
+      },
     }),
   ]);
 
@@ -25,6 +32,7 @@ export default async function AdminAnalyticsPage() {
   const scheduled = titles.filter((t) => t.workflowStage === "scheduled");
   const rejected = titles.filter((t) => t.workflowStage === "rejected");
   const archived = titles.filter((t) => t.workflowStage === "archived");
+  const featured = titles.filter((t) => t.featured);
 
   const inReview = titles.filter((t) =>
     ["submission", "metadata_review", "content_review", "rights_review"].includes(
@@ -47,6 +55,14 @@ export default async function AdminAnalyticsPage() {
     (app) => app.status === "approved"
   );
 
+  const signedContracts = contracts.filter(
+    (contract) => contract.status === "signed"
+  );
+
+  const contractsNeedingAction = contracts.filter((contract) =>
+    ["draft", "changes_requested"].includes(contract.status)
+  );
+
   const topTitles = [...titles]
     .sort((a, b) => (b.views || 0) - (a.views || 0))
     .slice(0, 10);
@@ -60,6 +76,16 @@ export default async function AdminAnalyticsPage() {
   }, {});
 
   const topGenres = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
+  const typeCounts = titles.reduce((map: Record<string, number>, title) => {
+    const type = title.type || "Unknown";
+    map[type] = (map[type] || 0) + 1;
+    return map;
+  }, {});
+
+  const topTypes = Object.entries(typeCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
 
@@ -108,6 +134,41 @@ export default async function AdminAnalyticsPage() {
     },
   ];
 
+  const contractRows = [
+    {
+      label: "Draft",
+      value: contracts.filter((contract) => contract.status === "draft").length,
+    },
+    {
+      label: "Sent",
+      value: contracts.filter((contract) => contract.status === "sent").length,
+    },
+    {
+      label: "Viewed",
+      value: contracts.filter((contract) => contract.status === "viewed").length,
+    },
+    {
+      label: "Changes Requested",
+      value: contracts.filter(
+        (contract) => contract.status === "changes_requested"
+      ).length,
+    },
+    {
+      label: "Signed",
+      value: signedContracts.length,
+    },
+    {
+      label: "Cancelled",
+      value: contracts.filter((contract) => contract.status === "cancelled")
+        .length,
+    },
+    {
+      label: "Expired",
+      value: contracts.filter((contract) => contract.status === "expired")
+        .length,
+    },
+  ];
+
   const estimatedMonthlyAdRevenue = totalViews * 0.025;
   const estimatedPartnerShare = estimatedMonthlyAdRevenue * 0.45;
   const estimatedPlatformProfit =
@@ -129,8 +190,31 @@ export default async function AdminAnalyticsPage() {
 
               <p className="mt-5 max-w-2xl text-sm leading-6 text-white/58 md:text-base">
                 Track catalog performance, audience activity, workflow health,
-                partner activity, and early revenue signals.
+                partner activity, rights contracts, and early revenue signals.
               </p>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link
+                  href="/admin/content"
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200"
+                >
+                  Content Center
+                </Link>
+
+                <Link
+                  href="/admin/contracts"
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200"
+                >
+                  Rights Contracts
+                </Link>
+
+                <Link
+                  href="/admin/revenue"
+                  className="rounded-xl bg-sky-400 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-300"
+                >
+                  Revenue
+                </Link>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-sky-300/20 bg-sky-400/10 p-5">
@@ -138,7 +222,8 @@ export default async function AdminAnalyticsPage() {
                 Prototype Revenue Model
               </p>
               <p className="mt-3 text-3xl font-black">
-                ${estimatedMonthlyAdRevenue.toLocaleString(undefined, {
+                $
+                {estimatedMonthlyAdRevenue.toLocaleString(undefined, {
                   maximumFractionDigits: 0,
                 })}
               </p>
@@ -157,8 +242,12 @@ export default async function AdminAnalyticsPage() {
           <StatCard label="Total Views" value={totalViews} />
           <StatCard label="Avg Views / Title" value={avgViews} />
           <StatCard label="Scheduled" value={scheduled.length} />
+          <StatCard label="Featured" value={featured.length} />
+          <StatCard label="Signed Contracts" value={signedContracts.length} />
           <StatCard label="Pending Partners" value={pendingPartners.length} />
           <StatCard label="Approved Partners" value={approvedPartners.length} />
+          <StatCard label="Contracts" value={contracts.length} />
+          <StatCard label="Needs Rights Action" value={contractsNeedingAction.length} />
         </section>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -189,19 +278,31 @@ export default async function AdminAnalyticsPage() {
           <Panel
             title="Performance Snapshot"
             eyebrow="Summary"
-            description="Quick read on current catalog health."
+            description="Quick read on current catalog and revenue health."
           >
             <div className="space-y-3">
               <Row
                 label="Most Viewed"
                 value={
                   mostViewed
-                    ? `${mostViewed.title} (${(mostViewed.views || 0).toLocaleString()})`
+                    ? `${mostViewed.title} (${(
+                        mostViewed.views || 0
+                      ).toLocaleString()})`
                     : "No data"
                 }
               />
-              <Row label="Published Share" value={`${percent(published.length, totalTitles)}%`} />
-              <Row label="Review Queue Share" value={`${percent(inReview.length, totalTitles)}%`} />
+              <Row
+                label="Published Share"
+                value={`${percent(published.length, totalTitles)}%`}
+              />
+              <Row
+                label="Review Queue Share"
+                value={`${percent(inReview.length, totalTitles)}%`}
+              />
+              <Row
+                label="Signed Contract Share"
+                value={`${percent(signedContracts.length, contracts.length)}%`}
+              />
               <Row
                 label="Estimated Partner Share"
                 value={`$${estimatedPartnerShare.toLocaleString(undefined, {
@@ -237,6 +338,23 @@ export default async function AdminAnalyticsPage() {
           </Panel>
 
           <Panel
+            title="Rights Contract Health"
+            eyebrow="Legal"
+            description="Current legal agreement status across the catalog."
+          >
+            <div className="space-y-3">
+              {contractRows.map((row) => (
+                <ProgressRow
+                  key={row.label}
+                  label={row.label}
+                  value={row.value}
+                  total={Math.max(contracts.length, 1)}
+                />
+              ))}
+            </div>
+          </Panel>
+
+          <Panel
             title="Top Genres"
             eyebrow="Catalog"
             description="Most represented categories in the catalog."
@@ -256,6 +374,29 @@ export default async function AdminAnalyticsPage() {
               </div>
             )}
           </Panel>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-3">
+          <Panel
+            title="Content Types"
+            eyebrow="Catalog"
+            description="Breakdown by films, shows, animation, and other types."
+          >
+            {topTypes.length === 0 ? (
+              <Empty />
+            ) : (
+              <div className="space-y-3">
+                {topTypes.map(([type, count]) => (
+                  <ProgressRow
+                    key={type}
+                    label={type}
+                    value={count}
+                    total={Math.max(totalTitles, 1)}
+                  />
+                ))}
+              </div>
+            )}
+          </Panel>
 
           <Panel
             title="Top Partners"
@@ -268,6 +409,26 @@ export default async function AdminAnalyticsPage() {
               <div className="space-y-3">
                 {topPartners.map(([partner, count]) => (
                   <Row key={partner} label={partner} value={`${count} titles`} />
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Contracts Needing Attention"
+            eyebrow="Rights"
+            description="Drafts and change requests that need admin action."
+          >
+            {contractsNeedingAction.length === 0 ? (
+              <Empty />
+            ) : (
+              <div className="space-y-3">
+                {contractsNeedingAction.slice(0, 8).map((contract) => (
+                  <Row
+                    key={contract.id}
+                    label={contract.project?.title || "Untitled Contract"}
+                    value={contract.status.replaceAll("_", " ")}
+                  />
                 ))}
               </div>
             )}
