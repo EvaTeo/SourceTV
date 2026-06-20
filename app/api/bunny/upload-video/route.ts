@@ -71,12 +71,6 @@ if (!cdnHost) {
   throw new Error("Missing BUNNY_STREAM_CDN_HOST");
 }
 
-const cdnHost = process.env.BUNNY_STREAM_CDN_HOST;
-
-if (!cdnHost) {
-  throw new Error("Missing BUNNY_STREAM_CDN_HOST");
-}
-
 return {
   guid: createdVideo.guid,
   iframeUrl: `https://iframe.mediadelivery.net/embed/${libraryId}/${createdVideo.guid}`,
@@ -153,8 +147,8 @@ export async function POST(req: Request) {
         type,
         genre,
 
-        videoUrl: mainVideo.playbackUrl,
-        mainVideoUrl: mainVideo.playbackUrl,
+        videoUrl: mainVideo.hlsUrl,
+mainVideoUrl: mainVideo.hlsUrl,
 
 trailerUrl: trailerVideo?.hlsUrl || "",
 

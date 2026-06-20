@@ -84,8 +84,8 @@ model ProjectSubmission {
   trailerUrl      String?
   thumbnailUrl    String?
   backdropUrl     String?
-    titleLogoUrl    String?
-    cardArtUrl String?
+  titleLogoUrl    String?
+  cardArtUrl      String?
 
   bunnyVideoId    String?
   bunnyLibraryId  String?
@@ -131,7 +131,7 @@ model ProjectSubmission {
   watchlist         Watchlist[]
   continueWatching  ContinueWatching[]
   partnerMessages   PartnerMessage[]
-  rightsContracts RightsContract[]
+  rightsContracts   RightsContract[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -150,6 +150,26 @@ model PartnerMessage {
   body        String
 
   senderTeam  String   @default("SourceTV Partner Relations")
+
+  isRead      Boolean  @default(false)
+
+  replies     PartnerMessageReply[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PartnerMessageReply {
+  id          String   @id @default(cuid())
+
+  messageId   String
+  message     PartnerMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  senderRole  String
+  senderName  String?
+  senderEmail String?
+
+  body        String
 
   isRead      Boolean  @default(false)
 
@@ -181,6 +201,7 @@ model PartnerApplication {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
 model RightsContract {
   id               String   @id @default(cuid())
 
@@ -193,7 +214,6 @@ model RightsContract {
   rightsContact    String?
 
   status           String   @default("draft")
-  // draft, sent, viewed, signed, changes_requested, cancelled, expired
 
   licenseType      String?
   licenseStartDate DateTime?
@@ -210,11 +230,10 @@ model RightsContract {
   viewedAt         DateTime?
   signedAt         DateTime?
 
+  partnerSignatureName    String?
+  partnerSignatureDataUrl String?
+  partnerSignedIp         String?
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-
-  partnerSignatureName String?
-partnerSignatureDataUrl String?
-partnerSignedIp String?
-
 }

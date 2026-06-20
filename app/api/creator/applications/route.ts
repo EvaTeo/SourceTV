@@ -12,7 +12,7 @@ export async function GET() {
     );
   }
 
-  const applications = await prisma.creatorApplication.findMany({
+  const applications = await prisma.partnerApplication.findMany({
     orderBy: { createdAt: "desc" },
   });
 

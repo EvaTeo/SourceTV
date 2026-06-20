@@ -439,7 +439,13 @@ function RightsStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function InfoBox({ label, value }: { label: string }) {
+function InfoBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">

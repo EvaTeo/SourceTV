@@ -1,3 +1,4 @@
+import PartnerHeader from "@/app/components/PartnerHeader";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
@@ -12,7 +13,7 @@ export default async function PartnerRevenuePage() {
   }
 
   if (user.role !== "partner" && user.role !== "admin") {
-    redirect("/partner");
+redirect("/partner/apply");
   }
 
   const titles = await prisma.projectSubmission.findMany({
@@ -57,9 +58,11 @@ export default async function PartnerRevenuePage() {
     .sort((a, b) => (b.views || 0) - (a.views || 0))
     .slice(0, 10);
 
-  return (
+return (
+  <>
+    <PartnerHeader />
     <main className="min-h-screen bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-7xl">
         <section className="overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-8">
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
             <div>
@@ -243,8 +246,9 @@ export default async function PartnerRevenuePage() {
           />
         </section>
       </div>
-    </main>
-  );
+       </main>
+  </>
+);
 }
 
 function money(value: number) {

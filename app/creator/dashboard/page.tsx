@@ -9,5 +9,12 @@ export default async function CreatorDashboardPage() {
     redirect("/login");
   }
 
-  return <CreatorDashboardClient user={user} />;
+return (
+  <CreatorDashboardClient
+    user={{
+      ...user,
+      name: user.name || "",
+    }}
+  />
+);
 }

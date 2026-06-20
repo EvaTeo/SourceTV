@@ -43,6 +43,11 @@ export async function GET() {
             creatorEmail: true,
           },
         },
+        replies: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -128,6 +133,11 @@ export async function PATCH(req: Request) {
             workflowStage: true,
             recognitionLevel: true,
             creatorEmail: true,
+          },
+        },
+        replies: {
+          orderBy: {
+            createdAt: "asc",
           },
         },
       },

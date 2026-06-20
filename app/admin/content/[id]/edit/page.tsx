@@ -303,6 +303,53 @@ const [sendingMessage, setSendingMessage] = useState(false);
     alert("Video updated.");
   }
 
+  async function sendPartnerMessage() {
+  if (!form) return;
+
+  if (!messageBody.trim()) {
+    alert("Please enter a message.");
+    return;
+  }
+
+  if (!form.creatorEmail) {
+    alert("This title does not have a partner email.");
+    return;
+  }
+
+  try {
+    setSendingMessage(true);
+
+    const res = await fetch(`/api/admin/content/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "send_message",
+        partnerEmail: form.creatorEmail,
+        partnerName: form.creatorName || form.creatorCompany || "",
+        subject: messageSubject,
+        message: messageBody,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Could not send message.");
+      return;
+    }
+
+    alert("Partner message sent.");
+    setMessageBody("");
+  } catch (error) {
+    console.error("SEND PARTNER MESSAGE ERROR:", error);
+    alert("Could not send partner message.");
+  } finally {
+    setSendingMessage(false);
+  }
+}
+
   if (loading) {
     return (
       <main className="min-h-screen bg-black px-6 py-10 text-white">
@@ -319,7 +366,7 @@ const [sendingMessage, setSendingMessage] = useState(false);
     );
 
     async function sendPartnerMessage() {
-  if (!content) return;
+if (!form) return;
 
   if (!messageBody.trim()) {
     alert("Please enter a message.");
@@ -329,18 +376,18 @@ const [sendingMessage, setSendingMessage] = useState(false);
   try {
     setSendingMessage(true);
 
-    const res = await fetch(`/api/admin/content/${content.id}`, {
-      method: "PATCH",
+const res = await fetch(`/api/admin/content/${id}`, {
+        method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         action: "send_message",
-        partnerEmail: content.creatorEmail,
-        partnerName:
-          content.creatorName ||
-          content.creatorCompany ||
-          "",
+        partnerEmail: form.creatorEmail,
+partnerName:
+  form.creatorName ||
+  form.creatorCompany ||
+  "",
         senderTeam: messageSenderTeam,
         subject: messageSubject,
         message: messageBody,
@@ -831,19 +878,22 @@ const [sendingMessage, setSendingMessage] = useState(false);
             </select>
           </div>
 
-<EditorPanel title="Partner Communications">
-  <div className="grid gap-4">
+<div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+  <h2 className="mb-6 text-xl font-black text-white">
+    Partner Communications
+  </h2>
+    <div className="grid gap-4">
     <Field label="Partner">
       <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-semibold text-white/70">
-        {content.creatorName ||
-          content.creatorCompany ||
-          "Unknown Partner"}
+        {form.creatorName ||
+  form.creatorCompany ||
+  "Unknown Partner"}
 
-        {content.creatorEmail && (
-          <div className="mt-1 text-white/40">
-            {content.creatorEmail}
-          </div>
-        )}
+{form.creatorEmail && (
+  <div className="mt-1 text-white/40">
+    {form.creatorEmail}
+  </div>
+)}
       </div>
     </Field>
 
@@ -888,9 +938,10 @@ const [sendingMessage, setSendingMessage] = useState(false);
           ? "Sending..."
           : "Send Message"}
       </button>
-    </div>
+        </div>
   </div>
-</EditorPanel>
+</div>
+
           <div className="relative">
             <label className="block text-sm font-bold text-white/60">
               Premiere Date
@@ -1076,5 +1127,41 @@ const [sendingMessage, setSendingMessage] = useState(false);
         </form>
       </div>
     </main>
+  );
+}
+
+function EditorPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
+      <h2 className="mb-6 text-xl font-black text-white">
+        {title}
+      </h2>
+
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-bold text-white/60">
+        {label}
+      </span>
+
+      {children}
+    </label>
   );
 }

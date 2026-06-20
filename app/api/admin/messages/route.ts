@@ -16,6 +16,11 @@ export async function GET() {
       },
       include: {
         project: true,
+        replies: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
     });
 
@@ -106,6 +111,11 @@ export async function POST(request: Request) {
       },
       include: {
         project: true,
+        replies: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
     });
 
@@ -116,6 +126,63 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "Failed to send admin message",
+        message: error?.message || "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const messageId = String(body.messageId || "").trim();
+
+    if (!messageId) {
+      return NextResponse.json(
+        { error: "Message ID is required." },
+        { status: 400 }
+      );
+    }
+
+    await prisma.partnerMessageReply.updateMany({
+      where: {
+        messageId,
+        senderRole: "partner",
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    const updatedMessage = await prisma.partnerMessage.findUnique({
+      where: {
+        id: messageId,
+      },
+      include: {
+        project: true,
+        replies: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(updatedMessage);
+  } catch (error: any) {
+    console.error("ADMIN MESSAGE PATCH ERROR:", error);
+
+    return NextResponse.json(
+      {
+        error: "Failed to mark partner replies as read",
         message: error?.message || "Unknown error",
       },
       { status: 500 }

@@ -78,8 +78,12 @@ export default function TrailerPreviewVideo({
 
       if (!autoPlay) return;
 
+      const currentVideo = videoRef.current;
+
+      if (!currentVideo) return;
+
       try {
-        await video.play();
+        await currentVideo.play();
       } catch {
         // Browser may block autoplay.
       }

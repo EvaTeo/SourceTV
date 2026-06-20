@@ -2,47 +2,42 @@ import { prisma } from "@/app/lib/prisma";
 import { getCurrentUser } from "@/app/lib/auth";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function PATCH(req: Request) {
   try {
-    const admin = await getCurrentUser();
+    const user = await getCurrentUser();
 
-    if (!admin || admin.role !== "admin") {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
         { error: "Admin access required" },
         { status: 403 }
       );
     }
 
-    const { applicationId, status, userId } = await req.json();
+    const { applicationId, status } = await req.json();
 
-    if (!applicationId || !status || !userId) {
+    if (!applicationId || !status) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing applicationId or status" },
         { status: 400 }
       );
     }
 
-    const updatedApplication = await prisma.creatorApplication.update({
-      where: { id: applicationId },
-      data: { status },
-    });
-
-    if (status === "approved") {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { role: "creator" },
+    const updatedApplication =
+      await prisma.partnerApplication.update({
+        where: {
+          id: applicationId,
+        },
+        data: {
+          status,
+        },
       });
-    }
 
-    return NextResponse.json({
-      success: true,
-      application: updatedApplication,
-    });
+    return NextResponse.json(updatedApplication);
   } catch (error) {
-    console.error("CREATOR APPLICATION UPDATE ERROR:", error);
+    console.error("UPDATE APPLICATION ERROR:", error);
 
     return NextResponse.json(
-      { error: "Failed to update creator application" },
+      { error: "Failed to update application" },
       { status: 500 }
     );
   }

@@ -1,3 +1,4 @@
+import PartnerHeader from "@/app/components/PartnerHeader";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/app/lib/prisma";
@@ -114,11 +115,11 @@ export default async function PartnerProjectDetailsPage({
   );
 
   return (
+  <>
+    <PartnerHeader />
     <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
       <div className="mx-auto max-w-7xl">
-        <Link href="/partner" className="text-sm font-bold text-sky-300">
-          ← Back to Partner Dashboard
-        </Link>
+       
 
         <section
           className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950 bg-cover bg-center shadow-2xl"
@@ -342,8 +343,9 @@ export default async function PartnerProjectDetailsPage({
           </div>
         </section>
       </div>
-    </main>
-  );
+       </main>
+  </>
+);
 }
 
 function Badge({ children }: { children: React.ReactNode }) {

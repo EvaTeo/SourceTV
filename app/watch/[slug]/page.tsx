@@ -8,6 +8,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/app/lib/prisma";
 
+function cleanRailItems(items: any[]) {
+  return items.map((content) => ({
+    ...content,
+    description: content.description || "",
+    type: content.type || "",
+    genre: content.genre || "",
+    thumbnailUrl: content.thumbnailUrl || "",
+    backdropUrl: content.backdropUrl || "",
+    trailerUrl: content.trailerUrl || "",
+    creatorName: content.creatorName || "",
+  }));
+}
+
 export default async function WatchPage({
   params,
   searchParams,
@@ -50,10 +63,10 @@ export default async function WatchPage({
   const otherContent = content.filter((c) => c.id !== item.id);
   const sameGenre = otherContent.filter((c) => c.genre === item.genre);
 
-  const moreLikeThis =
+  const moreLikeThisRaw =
     sameGenre.length > 0 ? sameGenre.slice(0, 12) : otherContent.slice(0, 12);
 
-  const becauseYouWatched = otherContent
+  const becauseYouWatchedRaw = otherContent
     .filter(
       (c) =>
         c.genre === item.genre ||
@@ -62,11 +75,15 @@ export default async function WatchPage({
     )
     .slice(0, 12);
 
-  const creatorMore = item.creatorName
+  const creatorMoreRaw = item.creatorName
     ? otherContent
         .filter((c) => c.creatorName === item.creatorName)
         .slice(0, 12)
     : [];
+
+  const moreLikeThis = cleanRailItems(moreLikeThisRaw);
+  const becauseYouWatched = cleanRailItems(becauseYouWatchedRaw);
+  const creatorMore = cleanRailItems(creatorMoreRaw);
 
   const details = [
     item.maturityRating || "Not Rated",
@@ -146,7 +163,7 @@ export default async function WatchPage({
             </div>
 
             <p className="mt-5 max-w-2xl text-sm leading-7 text-white/76 md:mt-6 md:text-lg md:leading-8">
-              {item.description}
+              {item.description || ""}
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -156,7 +173,7 @@ export default async function WatchPage({
                   poster={item.thumbnailUrl}
                   title={item.title}
                   slug={item.id}
-                  type={item.type}
+                  type={item.type || ""}
                 />
               ) : (
                 <button className="cursor-not-allowed rounded-full bg-white/20 px-12 py-5 text-lg font-black text-white/50">
@@ -168,8 +185,8 @@ export default async function WatchPage({
                 title={item.title}
                 slug={item.id}
                 thumbnailUrl={item.thumbnailUrl || ""}
-                type={item.type}
-                genre={item.genre}
+                type={item.type || ""}
+                genre={item.genre || ""}
               />
 
               <button
@@ -205,9 +222,9 @@ export default async function WatchPage({
           title={item.title}
           slug={item.id}
           thumbnailUrl={item.thumbnailUrl || ""}
-          type={item.type}
-          genre={item.genre}
-          creatorName={item.creatorName}
+          type={item.type || ""}
+          genre={item.genre || ""}
+          creatorName={item.creatorName || ""}
         />
       )}
 
@@ -223,7 +240,7 @@ export default async function WatchPage({
 
         {creatorMore.length > 0 && (
           <ContentRail
-            title={`More From ${item.creatorName}`}
+            title={`More From ${item.creatorName || "This Creator"}`}
             items={creatorMore}
           />
         )}
