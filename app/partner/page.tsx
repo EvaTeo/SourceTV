@@ -142,6 +142,13 @@ export default function PartnerDashboard() {
 
           <div className="flex flex-wrap gap-3">
             <Link
+              href="/partner/revenue"
+              className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-6 py-3 text-sm font-black text-emerald-200 transition hover:border-emerald-300/70 hover:bg-emerald-300/15"
+            >
+              Revenue
+            </Link>
+
+            <Link
               href="/partner/contracts"
               className="rounded-full border border-sky-300/35 bg-sky-300/10 px-6 py-3 text-sm font-black text-sky-200 transition hover:border-sky-300/70 hover:bg-sky-300/15"
             >
@@ -171,13 +178,20 @@ export default function PartnerDashboard() {
           <StatCard label="Published" value={stats.published} />
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <section className="mt-8 grid gap-4 md:grid-cols-4">
+          <QuickCard
+            title="Revenue"
+            body="View estimated earnings, title performance, and future payout information."
+            href="/partner/revenue"
+            label="Open Revenue"
+            highlight
+          />
+
           <QuickCard
             title="Contracts"
             body="Review agreements, sign rights contracts, or request changes."
             href="/partner/contracts"
             label="Open Contracts"
-            highlight
           />
 
           <QuickCard

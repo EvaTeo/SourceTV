@@ -22,9 +22,16 @@ export async function GET() {
         user.role === "admin"
           ? {}
           : {
-              project: {
-                creatorEmail: user.email,
-              },
+              OR: [
+                {
+                  partnerEmail: user.email,
+                },
+                {
+                  project: {
+                    creatorEmail: user.email,
+                  },
+                },
+              ],
             },
       include: {
         project: {
@@ -84,12 +91,21 @@ export async function PATCH(req: Request) {
     const message = await prisma.partnerMessage.findFirst({
       where:
         user.role === "admin"
-          ? { id: messageId }
+          ? {
+              id: messageId,
+            }
           : {
               id: messageId,
-              project: {
-                creatorEmail: user.email,
-              },
+              OR: [
+                {
+                  partnerEmail: user.email,
+                },
+                {
+                  project: {
+                    creatorEmail: user.email,
+                  },
+                },
+              ],
             },
     });
 
@@ -98,8 +114,23 @@ export async function PATCH(req: Request) {
     }
 
     const updated = await prisma.partnerMessage.update({
-      where: { id: messageId },
-      data: { isRead: true },
+      where: {
+        id: messageId,
+      },
+      data: {
+        isRead: true,
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            title: true,
+            workflowStage: true,
+            recognitionLevel: true,
+            creatorEmail: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ success: true, message: updated });

@@ -203,6 +203,17 @@ export default function PartnerInboxPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-4 text-center">
+  <p className="text-2xl font-black text-white">
+    {readCount}
+  </p>
+
+  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+    Read
+  </p>
+</div>
+
                 <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-center">
                   <p className="text-2xl font-black text-sky-200">
                     {unreadCount}

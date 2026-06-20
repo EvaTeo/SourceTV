@@ -143,8 +143,12 @@ model PartnerMessage {
   projectId   String?
   project     ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  partnerEmail String?
+  partnerName  String?
+
   subject     String
   body        String
+
   senderTeam  String   @default("SourceTV Partner Relations")
 
   isRead      Boolean  @default(false)

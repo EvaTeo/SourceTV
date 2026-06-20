@@ -272,6 +272,47 @@ export default function AdminContractEditorPage() {
 
         <ContractTimeline contract={contract} />
 
+        {contract.status === "changes_requested" && (
+  <section className="mt-6 rounded-[1.6rem] border border-yellow-300/20 bg-yellow-300/[0.08] p-5 shadow-2xl backdrop-blur-xl">
+    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-yellow-200">
+      Partner Action Required
+    </p>
+
+    <h2 className="mt-2 text-xl font-black text-white">
+      Changes have been requested by the partner.
+    </h2>
+
+    <p className="mt-2 text-sm leading-6 text-white/60">
+      Review the partner notes below, update the agreement, and resend the
+      contract when ready.
+    </p>
+  </section>
+)}
+
+{contract.status === "sent" && (
+  <section className="mt-6 rounded-[1.6rem] border border-sky-300/20 bg-sky-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
+    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-200">
+      Awaiting Review
+    </p>
+
+    <h2 className="mt-2 text-xl font-black text-white">
+      Contract has been sent to the partner.
+    </h2>
+  </section>
+)}
+
+{contract.status === "viewed" && (
+  <section className="mt-6 rounded-[1.6rem] border border-purple-300/20 bg-purple-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
+    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-200">
+      Viewed By Partner
+    </p>
+
+    <h2 className="mt-2 text-xl font-black text-white">
+      Partner has opened and reviewed this agreement.
+    </h2>
+  </section>
+)}
+
         {isSigned && (
           <section className="mt-6 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">

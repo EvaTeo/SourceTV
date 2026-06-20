@@ -379,6 +379,18 @@ export default function PartnerContractDetailPage() {
                 </span>
               </div>
 
+              {contract.licenseType && (
+  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
+    {contract.licenseType}
+  </span>
+)}
+
+{contract.exclusivity && (
+  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
+    {contract.exclusivity}
+  </span>
+)}
+
               <p className="mt-4 max-w-3xl text-sm leading-7 text-white/55">
                 Review this agreement carefully. Signing confirms that you have
                 the authority to grant SourceTV streaming rights for this title

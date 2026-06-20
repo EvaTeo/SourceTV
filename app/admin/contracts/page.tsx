@@ -221,11 +221,13 @@ export default function AdminContractsPage() {
   }, [projects, contracts]);
 
   const stats = [
-    { label: "Needs Action", value: counts.needs_action },
-    { label: "Drafts", value: counts.draft },
-    { label: "Viewed", value: counts.viewed },
-    { label: "Signed", value: counts.signed },
-  ];
+  { label: "Needs Action", value: counts.needs_action },
+  { label: "Drafts", value: counts.draft },
+  { label: "Sent", value: counts.sent },
+  { label: "Viewed", value: counts.viewed },
+  { label: "Signed", value: counts.signed },
+  { label: "Changes Requested", value: counts.changes_requested },
+];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
@@ -241,6 +243,10 @@ export default function AdminContractsPage() {
             <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
               Rights Contracts
             </h1>
+
+            <p className="mt-3 text-lg font-bold text-white/45">
+  {contracts.length} contracts tracked across SourceTV
+</p>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
               Draft, send, track, and review streaming rights agreements between
@@ -272,8 +278,8 @@ export default function AdminContractsPage() {
           </div>
         </div>
 
-        <section className="mt-8 grid gap-3 md:grid-cols-4">
-          {stats.map((stat) => (
+<section className="mt-8 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {stats.map((stat) => (
             <ContractStat
               key={stat.label}
               label={stat.label}
@@ -281,6 +287,15 @@ export default function AdminContractsPage() {
             />
           ))}
         </section>
+
+{counts.needs_action > 0 && (
+  <section className="mt-6 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
+    <p className="text-sm font-black text-yellow-100">
+      {counts.needs_action} contract
+      {counts.needs_action !== 1 ? "s require" : " requires"} action.
+    </p>
+  </section>
+)}
 
         <section className="mt-7 rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">

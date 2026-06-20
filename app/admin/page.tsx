@@ -106,6 +106,13 @@ export default async function AdminDashboard() {
       alert: pendingPartnerApplications,
     },
     {
+  title: "Partner Inbox",
+  href: "/admin/inbox",
+  eyebrow: "Communications",
+  description:
+    "Send messages to partners, review conversations, rights requests, and publishing communications.",
+},
+    {
       title: "Review Queue",
       href: "/admin/review",
       eyebrow: "Approvals",

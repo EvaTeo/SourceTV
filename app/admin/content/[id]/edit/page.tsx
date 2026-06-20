@@ -98,6 +98,18 @@ export default function EditContentPage({
 
   const timeOptions = useMemo(() => buildTimeOptions(), []);
 
+  const [messageSubject, setMessageSubject] = useState(
+  "Message From SourceTV"
+);
+
+const [messageSenderTeam, setMessageSenderTeam] = useState(
+  "SourceTV Programming Team"
+);
+
+const [messageBody, setMessageBody] = useState("");
+
+const [sendingMessage, setSendingMessage] = useState(false);
+
   useEffect(() => {
     async function loadContent() {
       const res = await fetch("/api/admin/content", {
@@ -305,6 +317,53 @@ export default function EditContentPage({
         Content not found.
       </main>
     );
+
+    async function sendPartnerMessage() {
+  if (!content) return;
+
+  if (!messageBody.trim()) {
+    alert("Please enter a message.");
+    return;
+  }
+
+  try {
+    setSendingMessage(true);
+
+    const res = await fetch(`/api/admin/content/${content.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "send_message",
+        partnerEmail: content.creatorEmail,
+        partnerName:
+          content.creatorName ||
+          content.creatorCompany ||
+          "",
+        senderTeam: messageSenderTeam,
+        subject: messageSubject,
+        message: messageBody,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Failed to send message.");
+      return;
+    }
+
+    setMessageBody("");
+
+    alert("Message sent to partner.");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to send message.");
+  } finally {
+    setSendingMessage(false);
+  }
+}
   }
 
   const fileInputClass =
@@ -772,6 +831,66 @@ export default function EditContentPage({
             </select>
           </div>
 
+<EditorPanel title="Partner Communications">
+  <div className="grid gap-4">
+    <Field label="Partner">
+      <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-semibold text-white/70">
+        {content.creatorName ||
+          content.creatorCompany ||
+          "Unknown Partner"}
+
+        {content.creatorEmail && (
+          <div className="mt-1 text-white/40">
+            {content.creatorEmail}
+          </div>
+        )}
+      </div>
+    </Field>
+
+    <Field label="Sender Team">
+      <input
+        value={messageSenderTeam}
+        onChange={(e) =>
+          setMessageSenderTeam(e.target.value)
+        }
+        className="input"
+      />
+    </Field>
+
+    <Field label="Subject">
+      <input
+        value={messageSubject}
+        onChange={(e) =>
+          setMessageSubject(e.target.value)
+        }
+        className="input"
+      />
+    </Field>
+
+    <Field label="Message">
+      <textarea
+        value={messageBody}
+        onChange={(e) =>
+          setMessageBody(e.target.value)
+        }
+        className="min-h-40 w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 text-sm leading-7 text-white outline-none focus:border-sky-300/60"
+      />
+    </Field>
+
+    <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={sendPartnerMessage}
+        disabled={sendingMessage}
+        className="rounded-xl bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-40"
+      >
+        {sendingMessage
+          ? "Sending..."
+          : "Send Message"}
+      </button>
+    </div>
+  </div>
+</EditorPanel>
           <div className="relative">
             <label className="block text-sm font-bold text-white/60">
               Premiere Date

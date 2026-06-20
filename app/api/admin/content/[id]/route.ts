@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -16,6 +17,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await req.json();
 
@@ -28,6 +35,64 @@ export async function PATCH(
         { error: "Content not found" },
         { status: 404 }
       );
+    }
+
+    if (body.action === "send_message") {
+      const partnerEmail = String(
+        body.partnerEmail || existing.creatorEmail || ""
+      ).trim();
+
+      const partnerName = String(
+        body.partnerName ||
+          existing.creatorCompany ||
+          existing.creatorName ||
+          ""
+      ).trim();
+
+      const senderTeam = String(
+        body.senderTeam || "SourceTV Partner Relations"
+      ).trim();
+
+      const subject = String(body.subject || "Message From SourceTV").trim();
+
+      const message = String(
+        body.message || "A SourceTV team member has contacted you."
+      ).trim();
+
+      if (!partnerEmail) {
+        return NextResponse.json(
+          { error: "This title does not have a partner email." },
+          { status: 400 }
+        );
+      }
+
+      if (!subject || !message) {
+        return NextResponse.json(
+          { error: "Subject and message are required." },
+          { status: 400 }
+        );
+      }
+
+      const createdMessage = await prisma.partnerMessage.create({
+        data: {
+          projectId: existing.id,
+          partnerEmail,
+          partnerName: partnerName || null,
+          senderTeam,
+          subject,
+          body: message,
+          isRead: false,
+        },
+        include: {
+          project: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Partner message sent",
+        partnerMessage: createdMessage,
+      });
     }
 
     const data: any = {};
@@ -81,27 +146,6 @@ export async function PATCH(
       data.featured = false;
       data.featuredRank = null;
     }
-    if (body.action === "send_message") {
-  await prisma.partnerMessage.create({
-    data: {
-      projectId: existing.id,
-      senderTeam:
-        body.senderTeam || "SourceTV Partner Relations",
-
-      subject:
-        body.subject || "Message From SourceTV",
-
-      body:
-        body.message ||
-        "A SourceTV team member has contacted you.",
-    },
-  });
-
-  return NextResponse.json({
-    success: true,
-    message: "Partner message sent",
-  });
-}
 
     if (body.title !== undefined) data.title = body.title;
     if (body.description !== undefined) data.description = body.description;
@@ -126,16 +170,10 @@ export async function PATCH(
     if (body.licenseType !== undefined) data.licenseType = body.licenseType;
     if (body.territories !== undefined) data.territories = body.territories;
     if (body.exclusivity !== undefined) data.exclusivity = body.exclusivity;
-if (body.recognitionLevel !== undefined) {
-  data.recognitionLevel = body.recognitionLevel;
-}
-    if (body.workflowStage !== undefined) {
-      data.workflowStage = body.workflowStage;
-    }
-
-    if (body.status !== undefined) {
-      data.status = body.status;
-    }
+    if (body.recognitionLevel !== undefined)
+      data.recognitionLevel = body.recognitionLevel;
+    if (body.workflowStage !== undefined) data.workflowStage = body.workflowStage;
+    if (body.status !== undefined) data.status = body.status;
 
     if (typeof body.featured === "boolean") {
       data.featured = body.featured;
