@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/app/lib/prisma";
 
 const stageLabels: Record<string, string> = {
@@ -13,6 +14,75 @@ const stageLabels: Record<string, string> = {
   archived: "Archived",
   rejected: "Rejected",
 };
+
+async function updateWorkflow(formData: FormData) {
+  "use server";
+
+  const id = String(formData.get("id") || "");
+  const workflowStage = String(formData.get("workflowStage") || "");
+
+  if (!id || !workflowStage) return;
+
+  const data: any = {
+    workflowStage,
+  };
+
+  if (workflowStage === "approved") {
+    data.status = "approved";
+  }
+
+  if (workflowStage === "published") {
+    data.status = "approved";
+    data.publishedAt = new Date();
+  }
+
+  if (workflowStage === "archived") {
+    data.status = "archived";
+    data.archivedAt = new Date();
+  }
+
+  if (workflowStage === "rejected") {
+    data.status = "rejected";
+    data.rejectedAt = new Date();
+  }
+
+  await prisma.projectSubmission.update({
+    where: { id },
+    data,
+  });
+
+  revalidatePath(`/admin/content/${id}`);
+  revalidatePath("/admin/content");
+}
+
+async function toggleFlag(formData: FormData) {
+  "use server";
+
+  const id = String(formData.get("id") || "");
+  const field = String(formData.get("field") || "");
+
+  if (!id || !["featured", "editorPick"].includes(field)) return;
+
+  const project = await prisma.projectSubmission.findUnique({
+    where: { id },
+    select: {
+      featured: true,
+      editorPick: true,
+    },
+  });
+
+  if (!project) return;
+
+  await prisma.projectSubmission.update({
+    where: { id },
+    data: {
+      [field]: !project[field as "featured" | "editorPick"],
+    },
+  });
+
+  revalidatePath(`/admin/content/${id}`);
+  revalidatePath("/admin/content");
+}
 
 function formatDate(date?: Date | string | null) {
   if (!date) return "Not set";
@@ -129,7 +199,7 @@ export default async function AdminContentDetailPage({
                 href={`/admin/content/${project.id}/status`}
                 className="rounded-xl border border-white/10 bg-white/[0.08] px-5 py-3 text-xs font-black text-white/75 transition hover:border-sky-300/40 hover:text-sky-200"
               >
-                Workflow / Status
+                Schedule / Status
               </Link>
 
               <Link
@@ -175,6 +245,58 @@ export default async function AdminContentDetailPage({
             label="Published"
             value={formatDate(project.publishedAt)}
           />
+        </section>
+
+        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-7">
+          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300">
+            Workflow Actions
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <WorkflowButton id={project.id} stage="metadata_review">
+              Metadata Review
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="content_review">
+              Content Review
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="rights_review">
+              Rights Review
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="approved" variant="success">
+              Approve
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="published" variant="success">
+              Publish
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="archived">
+              Archive
+            </WorkflowButton>
+
+            <WorkflowButton id={project.id} stage="rejected" variant="danger">
+              Reject
+            </WorkflowButton>
+
+            <form action={toggleFlag}>
+              <input type="hidden" name="id" value={project.id} />
+              <input type="hidden" name="field" value="featured" />
+              <button className="rounded-xl border border-sky-300/35 bg-sky-300/10 px-5 py-3 text-xs font-black text-sky-200 transition hover:border-sky-300/70">
+                {project.featured ? "Unfeature" : "Feature Title"}
+              </button>
+            </form>
+
+            <form action={toggleFlag}>
+              <input type="hidden" name="id" value={project.id} />
+              <input type="hidden" name="field" value="editorPick" />
+              <button className="rounded-xl border border-purple-300/35 bg-purple-300/10 px-5 py-3 text-xs font-black text-purple-200 transition hover:border-purple-300/70">
+                {project.editorPick ? "Remove Editor Pick" : "Editor Pick"}
+              </button>
+            </form>
+          </div>
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_380px]">
@@ -307,6 +429,40 @@ export default async function AdminContentDetailPage({
         </section>
       </div>
     </main>
+  );
+}
+
+function WorkflowButton({
+  id,
+  stage,
+  children,
+  variant = "neutral",
+}: {
+  id: string;
+  stage: string;
+  children: React.ReactNode;
+  variant?: "neutral" | "success" | "danger";
+}) {
+  const classes = {
+    neutral:
+      "border border-white/10 bg-white/[0.06] text-white/70 hover:border-sky-300/40 hover:text-sky-200",
+    success:
+      "border border-emerald-300/35 bg-emerald-300/10 text-emerald-200 hover:border-emerald-300/70",
+    danger:
+      "border border-red-400/35 bg-red-500/10 text-red-200 hover:border-red-400/70",
+  };
+
+  return (
+    <form action={updateWorkflow}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="workflowStage" value={stage} />
+
+      <button
+        className={`rounded-xl px-5 py-3 text-xs font-black transition ${classes[variant]}`}
+      >
+        {children}
+      </button>
+    </form>
   );
 }
 
