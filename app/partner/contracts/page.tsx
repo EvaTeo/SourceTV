@@ -33,10 +33,13 @@ type PartnerContract = {
 
 const filters = [
   { label: "All", value: "all" },
+  { label: "Needs Action", value: "needs_action" },
   { label: "Awaiting Review", value: "sent" },
   { label: "Viewed", value: "viewed" },
   { label: "Signed", value: "signed" },
   { label: "Changes Requested", value: "changes_requested" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Expired", value: "expired" },
 ];
 
 function formatDate(date?: string | null) {
@@ -57,14 +60,25 @@ function statusClass(status: string) {
     return "border-purple-300/40 bg-purple-400/12 text-purple-200";
   if (status === "changes_requested")
     return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
+  if (status === "cancelled" || status === "expired")
+    return "border-red-400/40 bg-red-500/12 text-red-200";
 
   return "border-white/15 bg-white/[0.05] text-white/65";
+}
+
+function statusLabel(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function needsAction(contract: PartnerContract) {
+  return contract.status === "sent" || contract.status === "viewed";
 }
 
 export default function PartnerContractsPage() {
   const [contracts, setContracts] = useState<PartnerContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [search, setSearch] = useState("");
 
   async function loadContracts() {
     try {
@@ -96,6 +110,7 @@ export default function PartnerContractsPage() {
   const counts = useMemo(() => {
     return {
       all: contracts.length,
+      needs_action: contracts.filter((contract) => needsAction(contract)).length,
       sent: contracts.filter((contract) => contract.status === "sent").length,
       viewed: contracts.filter((contract) => contract.status === "viewed")
         .length,
@@ -104,13 +119,43 @@ export default function PartnerContractsPage() {
       changes_requested: contracts.filter(
         (contract) => contract.status === "changes_requested"
       ).length,
+      cancelled: contracts.filter((contract) => contract.status === "cancelled")
+        .length,
+      expired: contracts.filter((contract) => contract.status === "expired")
+        .length,
     };
   }, [contracts]);
 
   const filteredContracts = useMemo(() => {
-    if (activeFilter === "all") return contracts;
-    return contracts.filter((contract) => contract.status === activeFilter);
-  }, [contracts, activeFilter]);
+    const cleanSearch = search.trim().toLowerCase();
+
+    return contracts.filter((contract) => {
+      const matchesFilter =
+        activeFilter === "all"
+          ? true
+          : activeFilter === "needs_action"
+          ? needsAction(contract)
+          : contract.status === activeFilter;
+
+      const matchesSearch =
+        !cleanSearch ||
+        contract.project?.title?.toLowerCase().includes(cleanSearch) ||
+        contract.partnerName?.toLowerCase().includes(cleanSearch) ||
+        contract.partnerEmail?.toLowerCase().includes(cleanSearch) ||
+        contract.rightsOwner?.toLowerCase().includes(cleanSearch) ||
+        contract.rightsContact?.toLowerCase().includes(cleanSearch) ||
+        contract.status?.toLowerCase().includes(cleanSearch);
+
+      return matchesFilter && matchesSearch;
+    });
+  }, [contracts, activeFilter, search]);
+
+  const stats = [
+    { label: "Needs Action", value: counts.needs_action },
+    { label: "Awaiting Review", value: counts.sent },
+    { label: "Viewed", value: counts.viewed },
+    { label: "Signed", value: counts.signed },
+  ];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
@@ -150,8 +195,25 @@ export default function PartnerContractsPage() {
           </div>
         </section>
 
+        <section className="mt-8 grid gap-3 md:grid-cols-4">
+          {stats.map((stat) => (
+            <ContractStat
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+            />
+          ))}
+        </section>
+
         <section className="mt-7 rounded-[1.5rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search contracts, titles, rights owner..."
+            className="min-h-12 w-full rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-sky-300/60 md:rounded-2xl"
+          />
+
+          <div className="mt-4 flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((filter) => {
               const active = activeFilter === filter.value;
 
@@ -189,10 +251,14 @@ export default function PartnerContractsPage() {
                 contract.project?.thumbnailUrl ||
                 "";
 
+              const urgent = needsAction(contract);
+
               return (
                 <article
                   key={contract.id}
-                  className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.045] shadow-2xl backdrop-blur-xl"
+                  className={`overflow-hidden rounded-[1.5rem] border bg-white/[0.045] shadow-2xl backdrop-blur-xl transition hover:border-sky-300/25 ${
+                    urgent ? "border-sky-300/25" : "border-white/10"
+                  }`}
                 >
                   <div className="grid gap-0 md:grid-cols-[190px_1fr]">
                     <div
@@ -209,9 +275,17 @@ export default function PartnerContractsPage() {
                             contract.status
                           )}`}
                         >
-                          {contract.status.replaceAll("_", " ")}
+                          {statusLabel(contract.status)}
                         </span>
                       </div>
+
+                      {urgent && (
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <span className="rounded-full border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-200">
+                            Action Needed
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-5 md:p-6">
@@ -234,9 +308,13 @@ export default function PartnerContractsPage() {
 
                         <Link
                           href={`/partner/contracts/${contract.id}`}
-                          className="h-fit rounded-md bg-sky-400 px-4 py-2.5 text-center text-xs font-black text-black transition hover:bg-sky-300"
+                          className={`h-fit rounded-md px-4 py-2.5 text-center text-xs font-black transition ${
+                            urgent
+                              ? "bg-sky-400 text-black hover:bg-sky-300"
+                              : "border border-white/10 bg-white/[0.04] text-white/65 hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+                          }`}
                         >
-                          Open Contract
+                          {urgent ? "Review Contract" : "Open Contract"}
                         </Link>
                       </div>
 
@@ -263,6 +341,18 @@ export default function PartnerContractsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function ContractStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+    </div>
   );
 }
 

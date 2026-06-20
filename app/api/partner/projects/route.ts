@@ -27,6 +27,13 @@ export async function GET() {
       orderBy: {
         updatedAt: "desc",
       },
+      include: {
+        rightsContracts: {
+          orderBy: {
+            updatedAt: "desc",
+          },
+        },
+      },
     });
 
     return NextResponse.json(projects);

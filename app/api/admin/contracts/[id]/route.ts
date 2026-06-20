@@ -8,6 +8,8 @@ type RouteContext = {
   }>;
 };
 
+const EDITABLE_STATUSES = ["draft", "sent", "viewed", "changes_requested"];
+
 export async function GET(request: Request, context: RouteContext) {
   try {
     const user = await getCurrentUser();
@@ -56,6 +58,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params;
     const body = await request.json();
+    const action = body.action;
 
     const existingContract = await prisma.rightsContract.findUnique({
       where: {
@@ -73,13 +76,32 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const action = body.action;
-
-    if (existingContract.status === "signed" && action !== "mark_signed") {
+    if (existingContract.status === "signed") {
       return NextResponse.json(
         {
           error:
-            "This contract has already been signed and can no longer be edited.",
+            "This contract has already been signed and can no longer be edited, resent, or cancelled.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (
+      existingContract.status === "cancelled" ||
+      existingContract.status === "expired"
+    ) {
+      return NextResponse.json(
+        {
+          error: "This contract is no longer active.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (!EDITABLE_STATUSES.includes(existingContract.status)) {
+      return NextResponse.json(
+        {
+          error: "This contract status cannot be edited.",
         },
         { status: 409 }
       );
@@ -118,10 +140,6 @@ Status: Sent`,
     }
 
     if (action === "mark_signed") {
-      if (existingContract.status === "signed") {
-        return NextResponse.json(existingContract);
-      }
-
       const contract = await prisma.rightsContract.update({
         where: {
           id,

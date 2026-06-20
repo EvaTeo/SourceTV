@@ -40,7 +40,6 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-
     const projectId = body.projectId;
 
     if (!projectId) {
@@ -63,15 +62,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingDraft = await prisma.rightsContract.findFirst({
+    const existingActiveContract = await prisma.rightsContract.findFirst({
       where: {
         projectId,
-        status: "draft",
+        status: {
+          in: [
+            "draft",
+            "sent",
+            "viewed",
+            "changes_requested",
+            "signed",
+          ],
+        },
+      },
+      include: {
+        project: true,
       },
     });
 
-    if (existingDraft) {
-      return NextResponse.json(existingDraft);
+    if (existingActiveContract) {
+      return NextResponse.json(existingActiveContract);
     }
 
     const contract = await prisma.rightsContract.create({

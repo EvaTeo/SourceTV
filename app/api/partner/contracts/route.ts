@@ -7,20 +7,11 @@ export async function GET() {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    if (
-      user.role !== "partner" &&
-      user.role !== "admin"
-    ) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+    if (user.role !== "partner" && user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const contracts = await prisma.rightsContract.findMany({
@@ -28,11 +19,17 @@ export async function GET() {
         user.role === "admin"
           ? undefined
           : {
-              OR: [
-                {
-                  partnerEmail: user.email,
-                },
-              ],
+              partnerEmail: user.email,
+              status: {
+                in: [
+                  "sent",
+                  "viewed",
+                  "signed",
+                  "changes_requested",
+                  "cancelled",
+                  "expired",
+                ],
+              },
             },
       include: {
         project: true,

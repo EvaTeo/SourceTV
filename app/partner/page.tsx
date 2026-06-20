@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type PartnerProject = {
-    recognitionLevel?: string | null;
+  recognitionLevel?: string | null;
   id: string;
   title: string;
   description?: string | null;
@@ -56,7 +56,6 @@ function recognition(project: PartnerProject) {
   return "In Review";
 }
 
-
 function formatDate(date?: string | null) {
   if (!date) return "Not set";
 
@@ -73,30 +72,29 @@ export default function PartnerDashboard() {
   useEffect(() => {
     const userData = localStorage.getItem("sourcetvUser");
 
-if (!userData) {
-  window.location.href = "/login";
-  return;
-}
+    if (!userData) {
+      window.location.href = "/login";
+      return;
+    }
 
-const currentUser = JSON.parse(userData);
-if (
-  currentUser.role !== "partner" &&
-  currentUser.role !== "admin"
-) {
-  window.location.href = "/partner/apply";
-  return;
-}
+    const currentUser = JSON.parse(userData);
+
+    if (currentUser.role !== "partner" && currentUser.role !== "admin") {
+      window.location.href = "/partner/apply";
+      return;
+    }
+
     async function loadProjects() {
       try {
-       const res = await fetch("/api/partner/projects", {
-  cache: "no-store",
-});
+        const res = await fetch("/api/partner/projects", {
+          cache: "no-store",
+        });
 
-const data = await res.json();
+        const data = await res.json();
 
-if (Array.isArray(data)) {
-  setProjects(data);
-}
+        if (Array.isArray(data)) {
+          setProjects(data);
+        }
       } catch (error) {
         console.error("PARTNER DASHBOARD LOAD ERROR:", error);
       } finally {
@@ -112,9 +110,12 @@ if (Array.isArray(data)) {
       total: projects.length,
       published: projects.filter((p) => p.workflowStage === "published").length,
       inReview: projects.filter((p) =>
-        ["submission", "metadata_review", "content_review", "rights_review"].includes(
-          p.workflowStage
-        )
+        [
+          "submission",
+          "metadata_review",
+          "content_review",
+          "rights_review",
+        ].includes(p.workflowStage)
       ).length,
       scheduled: projects.filter((p) => p.workflowStage === "scheduled").length,
     };
@@ -124,43 +125,74 @@ if (Array.isArray(data)) {
     <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-  <div>
-    <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-      SourceTV Partner Portal
-    </p>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
+              SourceTV Partner Portal
+            </p>
 
-    <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
-      Partner Dashboard
-    </h1>
+            <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
+              Partner Dashboard
+            </h1>
 
-    <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-      Track your films, series, and submitted works through SourceTV’s
-      review, rights, scheduling, publishing, and selection process.
-    </p>
-  </div>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
+              Track your films, series, and submitted works through SourceTV’s
+              review, rights, scheduling, publishing, and selection process.
+            </p>
+          </div>
 
-  <div className="flex gap-3">
-    <Link
-      href="/partner/inbox"
-      className="rounded-full border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200"
-    >
-      Partner Inbox
-    </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/partner/contracts"
+              className="rounded-full border border-sky-300/35 bg-sky-300/10 px-6 py-3 text-sm font-black text-sky-200 transition hover:border-sky-300/70 hover:bg-sky-300/15"
+            >
+              Contracts
+            </Link>
 
-    <Link
-      href="/creator/submit"
-      className="rounded-full bg-sky-400 px-6 py-3 text-sm font-black text-black shadow-[0_0_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
-    >
-      Submit New Work
-    </Link>
-  </div>
-</div>
+            <Link
+              href="/partner/inbox"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-6 py-3 text-sm font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200"
+            >
+              Partner Inbox
+            </Link>
+
+            <Link
+              href="/creator/submit"
+              className="rounded-full bg-sky-400 px-6 py-3 text-sm font-black text-black shadow-[0_0_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
+            >
+              Submit New Work
+            </Link>
+          </div>
+        </div>
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Total Works" value={stats.total} />
           <StatCard label="In Review" value={stats.inReview} />
           <StatCard label="Scheduled" value={stats.scheduled} />
           <StatCard label="Published" value={stats.published} />
+        </section>
+
+        <section className="mt-8 grid gap-4 md:grid-cols-3">
+          <QuickCard
+            title="Contracts"
+            body="Review agreements, sign rights contracts, or request changes."
+            href="/partner/contracts"
+            label="Open Contracts"
+            highlight
+          />
+
+          <QuickCard
+            title="Inbox"
+            body="Read SourceTV partner messages, review updates, and respond to requests."
+            href="/partner/inbox"
+            label="Open Inbox"
+          />
+
+          <QuickCard
+            title="Submit Work"
+            body="Submit a new film, series, episode, animation, or documentary for review."
+            href="/creator/submit"
+            label="Submit New Work"
+          />
         </section>
 
         <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-7">
@@ -305,5 +337,48 @@ function StatCard({ label, value }: { label: string; value: number }) {
       </p>
       <p className="mt-3 text-4xl font-black text-white">{value}</p>
     </div>
+  );
+}
+
+function QuickCard({
+  title,
+  body,
+  href,
+  label,
+  highlight,
+}: {
+  title: string;
+  body: string;
+  href: string;
+  label: string;
+  highlight?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-[1.5rem] border p-5 shadow-2xl backdrop-blur-xl transition ${
+        highlight
+          ? "border-sky-300/30 bg-sky-300/[0.08] hover:border-sky-300/60"
+          : "border-white/10 bg-white/[0.045] hover:border-sky-300/35"
+      }`}
+    >
+      <p
+        className={`text-[10px] font-black uppercase tracking-[0.25em] ${
+          highlight ? "text-sky-300" : "text-white/35"
+        }`}
+      >
+        {title}
+      </p>
+
+      <p className="mt-3 text-sm leading-6 text-white/55">{body}</p>
+
+      <p
+        className={`mt-5 text-xs font-black ${
+          highlight ? "text-sky-200" : "text-white/65"
+        }`}
+      >
+        {label} →
+      </p>
+    </Link>
   );
 }

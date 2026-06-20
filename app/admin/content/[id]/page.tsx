@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/app/lib/prisma";
-import { getCurrentUser } from "@/app/lib/auth";
 
 const stageLabels: Record<string, string> = {
   submission: "Submission Received",
@@ -15,16 +14,6 @@ const stageLabels: Record<string, string> = {
   rejected: "Rejected",
 };
 
-const reviewSteps = [
-  { key: "submission", label: "Submitted" },
-  { key: "metadata_review", label: "Metadata" },
-  { key: "content_review", label: "Content" },
-  { key: "rights_review", label: "Rights" },
-  { key: "approved", label: "Approved" },
-  { key: "scheduled", label: "Scheduled" },
-  { key: "published", label: "Published" },
-];
-
 function formatDate(date?: Date | string | null) {
   if (!date) return "Not set";
 
@@ -34,31 +23,16 @@ function formatDate(date?: Date | string | null) {
   });
 }
 
-function recognition(project: {
-  featured?: boolean | null;
-  workflowStage?: string | null;
-  recognitionLevel?: string | null;
-}) {
-  if (project.recognitionLevel) {
-    return project.recognitionLevel;
-  }
-
-  if (project.featured && project.workflowStage === "published") {
-    return "Featured Selection";
-  }
-
-  if (project.workflowStage === "published") {
-    return "SourceTV Selection";
-  }
-
-  if (project.workflowStage === "approved") {
-    return "Selection Pending";
-  }
-
-  return "In Review";
+function workflowClass(stage?: string | null) {
+  if (stage === "published") return "text-emerald-300";
+  if (stage === "scheduled") return "text-purple-300";
+  if (stage === "approved") return "text-sky-300";
+  if (stage === "rights_review") return "text-yellow-300";
+  if (stage === "rejected") return "text-red-300";
+  return "text-white";
 }
 
-function statusClass(status?: string | null) {
+function contractClass(status?: string | null) {
   if (status === "signed")
     return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
   if (status === "sent")
@@ -73,51 +47,38 @@ function statusClass(status?: string | null) {
   return "border-white/15 bg-white/[0.05] text-white/65";
 }
 
-function statusLabel(status?: string | null) {
-  if (!status) return "No contract";
-  return status.replaceAll("_", " ");
-}
-
-export default async function PartnerProjectDetailsPage({
+export default async function AdminContentDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
 
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
   const project = await prisma.projectSubmission.findUnique({
     where: { id },
     include: {
       rightsContracts: {
         orderBy: {
-          updatedAt: "desc",
+          createdAt: "desc",
         },
       },
     },
   });
 
-  if (!project) return notFound();
-
-  if (user.role !== "admin" && project.creatorEmail !== user.email) {
+  if (!project) {
     return notFound();
   }
 
   const latestContract = project.rightsContracts[0];
-  const currentStepIndex = reviewSteps.findIndex(
-    (step) => step.key === project.workflowStage
-  );
 
   return (
-    <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
+    <main className="min-h-screen bg-black px-4 pb-28 pt-28 text-white md:px-10">
       <div className="mx-auto max-w-7xl">
-        <Link href="/partner" className="text-sm font-bold text-sky-300">
-          ← Back to Partner Dashboard
+        <Link
+          href="/admin/content"
+          className="text-sm font-black text-sky-300 transition hover:text-sky-200"
+        >
+          ← Back to Content
         </Link>
 
         <section
@@ -133,7 +94,7 @@ export default async function PartnerProjectDetailsPage({
         >
           <div className="p-6 md:p-10">
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-              SourceTV Partner Project
+              SourceTV Content Review
             </p>
 
             <h1 className="mt-4 max-w-4xl text-4xl font-black leading-[0.95] md:text-7xl">
@@ -141,22 +102,47 @@ export default async function PartnerProjectDetailsPage({
             </h1>
 
             <p className="mt-5 max-w-3xl text-sm leading-7 text-white/65 md:text-base">
-              {project.description || "No description has been provided yet."}
+              {project.description || "No description provided."}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
-              <Badge>{stageLabels[project.workflowStage] || project.workflowStage}</Badge>
-              <Badge>{recognition(project)}</Badge>
-              {project.featured && <Badge>Featured</Badge>}
+              <Badge>
+                {stageLabels[project.workflowStage] || project.workflowStage}
+              </Badge>
+
+              {project.status && <Badge>{project.status}</Badge>}
               {project.type && <Badge>{project.type}</Badge>}
               {project.genre && <Badge>{project.genre}</Badge>}
+              {project.featured && <Badge>Featured</Badge>}
+              {project.editorPick && <Badge>Editor Pick</Badge>}
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href={`/admin/content/${project.id}/edit`}
+                className="rounded-xl bg-sky-400 px-5 py-3 text-xs font-black text-black shadow-[0_0_30px_rgba(56,189,248,0.3)] transition hover:bg-sky-300"
+              >
+                Edit Metadata
+              </Link>
+
+              <Link
+                href={`/admin/content/${project.id}/status`}
+                className="rounded-xl border border-white/10 bg-white/[0.08] px-5 py-3 text-xs font-black text-white/75 transition hover:border-sky-300/40 hover:text-sky-200"
+              >
+                Workflow / Status
+              </Link>
+
+              <Link
+                href="/admin/contracts"
+                className="rounded-xl border border-white/10 bg-white/[0.08] px-5 py-3 text-xs font-black text-white/75 transition hover:border-sky-300/40 hover:text-sky-200"
+              >
+                Rights Contracts
+              </Link>
+
               {latestContract && (
                 <Link
-                  href={`/partner/contracts/${latestContract.id}`}
-                  className="rounded-full bg-sky-400 px-5 py-3 text-xs font-black text-black shadow-[0_0_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-300"
+                  href={`/admin/contracts/${latestContract.id}`}
+                  className="rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-5 py-3 text-xs font-black text-emerald-200 transition hover:border-emerald-300/50"
                 >
                   Open Contract
                 </Link>
@@ -164,10 +150,10 @@ export default async function PartnerProjectDetailsPage({
 
               {project.workflowStage === "published" && (
                 <Link
-                  href={`/watch/${project.id}`}
-                  className="rounded-full border border-white/10 bg-white/[0.08] px-5 py-3 text-xs font-black text-white/75 transition hover:border-sky-300/40 hover:text-sky-200"
+                  href={`/watch/${project.id}?preview=admin`}
+                  className="rounded-xl border border-white/10 bg-white/[0.08] px-5 py-3 text-xs font-black text-white/75 transition hover:border-sky-300/40 hover:text-sky-200"
                 >
-                  View Live
+                  Preview Live
                 </Link>
               )}
             </div>
@@ -178,51 +164,17 @@ export default async function PartnerProjectDetailsPage({
           <InfoCard
             label="Workflow Stage"
             value={stageLabels[project.workflowStage] || project.workflowStage}
+            valueClass={workflowClass(project.workflowStage)}
           />
-          <InfoCard label="Recognition" value={recognition(project)} />
-          <InfoCard label="Scheduled" value={formatDate(project.scheduledAt)} />
-          <InfoCard label="Published" value={formatDate(project.publishedAt)} />
-        </section>
-
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-7">
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300">
-            Review Timeline
-          </p>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-7">
-            {reviewSteps.map((step, index) => {
-              const complete =
-                currentStepIndex === -1 ? false : index <= currentStepIndex;
-
-              return (
-                <div key={step.key} className="relative">
-                  {index < reviewSteps.length - 1 && (
-                    <div
-                      className={`absolute left-7 top-6 hidden h-px w-[calc(100%_-_1rem)] md:block ${
-                        complete ? "bg-sky-300/70" : "bg-white/10"
-                      }`}
-                    />
-                  )}
-
-                  <div className="relative z-10 rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black ${
-                        complete
-                          ? "border-sky-300/60 bg-sky-300/15 text-sky-200"
-                          : "border-white/10 bg-white/[0.04] text-white/30"
-                      }`}
-                    >
-                      {complete ? "✓" : index + 1}
-                    </div>
-
-                    <p className="mt-3 text-sm font-black text-white">
-                      {step.label}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <InfoCard label="Status" value={project.status || "Not set"} />
+          <InfoCard
+            label="Scheduled"
+            value={formatDate(project.scheduledAt)}
+          />
+          <InfoCard
+            label="Published"
+            value={formatDate(project.publishedAt)}
+          />
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_380px]">
@@ -242,10 +194,21 @@ export default async function PartnerProjectDetailsPage({
                 value={project.maturityRating || "Not set"}
               />
               <Detail
-                label="Partner / Filmmaker"
+                label="Creator"
                 value={project.creatorName || "Not set"}
               />
-              <Detail label="Company" value={project.creatorCompany || "Not set"} />
+              <Detail
+                label="Creator Email"
+                value={project.creatorEmail || "Not set"}
+              />
+              <Detail
+                label="Company"
+                value={project.creatorCompany || "Not set"}
+              />
+              <Detail
+                label="Revenue Share"
+                value={`${project.revenueShare ?? 50}%`}
+              />
             </div>
           </div>
 
@@ -257,15 +220,29 @@ export default async function PartnerProjectDetailsPage({
 
               <div className="mt-5">
                 <span
-                  className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] capitalize ${statusClass(
+                  className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] capitalize ${contractClass(
                     latestContract?.status
                   )}`}
                 >
-                  {statusLabel(latestContract?.status)}
+                  {latestContract
+                    ? latestContract.status.replaceAll("_", " ")
+                    : "No contract"}
                 </span>
               </div>
 
               <div className="mt-5 grid gap-3">
+                <Detail
+                  label="Rights Owner"
+                  value={latestContract?.rightsOwner || "Not set"}
+                />
+                <Detail
+                  label="Rights Contact"
+                  value={latestContract?.rightsContact || "Not set"}
+                />
+                <Detail
+                  label="License Type"
+                  value={latestContract?.licenseType || "Not set"}
+                />
                 <Detail
                   label="License Start"
                   value={formatDate(latestContract?.licenseStartDate)}
@@ -274,51 +251,31 @@ export default async function PartnerProjectDetailsPage({
                   label="License End"
                   value={formatDate(latestContract?.licenseEndDate)}
                 />
-                <Detail
-                  label="Revenue Share"
-                  value={
-                    latestContract
-                      ? `${latestContract.revenueShare ?? 50}%`
-                      : "Not set"
-                  }
-                />
               </div>
 
               {latestContract ? (
                 <Link
-                  href={`/partner/contracts/${latestContract.id}`}
+                  href={`/admin/contracts/${latestContract.id}`}
                   className="mt-5 block rounded-xl bg-sky-400 px-5 py-3 text-center text-xs font-black text-black transition hover:bg-sky-300"
                 >
                   Open Contract
                 </Link>
               ) : (
-                <p className="mt-5 text-sm leading-6 text-white/50">
-                  No contract has been sent for this title yet.
-                </p>
+                <Link
+                  href="/admin/contracts"
+                  className="mt-5 block rounded-xl border border-white/10 bg-white/[0.06] px-5 py-3 text-center text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200"
+                >
+                  Create Contract
+                </Link>
               )}
             </div>
 
             <div className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-7">
               <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300">
-                Participation
+                Performance
               </p>
 
-              <h2 className="mt-4 text-3xl font-black">Coming Soon</h2>
-
-              <p className="mt-4 text-sm leading-7 text-white/58">
-                Participation earnings will appear here when SourceTV activates
-                payout cycles. Public view counts and platform revenue metrics
-                are not shown in the partner portal.
-              </p>
-
-              <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
-                  Recognition
-                </p>
-                <p className="mt-2 text-lg font-black text-white">
-                  {recognition(project)}
-                </p>
-              </div>
+              <Detail label="Views" value={`${project.views ?? 0}`} />
             </div>
           </aside>
         </section>
@@ -338,7 +295,14 @@ export default async function PartnerProjectDetailsPage({
           <div className="mt-6 grid gap-5 md:grid-cols-3">
             <AssetCard title="Poster / Thumbnail" url={project.thumbnailUrl} />
             <AssetCard title="Backdrop" url={project.backdropUrl} />
+            <AssetCard title="Card Art" url={project.cardArtUrl} />
+            <AssetCard title="Title Logo" url={project.titleLogoUrl} />
             <AssetCard title="Trailer" url={project.trailerUrl} isLink />
+            <AssetCard
+              title="Main Video"
+              url={project.mainVideoUrl || project.videoUrl}
+              isLink
+            />
           </div>
         </section>
       </div>
@@ -354,14 +318,24 @@ function Badge({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+function InfoCard({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
   return (
     <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl">
       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
         {label}
       </p>
 
-      <p className="mt-3 text-lg font-black text-white">{value}</p>
+      <p className={`mt-3 text-lg font-black ${valueClass || "text-white"}`}>
+        {value}
+      </p>
     </div>
   );
 }
