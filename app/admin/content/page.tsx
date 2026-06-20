@@ -668,6 +668,13 @@ const filteredContent = useMemo(() => {
                             Preview
                           </Link>
 
+<Link
+  href={`/admin/content/${item.id}`}
+  className="rounded-md bg-sky-400 px-4 py-2 text-center text-xs font-black text-black transition hover:bg-sky-300"
+>
+  Review
+</Link>
+
                           <Link
                             href={`/admin/content/${item.id}/edit`}
                             className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
