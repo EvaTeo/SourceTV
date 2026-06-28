@@ -16,7 +16,6 @@ export default async function PartnerDashboardPage() {
 
   return (
     <>
-      <PartnerHeader />
       <PartnerDashboardClient />
     </>
   );

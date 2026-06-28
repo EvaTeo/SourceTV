@@ -116,7 +116,6 @@ export default async function PartnerProjectDetailsPage({
 
   return (
   <>
-    <PartnerHeader />
     <main className="min-h-screen bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
       <div className="mx-auto max-w-7xl">
        

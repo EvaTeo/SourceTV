@@ -16,7 +16,6 @@ export default async function PartnerInboxPage() {
 
   return (
     <>
-      <PartnerHeader />
       <PartnerInboxClient />
     </>
   );

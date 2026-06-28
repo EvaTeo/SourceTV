@@ -60,7 +60,6 @@ redirect("/partner/apply");
 
 return (
   <>
-    <PartnerHeader />
     <main className="min-h-screen bg-black px-4 pb-28 pt-28 text-white md:px-10">
             <div className="mx-auto max-w-7xl">
         <section className="overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-8">

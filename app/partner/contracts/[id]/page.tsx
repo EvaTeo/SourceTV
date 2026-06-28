@@ -16,7 +16,6 @@ export default async function PartnerContractDetailPage() {
 
   return (
     <>
-      <PartnerHeader />
       <PartnerContractDetailClient />
     </>
   );

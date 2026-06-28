@@ -46,10 +46,12 @@ export default function Header() {
   const logoHref = isLanding ? "/" : "/browse";
 
   function isActive(href: string) {
-    if (href === "/admin") return pathname === "/admin";
-    if (href === "/browse") return pathname === "/browse";
-    return pathname.startsWith(href);
-  }
+  if (href === "/admin") return pathname === "/admin";
+  if (href === "/partner") return pathname === "/partner";
+  if (href === "/browse") return pathname === "/browse";
+
+  return pathname.startsWith(href);
+}
 
   function runSearch() {
     const cleanQuery = searchQuery.trim();
@@ -408,8 +410,8 @@ function HeaderLink({
       href={href}
       className={
         active
-          ? "text-sm font-black text-sky-300"
-          : "text-sm font-semibold text-white/68 transition hover:text-white"
+          ? "text-sm font-bold text-sky-300"
+          : "text-sm font-medium text-white/68 transition hover:text-white"
       }
     >
       {label}
