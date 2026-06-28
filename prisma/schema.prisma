@@ -29,8 +29,9 @@ model Profile {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  watchlist         Watchlist[]
+    watchlist         Watchlist[]
   continueWatching  ContinueWatching[]
+  adImpressions     AdImpression[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,12 +129,13 @@ model ProjectSubmission {
 
   views           Int       @default(0)
 
-  watchlist         Watchlist[]
+    watchlist         Watchlist[]
   continueWatching  ContinueWatching[]
   partnerMessages   PartnerMessage[]
   rightsContracts   RightsContract[]
+  adImpressions     AdImpression[]
 
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime @default(now())
   updatedAt       DateTime  @updatedAt
 }
 
@@ -236,4 +238,52 @@ model RightsContract {
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+model AdCampaign {
+  id          String   @id @default(cuid())
+
+  name        String
+  advertiser  String?
+  status      String   @default("draft")
+
+  placement   String   @default("pre_roll")
+  videoUrl    String?
+  clickUrl    String?
+  imageUrl    String?
+
+  skipAfterSeconds Int?
+  durationSeconds  Int?
+
+  startDate   DateTime?
+  endDate     DateTime?
+
+  budgetCents Int      @default(0)
+  cpmCents    Int      @default(1200)
+
+  impressions AdImpression[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AdImpression {
+  id          String   @id @default(cuid())
+
+  campaignId  String
+  campaign    AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  projectId   String?
+  project     ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  profileId   String?
+  profile     Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  placement   String
+  completed   Boolean  @default(false)
+  skipped     Boolean  @default(false)
+  clicked     Boolean  @default(false)
+
+  watchedSeconds Int    @default(0)
+
+  createdAt   DateTime @default(now())
 }

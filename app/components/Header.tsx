@@ -11,6 +11,7 @@ const adminLinks = [
   { label: "Applications", href: "/admin/partners" },
   { label: "Contracts", href: "/admin/contracts" },
   { label: "Rights", href: "/admin/rights" },
+  { label: "Ads", href: "/admin/ads" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Revenue", href: "/admin/revenue" },
 ];
