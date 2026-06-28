@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import LogoutButton from "./LogoutButton";
 
 const adminLinks = [
   { label: "Admin Home", href: "/admin" },
@@ -18,6 +19,7 @@ const partnerLinks = [
   { label: "Dashboard", href: "/partner" },
   { label: "Inbox", href: "/partner/inbox" },
   { label: "Contracts", href: "/partner/contracts" },
+  { label: "Revenue", href: "/partner/revenue" },
   { label: "Submit", href: "/creator/submit" },
 ];
 
@@ -46,12 +48,12 @@ export default function Header() {
   const logoHref = isLanding ? "/" : "/browse";
 
   function isActive(href: string) {
-  if (href === "/admin") return pathname === "/admin";
-  if (href === "/partner") return pathname === "/partner";
-  if (href === "/browse") return pathname === "/browse";
+    if (href === "/admin") return pathname === "/admin";
+    if (href === "/partner") return pathname === "/partner";
+    if (href === "/browse") return pathname === "/browse";
 
-  return pathname.startsWith(href);
-}
+    return pathname.startsWith(href);
+  }
 
   function runSearch() {
     const cleanQuery = searchQuery.trim();
@@ -111,11 +113,7 @@ export default function Header() {
                 active={pathname === "/browse"}
               />
 
-              <HeaderLink
-                href="/browse?type=Film"
-                label="Films"
-                active={false}
-              />
+              <HeaderLink href="/browse?type=Film" label="Films" active={false} />
 
               <HeaderLink
                 href="/browse?type=Series"
@@ -133,7 +131,9 @@ export default function Header() {
                 <button
                   onClick={() => setCategoriesOpen((value) => !value)}
                   className={`text-sm font-semibold transition ${
-                    categoriesOpen ? "text-sky-300" : "text-white/68 hover:text-white"
+                    categoriesOpen
+                      ? "text-sky-300"
+                      : "text-white/68 hover:text-white"
                   }`}
                 >
                   Categories
@@ -314,6 +314,8 @@ export default function Header() {
               </Link>
             </>
           )}
+
+          {(isAdmin || isPartner) && <LogoutButton />}
         </div>
 
         <button
@@ -389,6 +391,12 @@ export default function Header() {
                   close={() => setMobileOpen(false)}
                 />
               ))}
+
+            {(isAdmin || isPartner) && (
+              <div className="pt-2">
+                <LogoutButton />
+              </div>
+            )}
           </nav>
         </div>
       )}
