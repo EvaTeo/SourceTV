@@ -251,6 +251,9 @@ model AdCampaign {
   clickUrl    String?
   imageUrl    String?
 
+    adSource    String   @default("direct")
+  vastTagUrl  String?
+
   skipAfterSeconds Int?
   durationSeconds  Int?
 

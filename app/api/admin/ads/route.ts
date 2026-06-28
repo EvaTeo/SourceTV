@@ -49,6 +49,8 @@ export async function POST(req: Request) {
     const name = String(body.name || "").trim();
     const advertiser = String(body.advertiser || "").trim();
     const placement = String(body.placement || "pre_roll").trim();
+    const adSource = String(body.adSource || "direct").trim();
+    const vastTagUrl = String(body.vastTagUrl || "").trim();
     const videoUrl = String(body.videoUrl || "").trim();
     const clickUrl = String(body.clickUrl || "").trim();
     const imageUrl = String(body.imageUrl || "").trim();
@@ -60,11 +62,41 @@ export async function POST(req: Request) {
       );
     }
 
+    if (adSource !== "direct" && adSource !== "google") {
+      return NextResponse.json(
+        { error: "Ad source must be direct or google." },
+        { status: 400 }
+      );
+    }
+
+    if (adSource === "direct" && !videoUrl && placement !== "banner") {
+      return NextResponse.json(
+        { error: "Direct video ads need an Ad Video URL." },
+        { status: 400 }
+      );
+    }
+
+    if (adSource === "direct" && placement === "banner" && !imageUrl) {
+      return NextResponse.json(
+        { error: "Direct banner ads need an Image / Banner URL." },
+        { status: 400 }
+      );
+    }
+
+    if (adSource === "google" && !vastTagUrl) {
+      return NextResponse.json(
+        { error: "Google ads need a VAST tag URL." },
+        { status: 400 }
+      );
+    }
+
     const campaign = await prisma.adCampaign.create({
       data: {
         name,
         advertiser: advertiser || null,
         placement,
+        adSource,
+        vastTagUrl: vastTagUrl || null,
         videoUrl: videoUrl || null,
         clickUrl: clickUrl || null,
         imageUrl: imageUrl || null,

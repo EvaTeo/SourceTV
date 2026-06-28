@@ -8,6 +8,8 @@ type AdCampaign = {
   advertiser?: string | null;
   status: string;
   placement: string;
+  adSource: string;
+  vastTagUrl?: string | null;
   videoUrl?: string | null;
   clickUrl?: string | null;
   imageUrl?: string | null;
@@ -72,6 +74,8 @@ export default function AdminAdsPage() {
     name: "",
     advertiser: "",
     placement: "pre_roll",
+    adSource: "direct",
+    vastTagUrl: "",
     videoUrl: "",
     imageUrl: "",
     clickUrl: "",
@@ -126,6 +130,8 @@ export default function AdminAdsPage() {
           name: form.name,
           advertiser: form.advertiser,
           placement: form.placement,
+          adSource: form.adSource,
+          vastTagUrl: form.vastTagUrl,
           videoUrl: form.videoUrl,
           imageUrl: form.imageUrl,
           clickUrl: form.clickUrl,
@@ -149,6 +155,8 @@ export default function AdminAdsPage() {
         name: "",
         advertiser: "",
         placement: "pre_roll",
+        adSource: "direct",
+        vastTagUrl: "",
         videoUrl: "",
         imageUrl: "",
         clickUrl: "",
@@ -255,8 +263,8 @@ export default function AdminAdsPage() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/58 md:text-base">
-                Manage pre-roll, mid-roll, post-roll, and banner campaigns
-                before they are connected to the SourceTV player.
+                Manage SourceTV direct ads and Google/VAST ad campaigns for
+                pre-roll, mid-roll, post-roll, and banner placements.
               </p>
             </div>
 
@@ -316,6 +324,22 @@ export default function AdminAdsPage() {
               />
             </Field>
 
+            <Field label="Ad Source">
+              <select
+                value={form.adSource}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    adSource: event.target.value,
+                  }))
+                }
+                className="input"
+              >
+                <option value="direct">SourceTV Direct</option>
+                <option value="google">Google / VAST</option>
+              </select>
+            </Field>
+
             <Field label="Placement">
               <select
                 value={form.placement}
@@ -335,33 +359,51 @@ export default function AdminAdsPage() {
               </select>
             </Field>
 
-            <Field label="Ad Video URL">
-              <input
-                value={form.videoUrl}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    videoUrl: event.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="https://..."
-              />
-            </Field>
+            {form.adSource === "google" ? (
+              <Field label="Google / VAST Tag URL">
+                <input
+                  value={form.vastTagUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      vastTagUrl: event.target.value,
+                    }))
+                  }
+                  className="input"
+                  placeholder="https://pubads.g.doubleclick.net/gampad/ads?..."
+                />
+              </Field>
+            ) : (
+              <>
+                <Field label="Ad Video URL">
+                  <input
+                    value={form.videoUrl}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        videoUrl: event.target.value,
+                      }))
+                    }
+                    className="input"
+                    placeholder="https://..."
+                  />
+                </Field>
 
-            <Field label="Image / Banner URL">
-              <input
-                value={form.imageUrl}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    imageUrl: event.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="https://..."
-              />
-            </Field>
+                <Field label="Image / Banner URL">
+                  <input
+                    value={form.imageUrl}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        imageUrl: event.target.value,
+                      }))
+                    }
+                    className="input"
+                    placeholder="https://..."
+                  />
+                </Field>
+              </>
+            )}
 
             <Field label="Click URL">
               <input
@@ -503,6 +545,12 @@ export default function AdminAdsPage() {
                                 <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">
                                   {campaign.placement.replaceAll("_", " ")}
                                 </span>
+
+                                <span className="rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-200">
+                                  {campaign.adSource === "google"
+                                    ? "Google / VAST"
+                                    : "Direct"}
+                                </span>
                               </div>
 
                               <h3 className="mt-4 text-2xl font-black">
@@ -519,6 +567,13 @@ export default function AdminAdsPage() {
                                 Start: {formatDate(campaign.startDate)} • End:{" "}
                                 {formatDate(campaign.endDate)}
                               </p>
+
+                              {campaign.adSource === "google" &&
+                                campaign.vastTagUrl && (
+                                  <p className="mt-2 line-clamp-1 text-xs font-bold text-sky-200/65">
+                                    VAST: {campaign.vastTagUrl}
+                                  </p>
+                                )}
                             </div>
 
                             <select
