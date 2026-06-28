@@ -1,4 +1,3 @@
-import PartnerHeader from "@/app/components/PartnerHeader";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import PartnerDashboardClient from "./PartnerDashboardClient";
