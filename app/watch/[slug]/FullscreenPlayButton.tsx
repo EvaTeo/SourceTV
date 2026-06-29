@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SourceTVPlayer from "@/app/components/SourceTVPlayer";
+import PreRollAdGate from "@/app/components/PreRollAdGate";
 
 function CloseIcon() {
   return (
@@ -14,6 +15,32 @@ function CloseIcon() {
       <path d="M6.5 6.5 17.5 17.5" strokeLinecap="round" />
       <path d="M17.5 6.5 6.5 17.5" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function HandoffLoader() {
+  return (
+    <div className="flex aspect-video w-full items-center justify-center bg-black">
+      <div className="relative h-1 w-64 overflow-hidden rounded-full bg-white/10">
+        <div className="absolute inset-y-0 left-0 w-1/2 animate-[playerLoadSlide_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-sky-300 to-white shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
+      </div>
+
+      <style jsx>{`
+        @keyframes playerLoadSlide {
+          0% {
+            transform: translateX(-120%);
+          }
+
+          50% {
+            transform: translateX(80%);
+          }
+
+          100% {
+            transform: translateX(220%);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -33,13 +60,18 @@ export default function FullscreenPlayButton({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [adFinished, setAdFinished] = useState(false);
+  const [movieReady, setMovieReady] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(false);
+
   const playerWrapRef = useRef<HTMLDivElement>(null);
 
   async function openPlayer() {
     setOpen(true);
     setClosing(false);
     setShowPlayer(false);
+    setAdFinished(false);
+    setMovieReady(false);
     setChromeVisible(true);
 
     setTimeout(() => {
@@ -70,10 +102,21 @@ export default function FullscreenPlayButton({
 
       setOpen(false);
       setShowPlayer(false);
+      setAdFinished(false);
+      setMovieReady(false);
       setChromeVisible(false);
       setClosing(false);
     }, 450);
   }
+
+  const finishAd = useCallback(() => {
+    setAdFinished(true);
+    setMovieReady(false);
+
+    setTimeout(() => {
+  setMovieReady(true);
+}, 150);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -132,16 +175,24 @@ export default function FullscreenPlayButton({
                 : "scale-[1.045] opacity-0 blur-md"
             }`}
           >
-            {showPlayer && (
-              <SourceTVPlayer
-                url={url}
-                poster={poster}
-                title={title}
-                slug={slug}
-                type={type}
-                autoPlay
-              />
-            )}
+            {showPlayer &&
+              (adFinished ? (
+                movieReady ? (
+                  <SourceTVPlayer
+                    key={`movie-${slug}-${open ? "open" : "closed"}`}
+                    url={url}
+                    poster={poster}
+                    title={title}
+                    slug={slug}
+                    type={type}
+                    autoPlay
+                  />
+                ) : (
+                  <HandoffLoader />
+                )
+              ) : (
+                <PreRollAdGate projectId={slug} onFinished={finishAd} />
+              ))}
           </div>
         </div>
       )}

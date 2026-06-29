@@ -3,27 +3,16 @@
 import Hls from "hls.js";
 import { useEffect, useRef, useState } from "react";
 
-type ActiveAd = {
-  id: string;
-  name: string;
-  placement: string;
-  videoUrl?: string | null;
-  clickUrl?: string | null;
-  skipAfterSeconds?: number | null;
-  durationSeconds?: number | null;
-};
-
 function getHlsUrl(url?: string | null) {
   if (!url) return "";
   if (url.includes("playlist.m3u8")) return url;
 
-  const match = url.match(/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
+  const match = url.match(/(?:embed|play)\/(\d+)\/([a-zA-Z0-9-]+)/);
   if (!match) return url;
 
-  const libraryId = match[1];
   const videoGuid = match[2];
 
-  return `https://vz-${libraryId}.b-cdn.net/${videoGuid}/playlist.m3u8`;
+  return `https://vz-ea77d4fd-c11.b-cdn.net/${videoGuid}/playlist.m3u8`;
 }
 
 function formatTime(seconds: number) {
@@ -44,16 +33,12 @@ function formatTime(seconds: number) {
 }
 
 function PlayPauseIcon({ playing }: { playing: boolean }) {
-  if (playing) {
-    return (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-        <rect x="6" y="4" width="4" height="16" rx="1" />
-        <rect x="14" y="4" width="4" height="16" rx="1" />
-      </svg>
-    );
-  }
-
-  return (
+  return playing ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </svg>
+  ) : (
     <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
       <path d="M8 5.8v12.4c0 .9 1 1.4 1.7.9l9.5-6.2c.7-.4.7-1.4 0-1.8L9.7 4.9C9 4.4 8 4.9 8 5.8z" />
     </svg>
@@ -70,7 +55,14 @@ function RewindIcon() {
     >
       <path d="M7.5 8H4V4.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4.4 8A8 8 0 1 1 4 16" strokeLinecap="round" />
-      <text x="9" y="15.5" fill="currentColor" stroke="none" fontSize="6" fontWeight="900">
+      <text
+        x="9"
+        y="15.5"
+        fill="currentColor"
+        stroke="none"
+        fontSize="6"
+        fontWeight="900"
+      >
         10
       </text>
     </svg>
@@ -87,7 +79,14 @@ function ForwardIcon() {
     >
       <path d="M16.5 8H20V4.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M19.6 8A8 8 0 1 0 20 16" strokeLinecap="round" />
-      <text x="9" y="15.5" fill="currentColor" stroke="none" fontSize="6" fontWeight="900">
+      <text
+        x="9"
+        y="15.5"
+        fill="currentColor"
+        stroke="none"
+        fontSize="6"
+        fontWeight="900"
+      >
         10
       </text>
     </svg>
@@ -119,9 +118,9 @@ function VolumeIcon({ muted }: { muted: boolean }) {
             strokeLinecap="round"
           />
           <path
-            d="M18.5 7.2c1.4 1.2 2.2 2.9 2.2 4.8s-.8 3.6-2.2 4.8"
-            strokeLinecap="round"
-          />
+  d="M18.5 7.2c1.4 1.2 2.2 2.9 2.2 4.8s-.8 3.6-2.2 4.8"
+  strokeLinecap="round"
+/>
         </>
       )}
     </svg>
@@ -164,12 +163,6 @@ export default function SourceTVPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const adTrackedRef = useRef(false);
-
-  const [activeAd, setActiveAd] = useState<ActiveAd | null>(null);
-  const [mode, setMode] = useState<"ad" | "content">("content");
-  const [adSecondsWatched, setAdSecondsWatched] = useState(0);
-  const [adCanSkip, setAdCanSkip] = useState(false);
 
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -183,84 +176,7 @@ export default function SourceTVPlayer({
   const [audioLanguage, setAudioLanguage] = useState("English");
   const [captions, setCaptions] = useState("Off");
 
-  const isAdPlaying = mode === "ad" && !!activeAd;
-  const playbackUrl = isAdPlaying ? activeAd?.videoUrl || "" : url;
-  const hlsUrl = getHlsUrl(playbackUrl);
-
-  async function loadActiveAd() {
-    try {
-      const res = await fetch("/api/ads/active", {
-        cache: "no-store",
-      });
-
-      const data = await res.json();
-
-      if (data?.id && data?.videoUrl) {
-        setActiveAd(data);
-        setMode("ad");
-        adTrackedRef.current = false;
-      }
-    } catch (error) {
-      console.error("LOAD ACTIVE AD ERROR:", error);
-      setMode("content");
-    }
-  }
-
-  async function trackAdImpression({
-    completed,
-    skipped,
-    clicked = false,
-  }: {
-    completed: boolean;
-    skipped: boolean;
-    clicked?: boolean;
-  }) {
-    if (!activeAd || adTrackedRef.current) return;
-
-    adTrackedRef.current = true;
-
-    try {
-      await fetch("/api/ads/impression", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          campaignId: activeAd.id,
-          projectId: slug || "",
-          placement: activeAd.placement || "pre_roll",
-          completed,
-          skipped,
-          clicked,
-          watchedSeconds: adSecondsWatched,
-        }),
-      });
-    } catch (error) {
-      console.error("TRACK AD IMPRESSION ERROR:", error);
-    }
-  }
-
-  async function finishAd({
-    completed,
-    skipped,
-  }: {
-    completed: boolean;
-    skipped: boolean;
-  }) {
-    await trackAdImpression({
-      completed,
-      skipped,
-    });
-
-    setMode("content");
-    setActiveAd(null);
-    setAdSecondsWatched(0);
-    setAdCanSkip(false);
-    setProgress(0);
-    setCurrentTime(0);
-    setDuration(0);
-    setLoading(true);
-  }
+  const hlsUrl = getHlsUrl(url);
 
   function showControls() {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -275,16 +191,10 @@ export default function SourceTVPlayer({
   }
 
   useEffect(() => {
-    if (autoPlay) {
-      loadActiveAd();
-    }
-  }, [autoPlay]);
-
-  useEffect(() => {
     function handleMouseMove(event: MouseEvent) {
       const nearBottom = event.clientY >= window.innerHeight - 230;
 
-      if (nearBottom || settingsOpen || isAdPlaying) {
+      if (nearBottom || settingsOpen) {
         showControls();
         return;
       }
@@ -300,7 +210,7 @@ export default function SourceTVPlayer({
       window.removeEventListener("mousemove", handleMouseMove);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
-  }, [settingsOpen, isAdPlaying]);
+  }, [settingsOpen]);
 
   useEffect(() => {
     function closeSettings(event: MouseEvent) {
@@ -329,18 +239,33 @@ export default function SourceTVPlayer({
     const video = videoRef.current;
     if (!video || !hlsUrl) return;
 
+    let cancelled = false;
+    let hls: Hls | null = null;
+
     setLoading(true);
+    setStarted(false);
+    setPlaying(false);
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+
+    const readyTimeout = setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setStarted(true);
+    }, 7000);
 
     async function tryAutoplay() {
       if (!autoPlay) return;
 
       const currentVideo = videoRef.current;
-      if (!currentVideo) return;
+      if (!currentVideo || cancelled) return;
 
       try {
         await currentVideo.play();
         setPlaying(true);
         setStarted(true);
+        setLoading(false);
       } catch {
         currentVideo.muted = true;
         setMuted(true);
@@ -349,46 +274,87 @@ export default function SourceTVPlayer({
           await currentVideo.play();
           setPlaying(true);
           setStarted(true);
+          setLoading(false);
         } catch {
           setPlaying(false);
+          setStarted(true);
+          setLoading(false);
         }
       }
     }
 
+    function markReady() {
+      if (cancelled) return;
+
+      clearTimeout(readyTimeout);
+      setLoading(false);
+      setStarted(true);
+const currentVideo = videoRef.current;
+setDuration(currentVideo?.duration || 0);
+      tryAutoplay();
+    }
+
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+
+    video.addEventListener("loadedmetadata", markReady);
+    video.addEventListener("loadeddata", markReady);
+    video.addEventListener("canplay", markReady);
+    video.addEventListener("canplaythrough", markReady);
+    video.addEventListener("playing", markReady);
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = hlsUrl;
       video.load();
-
-      const handleLoaded = () => {
-        setLoading(false);
-        tryAutoplay();
-      };
-
-      video.addEventListener("loadedmetadata", handleLoaded);
-
-      return () => {
-        video.removeEventListener("loadedmetadata", handleLoaded);
-      };
-    }
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
+    } else if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        maxBufferLength: 20,
+        backBufferLength: 10,
+      });
 
       hls.loadSource(hlsUrl);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoading(false);
-        tryAutoplay();
-      });
+      hls.on(Hls.Events.MANIFEST_PARSED, markReady);
+      hls.on(Hls.Events.LEVEL_LOADED, markReady);
+      hls.on(Hls.Events.BUFFER_APPENDED, markReady);
 
-      return () => hls.destroy();
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("SOURCE TV HLS ERROR:", data);
+
+        if (data.fatal) {
+          clearTimeout(readyTimeout);
+          setLoading(false);
+          setStarted(true);
+        }
+      });
+    } else {
+      clearTimeout(readyTimeout);
+      setLoading(false);
+      setStarted(true);
     }
+
+    return () => {
+      cancelled = true;
+      clearTimeout(readyTimeout);
+
+      video.removeEventListener("loadedmetadata", markReady);
+      video.removeEventListener("loadeddata", markReady);
+      video.removeEventListener("canplay", markReady);
+      video.removeEventListener("canplaythrough", markReady);
+      video.removeEventListener("playing", markReady);
+
+      if (hls) {
+        hls.destroy();
+      }
+    };
   }, [hlsUrl, autoPlay]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !slug || isAdPlaying) return;
+    if (!video || !slug) return;
 
     const activeProfile = JSON.parse(
       localStorage.getItem("sourcetv_active_profile") || '{"id":"main"}'
@@ -402,7 +368,7 @@ export default function SourceTVPlayer({
       video.currentTime = oldItem.currentTime;
       setCurrentTime(oldItem.currentTime);
     }
-  }, [slug, isAdPlaying]);
+  }, [slug]);
 
   function saveProgress() {
     const video = videoRef.current;
@@ -413,17 +379,6 @@ export default function SourceTVPlayer({
     setProgress(percent);
     setCurrentTime(video.currentTime);
     setDuration(video.duration);
-
-    if (isAdPlaying) {
-      const watched = Math.floor(video.currentTime);
-      setAdSecondsWatched(watched);
-
-      if (watched >= (activeAd?.skipAfterSeconds ?? 5)) {
-        setAdCanSkip(true);
-      }
-
-      return;
-    }
 
     if (!slug || !title) return;
 
@@ -472,18 +427,16 @@ export default function SourceTVPlayer({
     }
   }
 
-  function seek(e: React.MouseEvent<HTMLDivElement>) {
-    if (isAdPlaying) return;
-
+  function seek(event: React.MouseEvent<HTMLDivElement>) {
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
     showControls();
 
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
     const percent = Math.min(
       1,
-      Math.max(0, (e.clientX - rect.left) / rect.width)
+      Math.max(0, (event.clientX - rect.left) / rect.width)
     );
 
     video.currentTime = percent * video.duration;
@@ -491,8 +444,6 @@ export default function SourceTVPlayer({
   }
 
   function skip(seconds: number) {
-    if (isAdPlaying) return;
-
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
@@ -516,18 +467,6 @@ export default function SourceTVPlayer({
     setMuted(video.muted);
   }
 
-  async function clickAd() {
-    if (!activeAd?.clickUrl) return;
-
-    await trackAdImpression({
-      completed: false,
-      skipped: false,
-      clicked: true,
-    });
-
-    window.open(activeAd.clickUrl, "_blank", "noopener,noreferrer");
-  }
-
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-black">
       <video
@@ -540,66 +479,22 @@ export default function SourceTVPlayer({
           setMuted(video.muted);
         }}
         onTimeUpdate={saveProgress}
-        onEnded={() => {
-          if (isAdPlaying) {
-            finishAd({
-              completed: true,
-              skipped: false,
-            });
-          }
-        }}
         onWaiting={() => setLoading(true)}
         onCanPlay={() => setLoading(false)}
         onPlay={() => {
           setPlaying(true);
           setStarted(true);
+          setLoading(false);
         }}
         onPause={() => setPlaying(false)}
-        onClick={isAdPlaying ? clickAd : togglePlay}
+        onClick={togglePlay}
         className={`h-full w-full bg-black object-contain transition-opacity duration-500 ${
           started || !autoPlay ? "opacity-100" : "opacity-0"
         }`}
         playsInline
         autoPlay={autoPlay}
-        poster={isAdPlaying ? undefined : poster || undefined}
+        poster={poster || undefined}
       />
-
-      {isAdPlaying && (
-        <div className="pointer-events-none absolute left-4 top-4 z-30 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/75 backdrop-blur-xl md:left-7 md:top-6">
-          Advertisement
-        </div>
-      )}
-
-      {isAdPlaying && activeAd?.clickUrl && (
-        <button
-          type="button"
-          onClick={clickAd}
-          className="absolute bottom-28 left-4 z-30 rounded-full border border-sky-300/35 bg-sky-300/10 px-4 py-2 text-xs font-black text-sky-100 backdrop-blur-xl transition hover:bg-sky-300 hover:text-black md:left-10"
-        >
-          Learn More
-        </button>
-      )}
-
-      {isAdPlaying && (
-        <button
-          type="button"
-          disabled={!adCanSkip}
-          onClick={() =>
-            finishAd({
-              completed: false,
-              skipped: true,
-            })
-          }
-          className="absolute bottom-28 right-4 z-30 rounded-full border border-white/15 bg-black/65 px-5 py-2.5 text-xs font-black text-white/80 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-45 md:right-10"
-        >
-          {adCanSkip
-            ? "Skip Ad"
-            : `Skip in ${Math.max(
-                0,
-                (activeAd?.skipAfterSeconds ?? 5) - adSecondsWatched
-              )}`}
-        </button>
-      )}
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
@@ -611,7 +506,7 @@ export default function SourceTVPlayer({
 
       <div
         className={`absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/88 via-black/42 to-transparent px-4 pb-5 pt-32 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] md:px-10 md:pb-8 ${
-          controlsVisible || settingsOpen || isAdPlaying
+          controlsVisible || settingsOpen
             ? "translate-y-0 opacity-100"
             : "translate-y-20 opacity-0"
         }`}
@@ -619,11 +514,11 @@ export default function SourceTVPlayer({
         <div className="mb-5 flex items-end justify-between gap-6">
           <div className="min-w-0">
             <p className="line-clamp-1 text-base font-black tracking-tight text-white md:text-xl">
-              {isAdPlaying ? activeAd?.name || "Advertisement" : title || "SourceTV"}
+              {title || "SourceTV"}
             </p>
 
             <p className="mt-1 line-clamp-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/42 md:text-xs">
-              {isAdPlaying ? "Sponsored" : type ? `${type}` : "Now Playing"}
+              {type ? `${type}` : "Now Playing"}
             </p>
           </div>
 
@@ -635,9 +530,7 @@ export default function SourceTVPlayer({
         <div
           onClick={seek}
           onMouseMove={showControls}
-          className={`group/progress relative h-[3px] overflow-visible rounded-full bg-white/12 transition-all duration-300 hover:h-[8px] ${
-            isAdPlaying ? "cursor-default" : "cursor-pointer"
-          }`}
+          className="group/progress relative h-[3px] cursor-pointer overflow-visible rounded-full bg-white/12 transition-all duration-300 hover:h-[8px]"
         >
           <div
             className="relative h-full rounded-full bg-gradient-to-r from-sky-700 via-sky-300 to-white shadow-[0_0_24px_rgba(56,189,248,0.8)] transition-[width] duration-150 ease-linear"
@@ -645,9 +538,7 @@ export default function SourceTVPlayer({
           >
             <span className="absolute inset-y-0 right-0 w-16 translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-white/85 to-transparent opacity-90 blur-[2px]" />
 
-            {!isAdPlaying && (
-              <span className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full bg-white opacity-0 shadow-[0_0_22px_rgba(255,255,255,0.95)] transition group-hover/progress:opacity-100" />
-            )}
+            <span className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full bg-white opacity-0 shadow-[0_0_22px_rgba(255,255,255,0.95)] transition group-hover/progress:opacity-100" />
           </div>
         </div>
 
@@ -663,8 +554,7 @@ export default function SourceTVPlayer({
 
             <button
               onClick={() => skip(-10)}
-              disabled={isAdPlaying}
-              className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-30 md:flex"
+              className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 md:flex"
               aria-label="Rewind 10 seconds"
             >
               <RewindIcon />
@@ -672,8 +562,7 @@ export default function SourceTVPlayer({
 
             <button
               onClick={() => skip(10)}
-              disabled={isAdPlaying}
-              className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-30 md:flex"
+              className="hidden h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100 md:flex"
               aria-label="Forward 10 seconds"
             >
               <ForwardIcon />
@@ -693,79 +582,77 @@ export default function SourceTVPlayer({
               {formatTime(currentTime)} / {formatTime(duration)}
             </div>
 
-            {!isAdPlaying && (
-              <div ref={settingsRef} className="relative">
-                <button
-                  onClick={() => {
-                    setSettingsOpen((value) => !value);
-                    showControls();
-                  }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
-                  aria-label="Audio and accessibility settings"
-                >
-                  <SettingsIcon />
-                </button>
+            <div ref={settingsRef} className="relative">
+              <button
+                onClick={() => {
+                  setSettingsOpen((value) => !value);
+                  showControls();
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.045] text-white/85 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
+                aria-label="Audio and accessibility settings"
+              >
+                <SettingsIcon />
+              </button>
 
-                {settingsOpen && (
-                  <div className="absolute bottom-full right-0 mb-4 w-80 overflow-hidden rounded-[1.4rem] border border-white/10 bg-black/88 p-4 shadow-[0_24px_90px_rgba(0,0,0,0.8)] backdrop-blur-2xl animate-[playerMenuIn_180ms_ease-out]">
-                    <div className="mb-5">
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
-                        Audio Language
-                      </p>
+              {settingsOpen && (
+                <div className="absolute bottom-full right-0 mb-4 w-80 overflow-hidden rounded-[1.4rem] border border-white/10 bg-black/88 p-4 shadow-[0_24px_90px_rgba(0,0,0,0.8)] backdrop-blur-2xl animate-[playerMenuIn_180ms_ease-out]">
+                  <div className="mb-5">
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                      Audio Language
+                    </p>
 
-                      <div className="grid gap-1">
-                        {["English", "Spanish", "Original"].map((language) => (
-                          <button
-                            key={language}
-                            onClick={() => {
-                              setAudioLanguage(language);
-                              showControls();
-                            }}
-                            className={`rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
-                              audioLanguage === language
-                                ? "bg-sky-400 text-black shadow-[0_0_22px_rgba(56,189,248,0.28)]"
-                                : "text-white/70 hover:bg-white/[0.07] hover:text-white"
-                            }`}
-                          >
-                            {language}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
-                        Accessibility
-                      </p>
-
-                      <div className="grid gap-1">
-                        {[
-                          "Off",
-                          "English CC",
-                          "Spanish CC",
-                          "Audio Description",
-                        ].map((option) => (
-                          <button
-                            key={option}
-                            onClick={() => {
-                              setCaptions(option);
-                              showControls();
-                            }}
-                            className={`rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
-                              captions === option
-                                ? "bg-sky-400 text-black shadow-[0_0_22px_rgba(56,189,248,0.28)]"
-                                : "text-white/70 hover:bg-white/[0.07] hover:text-white"
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="grid gap-1">
+                      {["English", "Spanish", "Original"].map((language) => (
+                        <button
+                          key={language}
+                          onClick={() => {
+                            setAudioLanguage(language);
+                            showControls();
+                          }}
+                          className={`rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
+                            audioLanguage === language
+                              ? "bg-sky-400 text-black shadow-[0_0_22px_rgba(56,189,248,0.28)]"
+                              : "text-white/70 hover:bg-white/[0.07] hover:text-white"
+                          }`}
+                        >
+                          {language}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  <div>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                      Accessibility
+                    </p>
+
+                    <div className="grid gap-1">
+                      {[
+                        "Off",
+                        "English CC",
+                        "Spanish CC",
+                        "Audio Description",
+                      ].map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            setCaptions(option);
+                            showControls();
+                          }}
+                          className={`rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
+                            captions === option
+                              ? "bg-sky-400 text-black shadow-[0_0_22px_rgba(56,189,248,0.28)]"
+                              : "text-white/70 hover:bg-white/[0.07] hover:text-white"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
