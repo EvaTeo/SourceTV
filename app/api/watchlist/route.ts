@@ -51,8 +51,11 @@ export async function GET() {
         genre: item.project.genre,
         thumbnailUrl: item.project.thumbnailUrl,
         backdropUrl: item.project.backdropUrl,
+        trailerUrl: item.project.trailerUrl,
         maturityRating: item.project.maturityRating,
         runtime: item.project.runtime,
+        creatorName: item.project.creatorName,
+        recommendationWeight: item.recommendationWeight,
       }))
     );
   } catch (error: any) {
@@ -74,7 +77,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not logged in" }, { status: 401 });
     }
 
-    const { projectId } = await req.json();
+    const body = await req.json();
+
+    const projectId = String(body.projectId || "").trim();
+    const recommendationWeight = Number(body.recommendationWeight || 5);
 
     if (!projectId) {
       return NextResponse.json(
@@ -85,6 +91,24 @@ export async function POST(req: Request) {
 
     const profile = await getOrCreateProfile(user.id);
 
+    const project = await prisma.projectSubmission.findUnique({
+      where: {
+        id: projectId,
+      },
+      select: {
+        id: true,
+        genre: true,
+        creatorName: true,
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      );
+    }
+
     await prisma.watchlist.upsert({
       where: {
         profileId_projectId: {
@@ -92,10 +116,50 @@ export async function POST(req: Request) {
           projectId,
         },
       },
-      update: {},
+      update: {
+        recommendationWeight: Number.isNaN(recommendationWeight)
+          ? 5
+          : recommendationWeight,
+      },
       create: {
         profileId: profile.id,
         projectId,
+        recommendationWeight: Number.isNaN(recommendationWeight)
+          ? 5
+          : recommendationWeight,
+      },
+    });
+
+    const watchlist = await prisma.watchlist.findMany({
+      where: {
+        profileId: profile.id,
+      },
+      include: {
+        project: {
+          select: {
+            genre: true,
+            creatorName: true,
+          },
+        },
+      },
+    });
+
+    const genres = watchlist
+      .map((item) => item.project.genre)
+      .filter(Boolean) as string[];
+
+    const creators = watchlist
+      .map((item) => item.project.creatorName)
+      .filter(Boolean) as string[];
+
+    await prisma.profile.update({
+      where: {
+        id: profile.id,
+      },
+      data: {
+        favoriteGenres: JSON.stringify(genres),
+        favoriteCreators: JSON.stringify(creators),
+        lastRecommendationRefresh: new Date(),
       },
     });
 
@@ -119,7 +183,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Not logged in" }, { status: 401 });
     }
 
-    const { projectId } = await req.json();
+    const body = await req.json();
+    const projectId = String(body.projectId || "").trim();
 
     if (!projectId) {
       return NextResponse.json(
@@ -134,6 +199,39 @@ export async function DELETE(req: Request) {
       where: {
         profileId: profile.id,
         projectId,
+      },
+    });
+
+    const watchlist = await prisma.watchlist.findMany({
+      where: {
+        profileId: profile.id,
+      },
+      include: {
+        project: {
+          select: {
+            genre: true,
+            creatorName: true,
+          },
+        },
+      },
+    });
+
+    const genres = watchlist
+      .map((item) => item.project.genre)
+      .filter(Boolean) as string[];
+
+    const creators = watchlist
+      .map((item) => item.project.creatorName)
+      .filter(Boolean) as string[];
+
+    await prisma.profile.update({
+      where: {
+        id: profile.id,
+      },
+      data: {
+        favoriteGenres: JSON.stringify(genres),
+        favoriteCreators: JSON.stringify(creators),
+        lastRecommendationRefresh: new Date(),
       },
     });
 

@@ -1,15 +1,25 @@
 "use client";
 
 import Hls from "hls.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ActiveAd = {
   id: string;
   name: string;
+  adSource?: string | null;
+  adType?: string | null;
   placement: string;
   videoUrl?: string | null;
+  vastTagUrl?: string | null;
   clickUrl?: string | null;
   skipAfterSeconds?: number | null;
+  canSkip?: boolean;
+  isHouseAd?: boolean;
+  isGoogleAd?: boolean;
+};
+
+type SubscriptionStatus = {
+  isPremium: boolean;
 };
 
 function getHlsUrl(url?: string | null) {
@@ -19,10 +29,13 @@ function getHlsUrl(url?: string | null) {
   const match = url.match(/(?:embed|play)\/(\d+)\/([a-zA-Z0-9-]+)/);
   if (!match) return url;
 
-  const libraryId = match[1];
-  const videoGuid = match[2];
+  return `https://vz-${match[1]}.b-cdn.net/${match[2]}/playlist.m3u8`;
+}
 
-  return `https://vz-${libraryId}.b-cdn.net/${videoGuid}/playlist.m3u8`;
+function getAdLabel(ad: ActiveAd) {
+  if (ad.isHouseAd || ad.adType === "house") return "SourceTV";
+  if (ad.adType === "sponsor") return "Sponsored";
+  return "Advertisement";
 }
 
 export default function PreRollAdGate({
@@ -34,63 +47,99 @@ export default function PreRollAdGate({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const trackedRef = useRef(false);
+  const finishedRef = useRef(false);
+  const hlsRef = useRef<Hls | null>(null);
+  const secondsWatchedRef = useRef(0);
+  const onFinishedRef = useRef(onFinished);
 
   const [ad, setAd] = useState<ActiveAd | null>(null);
   const [loading, setLoading] = useState(true);
   const [secondsWatched, setSecondsWatched] = useState(0);
-  const [canSkip, setCanSkip] = useState(false);
+  const [skipReady, setSkipReady] = useState(false);
 
-  async function trackAd({
-    completed,
-    skipped,
-    clicked = false,
-  }: {
-    completed: boolean;
-    skipped: boolean;
-    clicked?: boolean;
-  }) {
-    if (!ad || trackedRef.current) return;
+  useEffect(() => {
+    onFinishedRef.current = onFinished;
+  }, [onFinished]);
 
-    trackedRef.current = true;
+  const cleanupVideo = useCallback(() => {
+    const video = videoRef.current;
 
-    try {
-      await fetch("/api/ads/impression", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          campaignId: ad.id,
-          projectId: projectId || "",
-          placement: ad.placement || "pre_roll",
-          completed,
-          skipped,
-          clicked,
-          watchedSeconds: secondsWatched,
-        }),
-      });
-    } catch (error) {
-      console.error("TRACK AD ERROR:", error);
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
     }
-  }
 
-  async function finishAd(completed: boolean, skipped: boolean) {
-  const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+  }, []);
 
-  if (video) {
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-  }
+  const trackAd = useCallback(
+    async ({
+      completed,
+      skipped,
+      clicked = false,
+      watchedSecondsOverride,
+    }: {
+      completed: boolean;
+      skipped: boolean;
+      clicked?: boolean;
+      watchedSecondsOverride?: number;
+    }) => {
+      if (!ad || trackedRef.current) return;
 
-  await trackAd({ completed, skipped });
+      trackedRef.current = true;
 
-  setTimeout(() => {
-  onFinished();
-}, 75);
-}
+      try {
+        await fetch("/api/ads/impression", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            campaignId: ad.id,
+            projectId: projectId || "",
+            placement: ad.placement || "pre_roll",
+            completed,
+            skipped,
+            clicked,
+            watchedSeconds:
+              watchedSecondsOverride ?? secondsWatchedRef.current,
+          }),
+        });
+      } catch (error) {
+        console.error("TRACK AD ERROR:", error);
+      }
+    },
+    [ad, projectId]
+  );
 
-  async function clickAd() {
+  const finishAd = useCallback(
+    async (completed: boolean, skipped: boolean) => {
+      if (finishedRef.current) return;
+
+      finishedRef.current = true;
+
+      const watched = Math.floor(
+        videoRef.current?.currentTime || secondsWatchedRef.current
+      );
+
+      cleanupVideo();
+
+      await trackAd({
+        completed,
+        skipped,
+        watchedSecondsOverride: watched,
+      });
+
+      setTimeout(() => {
+        onFinishedRef.current();
+      }, 75);
+    },
+    [cleanupVideo, trackAd]
+  );
+
+  const clickAd = useCallback(async () => {
     if (!ad?.clickUrl) return;
 
     await trackAd({
@@ -100,30 +149,72 @@ export default function PreRollAdGate({
     });
 
     window.open(ad.clickUrl, "_blank", "noopener,noreferrer");
-  }
+  }, [ad, trackAd]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadAd() {
       try {
-        const res = await fetch("/api/ads/active", {
+        setLoading(true);
+
+        let isPremium = false;
+
+        try {
+          const subscriptionRes = await fetch("/api/stripe/subscription", {
+            cache: "no-store",
+          });
+
+          const subscription =
+            (await subscriptionRes.json()) as SubscriptionStatus;
+
+          isPremium = subscription?.isPremium === true;
+        } catch (error) {
+          console.error("LOAD SUBSCRIPTION FOR AD ERROR:", error);
+        }
+
+        const params = new URLSearchParams({
+          placement: "pre_roll",
+          premium: String(isPremium),
+        });
+
+        if (projectId) {
+          params.set("projectId", projectId);
+        }
+
+        const res = await fetch(`/api/ads/active?${params.toString()}`, {
           cache: "no-store",
         });
 
-        const data = await res.json();
+        const data = (await res.json()) as ActiveAd | null;
 
         if (cancelled) return;
 
-        if (!data?.id || !data?.videoUrl) {
-          onFinished();
+        if (!data?.id) {
+          onFinishedRef.current();
           return;
         }
 
+        const creativeUrl =
+          data.adSource === "google" ? data.vastTagUrl : data.videoUrl;
+
+        if (!creativeUrl) {
+          onFinishedRef.current();
+          return;
+        }
+
+        trackedRef.current = false;
+        finishedRef.current = false;
+        secondsWatchedRef.current = 0;
+        setSecondsWatched(0);
+        setSkipReady(false);
         setAd(data);
       } catch (error) {
         console.error("LOAD PREROLL AD ERROR:", error);
-        onFinished();
+
+        if (!cancelled) {
+          onFinishedRef.current();
+        }
       }
     }
 
@@ -132,27 +223,27 @@ export default function PreRollAdGate({
     return () => {
       cancelled = true;
     };
-  }, [onFinished]);
+  }, [projectId]);
 
   useEffect(() => {
-    if (!ad?.videoUrl) return;
+    const creativeUrl = ad?.adSource === "google" ? ad?.vastTagUrl : ad?.videoUrl;
+
+    if (!ad || !creativeUrl) return;
 
     const video = videoRef.current;
     if (!video) return;
 
-    const hlsUrl = getHlsUrl(ad.videoUrl);
+    const hlsUrl = getHlsUrl(creativeUrl);
 
     if (!hlsUrl) {
-      onFinished();
+      onFinishedRef.current();
       return;
     }
 
     let cancelled = false;
-    let hls: Hls | null = null;
 
-    const failTimer = setTimeout(() => {
-      if (cancelled) return;
-      finishAd(false, true);
+    const failTimer = window.setTimeout(() => {
+      if (!cancelled) finishAd(false, true);
     }, 9000);
 
     async function tryPlay() {
@@ -163,12 +254,14 @@ export default function PreRollAdGate({
 
       try {
         await currentVideo.play();
+        window.clearTimeout(failTimer);
         setLoading(false);
       } catch {
         currentVideo.muted = true;
 
         try {
           await currentVideo.play();
+          window.clearTimeout(failTimer);
           setLoading(false);
         } catch {
           finishAd(false, true);
@@ -176,11 +269,11 @@ export default function PreRollAdGate({
       }
     }
 
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
+    cleanupVideo();
+
     video.muted = false;
     video.playsInline = true;
+    video.controls = false;
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = hlsUrl;
@@ -191,18 +284,19 @@ export default function PreRollAdGate({
 
       return () => {
         cancelled = true;
-        clearTimeout(failTimer);
+        window.clearTimeout(failTimer);
         video.removeEventListener("canplay", tryPlay);
         video.removeEventListener("loadedmetadata", tryPlay);
       };
     }
 
     if (Hls.isSupported()) {
-      hls = new Hls({
+      const hls = new Hls({
         enableWorker: true,
         maxBufferLength: 12,
       });
 
+      hlsRef.current = hls;
       hls.loadSource(hlsUrl);
       hls.attachMedia(video);
 
@@ -214,18 +308,25 @@ export default function PreRollAdGate({
         }
       });
     } else {
-      onFinished();
+      onFinishedRef.current();
     }
 
     return () => {
       cancelled = true;
-      clearTimeout(failTimer);
+      window.clearTimeout(failTimer);
 
-      if (hls) {
-        hls.destroy();
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
     };
-  }, [ad]);
+  }, [ad, cleanupVideo, finishAd]);
+
+  useEffect(() => {
+    return () => {
+      cleanupVideo();
+    };
+  }, [cleanupVideo]);
 
   if (!ad) {
     return (
@@ -233,9 +334,30 @@ export default function PreRollAdGate({
         <div className="relative h-1 w-64 overflow-hidden rounded-full bg-white/10">
           <div className="absolute inset-y-0 left-0 w-1/2 animate-[playerLoadSlide_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-sky-300 to-white shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
         </div>
+
+        <style jsx>{`
+          @keyframes playerLoadSlide {
+            0% {
+              transform: translateX(-120%);
+            }
+
+            50% {
+              transform: translateX(80%);
+            }
+
+            100% {
+              transform: translateX(220%);
+            }
+          }
+        `}</style>
       </div>
     );
   }
+
+  const skipAfterSeconds = ad.skipAfterSeconds ?? 5;
+  const backendAllowsSkip = ad.canSkip === true;
+  const showSkipButton = !ad.isHouseAd && backendAllowsSkip;
+  const remainingSkipSeconds = Math.max(0, skipAfterSeconds - secondsWatched);
 
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-black">
@@ -246,10 +368,12 @@ export default function PreRollAdGate({
           if (!video) return;
 
           const watched = Math.floor(video.currentTime);
+
+          secondsWatchedRef.current = watched;
           setSecondsWatched(watched);
 
-          if (watched >= (ad.skipAfterSeconds ?? 5)) {
-            setCanSkip(true);
+          if (backendAllowsSkip && watched >= skipAfterSeconds) {
+            setSkipReady(true);
           }
         }}
         onEnded={() => finishAd(true, false)}
@@ -259,7 +383,7 @@ export default function PreRollAdGate({
       />
 
       <div className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/75 backdrop-blur-xl md:left-7 md:top-6">
-        Advertisement
+        {getAdLabel(ad)}
       </div>
 
       {loading && (
@@ -280,16 +404,20 @@ export default function PreRollAdGate({
         </button>
       )}
 
-      <button
-        type="button"
-        disabled={!canSkip}
-        onClick={() => finishAd(false, true)}
-        className="absolute bottom-8 right-4 z-20 rounded-full border border-white/15 bg-black/65 px-5 py-2.5 text-xs font-black text-white/80 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-45 md:right-10"
-      >
-        {canSkip
-          ? "Skip Ad"
-          : `Skip in ${Math.max(0, (ad.skipAfterSeconds ?? 5) - secondsWatched)}`}
-      </button>
+      {showSkipButton ? (
+        <button
+          type="button"
+          disabled={!skipReady}
+          onClick={() => finishAd(false, true)}
+          className="absolute bottom-8 right-4 z-20 rounded-full border border-white/15 bg-black/65 px-5 py-2.5 text-xs font-black text-white/80 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-45 md:right-10"
+        >
+          {skipReady ? "Skip Ad" : `Skip in ${remainingSkipSeconds}`}
+        </button>
+      ) : (
+        <div className="absolute bottom-8 right-4 z-20 rounded-full border border-white/10 bg-black/55 px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-white/50 backdrop-blur-xl md:right-10">
+          {ad.isHouseAd ? "SourceTV Preview" : "Ad Playing"}
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes playerLoadSlide {

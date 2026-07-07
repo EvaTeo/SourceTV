@@ -1,6 +1,13 @@
-import { prisma } from "@/app/lib/prisma";
 import { getCurrentUser } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
+
+type CreatorApplyUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+};
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +29,14 @@ export async function POST(req: Request) {
       );
     }
 
-    let user = currentUser;
+    let user: CreatorApplyUser | null = currentUser
+      ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.role,
+        }
+      : null;
 
     if (!user) {
       user = await prisma.user.findUnique({

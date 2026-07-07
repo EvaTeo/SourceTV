@@ -14,6 +14,8 @@ const adminLinks = [
   { label: "Ads", href: "/admin/ads" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Revenue", href: "/admin/revenue" },
+  { label: "Users", href: "/admin/users" },
+  { label: "Subscriptions", href: "/admin/subscriptions" },
 ];
 
 const partnerLinks = [
@@ -31,6 +33,7 @@ export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isPremium, setIsPremium] = useState(false);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
@@ -44,7 +47,12 @@ export default function Header() {
     pathname.startsWith("/watch") ||
     pathname.startsWith("/watchlist") ||
     pathname.startsWith("/search") ||
-    pathname.startsWith("/profiles");
+    pathname.startsWith("/profiles") ||
+    pathname.startsWith("/account");
+
+    if (isAdmin) {
+  return null;
+}
 
   const logoHref = isLanding ? "/" : "/browse";
 
@@ -86,6 +94,26 @@ export default function Header() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    async function loadSubscription() {
+      try {
+        const res = await fetch("/api/stripe/subscription", {
+          cache: "no-store",
+        });
+
+        const data = await res.json();
+
+        setIsPremium(data?.isPremium === true);
+      } catch {
+        setIsPremium(false);
+      }
+    }
+
+    if (isViewer) {
+      loadSubscription();
+    }
+  }, [isViewer]);
 
   return (
     <header className="fixed left-0 top-0 z-50 w-full">
@@ -197,18 +225,7 @@ export default function Header() {
             </nav>
           )}
 
-          {isAdmin && (
-            <nav className="hidden items-center gap-5 md:flex">
-              {adminLinks.map((link) => (
-                <HeaderLink
-                  key={link.href}
-                  href={link.href}
-                  label={link.label}
-                  active={isActive(link.href)}
-                />
-              ))}
-            </nav>
-          )}
+         {isAdmin && null}
 
           {isPartner && !isAdmin && (
             <nav className="hidden items-center gap-5 md:flex">
@@ -300,6 +317,17 @@ export default function Header() {
               </div>
 
               <Link
+                href="/account/billing"
+                className={`rounded-full border px-4 py-2 text-sm font-black backdrop-blur-xl transition ${
+                  isPremium
+                    ? "border-sky-300/45 bg-sky-400/18 text-sky-100 shadow-[0_0_24px_rgba(56,189,248,0.22)] hover:bg-sky-400/25"
+                    : "border-white/10 bg-black/35 text-white/70 hover:border-sky-300/35 hover:bg-sky-300/10 hover:text-sky-100"
+                }`}
+              >
+                {isPremium ? "Premium" : "Upgrade"}
+              </Link>
+
+              <Link
                 href="/watchlist"
                 className="rounded-full border border-white/10 bg-black/35 px-4 py-2 text-sm font-bold text-white/70 backdrop-blur-xl transition hover:border-white/25 hover:bg-white/[0.08] hover:text-white"
               >
@@ -316,7 +344,7 @@ export default function Header() {
             </>
           )}
 
-          {(isAdmin || isPartner) && <LogoutButton />}
+{(isAdmin || isPartner || isViewer) && <LogoutButton />}
         </div>
 
         <button
@@ -363,6 +391,10 @@ export default function Header() {
                 { label: "Action", href: "/browse?genre=Action" },
                 { label: "Horror", href: "/browse?genre=Horror" },
                 { label: "Search", href: "/search" },
+                {
+                  label: isPremium ? "Premium Billing" : "Upgrade to Premium",
+                  href: "/account/billing",
+                },
                 { label: "My List", href: "/watchlist" },
                 { label: "Profiles", href: "/profiles" },
                 { label: "Partner Program", href: "/partner/apply" },
@@ -393,11 +425,11 @@ export default function Header() {
                 />
               ))}
 
-            {(isAdmin || isPartner) && (
-              <div className="pt-2">
-                <LogoutButton />
-              </div>
-            )}
+           {(isAdmin || isPartner || isViewer) && (
+  <div className="pt-2">
+    <LogoutButton />
+  </div>
+)}
           </nav>
         </div>
       )}

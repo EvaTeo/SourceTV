@@ -53,10 +53,30 @@ function normalize(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
 
+async function fetchRail(url: string) {
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
 export default function BrowseClient() {
   const searchParams = useSearchParams();
 
   const [content, setContent] = useState<ContentItem[]>([]);
+  const [trending, setTrending] = useState<ContentItem[]>([]);
+  const [recentlyAdded, setRecentlyAdded] = useState<ContentItem[]>([]);
+  const [editorPicks, setEditorPicks] = useState<ContentItem[]>([]);
+  const [recommended, setRecommended] = useState<ContentItem[]>([]);
+  const [hiddenGems, setHiddenGems] = useState<ContentItem[]>([]);
+  const [drama, setDrama] = useState<ContentItem[]>([]);
+  const [documentaries, setDocumentaries] = useState<ContentItem[]>([]);
+  const [animation, setAnimation] = useState<ContentItem[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
   const [profileName, setProfileName] = useState("Your");
@@ -75,19 +95,48 @@ export default function BrowseClient() {
 
     async function fetchContent() {
       try {
-        const res = await fetch("/api/content", {
-          cache: "no-store",
-        });
+        const [
+          allContent,
+          trendingContent,
+          newContent,
+          editorPickContent,
+          recommendedContent,
+          hiddenGemContent,
+          dramaContent,
+          documentaryContent,
+          animationContent,
+        ] = await Promise.all([
+          fetchRail("/api/content?mode=all&limit=80"),
+          fetchRail("/api/content?mode=trending&limit=12"),
+          fetchRail("/api/content?mode=new&limit=12"),
+          fetchRail("/api/content?mode=editor_picks&limit=12"),
+          fetchRail("/api/content?mode=recommended&limit=12"),
+          fetchRail("/api/content?mode=hidden_gems&limit=12"),
+          fetchRail("/api/content?mode=genre&genre=Drama&limit=12"),
+          fetchRail("/api/content?mode=genre&genre=Documentary&limit=12"),
+          fetchRail("/api/content?mode=genre&genre=Animation&limit=12"),
+        ]);
 
-        if (!res.ok) {
-          throw new Error("Failed to load content");
-        }
-
-        const data = await res.json();
-        setContent(Array.isArray(data) ? data : []);
+        setContent(allContent);
+        setTrending(trendingContent);
+        setRecentlyAdded(newContent);
+        setEditorPicks(editorPickContent);
+        setRecommended(recommendedContent);
+        setHiddenGems(hiddenGemContent);
+        setDrama(dramaContent);
+        setDocumentaries(documentaryContent);
+        setAnimation(animationContent);
       } catch (error) {
         console.error("BROWSE CONTENT LOAD ERROR:", error);
         setContent([]);
+        setTrending([]);
+        setRecentlyAdded([]);
+        setEditorPicks([]);
+        setRecommended([]);
+        setHiddenGems([]);
+        setDrama([]);
+        setDocumentaries([]);
+        setAnimation([]);
       } finally {
         setLoading(false);
       }
@@ -116,10 +165,6 @@ export default function BrowseClient() {
     });
   }, [content, urlType, urlGenre]);
 
-  const trending = useMemo(() => {
-    return [...content].sort((a, b) => (b.views || 0) - (a.views || 0));
-  }, [content]);
-
   const topTen = useMemo(() => {
     return trending.slice(0, 10);
   }, [trending]);
@@ -127,10 +172,6 @@ export default function BrowseClient() {
   const todayTrending = useMemo(() => {
     return trending.slice(0, 12);
   }, [trending]);
-
-  const recentlyAdded = useMemo(() => {
-    return [...content].slice().reverse();
-  }, [content]);
 
   const personalized = useMemo(() => {
     if (!memory.length) return [];
@@ -198,12 +239,6 @@ export default function BrowseClient() {
       .filter((item) => !memory.some((watched) => watched.slug === item.id))
       .slice(0, 12);
   }, [content, favoriteGenre, memory]);
-
-  const hiddenGems = useMemo(() => {
-    return [...content]
-      .sort((a, b) => (a.views || 0) - (b.views || 0))
-      .slice(0, 12);
-  }, [content]);
 
   const filteredTitle = useMemo(() => {
     if (urlType) return urlType === "Film" ? "Films" : urlType;
@@ -274,6 +309,10 @@ export default function BrowseClient() {
                 />
               )}
 
+              {recommended.length > 0 && (
+                <ContentRail title="Recommended on SourceTV" items={recommended} />
+              )}
+
               {favoriteGenreTitles.length > 0 && (
                 <ContentRail
                   title={`Because You Watch ${favoriteGenre}`}
@@ -283,24 +322,19 @@ export default function BrowseClient() {
 
               <PremiereRail items={content} />
 
+              {editorPicks.length > 0 && (
+                <ContentRail title="Editor's Picks" items={editorPicks} />
+              )}
+
               <ContentRail title="Recently Added" items={recentlyAdded} />
 
               <ContentRail title="Hidden Gems" items={hiddenGems} />
 
-              <ContentRail
-                title="Drama"
-                items={content.filter((item) => item.genre === "Drama")}
-              />
+              <ContentRail title="Drama" items={drama} />
 
-              <ContentRail
-                title="Documentaries"
-                items={content.filter((item) => item.genre === "Documentary")}
-              />
+              <ContentRail title="Documentaries" items={documentaries} />
 
-              <ContentRail
-                title="Animation"
-                items={content.filter((item) => item.genre === "Animation")}
-              />
+              <ContentRail title="Animation" items={animation} />
 
               <ContentRail title="All SourceTV Titles" items={content} />
             </>

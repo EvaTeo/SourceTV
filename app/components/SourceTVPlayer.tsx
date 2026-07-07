@@ -1,18 +1,48 @@
 "use client";
 
 import Hls from "hls.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type ActiveAd = {
+  id: string;
+  name: string;
+  adSource?: string | null;
+  adType?: string | null;
+  placement: string;
+  videoUrl?: string | null;
+  vastTagUrl?: string | null;
+  clickUrl?: string | null;
+  skipAfterSeconds?: number | null;
+  canSkip?: boolean;
+  isHouseAd?: boolean;
+  isGoogleAd?: boolean;
+};
 
 function getHlsUrl(url?: string | null) {
   if (!url) return "";
-  if (url.includes("playlist.m3u8")) return url;
 
-  const match = url.match(/(?:embed|play)\/(\d+)\/([a-zA-Z0-9-]+)/);
-  if (!match) return url;
+  const cleanUrl = url.trim();
 
-  const videoGuid = match[2];
+  if (cleanUrl.includes("playlist.m3u8")) {
+    return cleanUrl;
+  }
 
-  return `https://vz-ea77d4fd-c11.b-cdn.net/${videoGuid}/playlist.m3u8`;
+  const bunnyMatch = cleanUrl.match(
+    /(?:iframe\.mediadelivery\.net\/(?:embed|play)|(?:embed|play))\/(\d+)\/([a-zA-Z0-9-]+)/
+  );
+
+  if (!bunnyMatch) {
+    return cleanUrl;
+  }
+
+  const videoGuid = bunnyMatch[2];
+
+  const bunnyCdnHost =
+    process.env.NEXT_PUBLIC_BUNNY_STREAM_CDN_HOST ||
+    process.env.NEXT_PUBLIC_BUNNY_CDN_HOST ||
+    "vz-ea77d4fd-c11.b-cdn.net";
+
+  return `https://${bunnyCdnHost}/${videoGuid}/playlist.m3u8`;
 }
 
 function formatTime(seconds: number) {
@@ -24,9 +54,10 @@ function formatTime(seconds: number) {
   const secs = totalSeconds % 60;
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(
-      secs
-    ).padStart(2, "0")}`;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(
+      2,
+      "0"
+    )}`;
   }
 
   return `${minutes}:${String(secs).padStart(2, "0")}`;
@@ -55,14 +86,7 @@ function RewindIcon() {
     >
       <path d="M7.5 8H4V4.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4.4 8A8 8 0 1 1 4 16" strokeLinecap="round" />
-      <text
-        x="9"
-        y="15.5"
-        fill="currentColor"
-        stroke="none"
-        fontSize="6"
-        fontWeight="900"
-      >
+      <text x="9" y="15.5" fill="currentColor" stroke="none" fontSize="6" fontWeight="900">
         10
       </text>
     </svg>
@@ -79,14 +103,7 @@ function ForwardIcon() {
     >
       <path d="M16.5 8H20V4.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M19.6 8A8 8 0 1 0 20 16" strokeLinecap="round" />
-      <text
-        x="9"
-        y="15.5"
-        fill="currentColor"
-        stroke="none"
-        fontSize="6"
-        fontWeight="900"
-      >
+      <text x="9" y="15.5" fill="currentColor" stroke="none" fontSize="6" fontWeight="900">
         10
       </text>
     </svg>
@@ -113,14 +130,8 @@ function VolumeIcon({ muted }: { muted: boolean }) {
         </>
       ) : (
         <>
-          <path
-            d="M16 9.5c.8.7 1.2 1.6 1.2 2.5s-.4 1.8-1.2 2.5"
-            strokeLinecap="round"
-          />
-          <path
-  d="M18.5 7.2c1.4 1.2 2.2 2.9 2.2 4.8s-.8 3.6-2.2 4.8"
-  strokeLinecap="round"
-/>
+          <path d="M16 9.5c.8.7 1.2 1.6 1.2 2.5s-.4 1.8-1.2 2.5" strokeLinecap="round" />
+          <path d="M18.5 7.2c1.4 1.2 2.2 2.9 2.2 4.8s-.8 3.6-2.2 4.8" strokeLinecap="round" />
         </>
       )}
     </svg>
@@ -145,12 +156,360 @@ function SettingsIcon() {
   );
 }
 
+function getAdLabel(ad: ActiveAd) {
+  if (ad.isHouseAd || ad.adType === "house") return "SourceTV";
+  if (ad.adType === "sponsor") return "Sponsored";
+  return "Advertisement";
+}
+
+function MidRollAdGate({
+  projectId,
+  onFinished,
+}: {
+  projectId?: string;
+  onFinished: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const trackedRef = useRef(false);
+  const finishedRef = useRef(false);
+
+  const [ad, setAd] = useState<ActiveAd | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [secondsWatched, setSecondsWatched] = useState(0);
+  const [skipReady, setSkipReady] = useState(false);
+
+  const cleanupVideo = useCallback(() => {
+    const video = videoRef.current;
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+  }, []);
+
+  const trackAd = useCallback(
+    async ({
+      completed,
+      skipped,
+      clicked = false,
+      watchedSecondsOverride,
+    }: {
+      completed: boolean;
+      skipped: boolean;
+      clicked?: boolean;
+      watchedSecondsOverride?: number;
+    }) => {
+      if (!ad || trackedRef.current) return;
+
+      trackedRef.current = true;
+
+      try {
+        await fetch("/api/ads/impression", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            campaignId: ad.id,
+            projectId: projectId || "",
+            placement: ad.placement || "mid_roll",
+            completed,
+            skipped,
+            clicked,
+            watchedSeconds: watchedSecondsOverride ?? secondsWatched,
+          }),
+        });
+      } catch (error) {
+        console.error("TRACK MIDROLL AD ERROR:", error);
+      }
+    },
+    [ad, projectId, secondsWatched]
+  );
+
+  const finishAd = useCallback(
+    async (completed: boolean, skipped: boolean) => {
+      if (finishedRef.current) return;
+
+      finishedRef.current = true;
+
+      const watched = Math.floor(videoRef.current?.currentTime || secondsWatched);
+
+      cleanupVideo();
+
+      await trackAd({
+        completed,
+        skipped,
+        watchedSecondsOverride: watched,
+      });
+
+      onFinished();
+    },
+    [cleanupVideo, onFinished, secondsWatched, trackAd]
+  );
+
+  const clickAd = useCallback(async () => {
+    if (!ad?.clickUrl) return;
+
+    await trackAd({
+      completed: false,
+      skipped: false,
+      clicked: true,
+    });
+
+    window.open(ad.clickUrl, "_blank", "noopener,noreferrer");
+  }, [ad, trackAd]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAd() {
+      try {
+        setLoading(true);
+
+        const params = new URLSearchParams({
+          placement: "mid_roll",
+        });
+
+        if (projectId) {
+          params.set("projectId", projectId);
+        }
+
+        const res = await fetch(`/api/ads/active?${params.toString()}`, {
+          cache: "no-store",
+        });
+
+        const data = (await res.json()) as ActiveAd | null;
+
+        if (cancelled) return;
+
+        if (!data?.id) {
+          onFinished();
+          return;
+        }
+
+        const creativeUrl = data.adSource === "google" ? data.vastTagUrl : data.videoUrl;
+
+        if (!creativeUrl) {
+          onFinished();
+          return;
+        }
+
+        trackedRef.current = false;
+        finishedRef.current = false;
+        setSecondsWatched(0);
+        setSkipReady(false);
+        setAd(data);
+      } catch (error) {
+        console.error("LOAD MIDROLL AD ERROR:", error);
+
+        if (!cancelled) {
+          onFinished();
+        }
+      }
+    }
+
+    loadAd();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onFinished, projectId]);
+
+  useEffect(() => {
+    const creativeUrl = ad?.adSource === "google" ? ad?.vastTagUrl : ad?.videoUrl;
+
+    if (!ad || !creativeUrl) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const hlsUrl = getHlsUrl(creativeUrl);
+
+    if (!hlsUrl) {
+      onFinished();
+      return;
+    }
+
+    let cancelled = false;
+
+    const failTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      finishAd(false, true);
+    }, 9000);
+
+    async function tryPlay() {
+      if (cancelled) return;
+
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+
+      try {
+        await currentVideo.play();
+        window.clearTimeout(failTimer);
+        setLoading(false);
+      } catch {
+        currentVideo.muted = true;
+
+        try {
+          await currentVideo.play();
+          window.clearTimeout(failTimer);
+          setLoading(false);
+        } catch {
+          finishAd(false, true);
+        }
+      }
+    }
+
+    cleanupVideo();
+
+    video.muted = false;
+    video.playsInline = true;
+    video.controls = false;
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = hlsUrl;
+      video.load();
+
+      video.addEventListener("canplay", tryPlay);
+      video.addEventListener("loadedmetadata", tryPlay);
+
+      return () => {
+        cancelled = true;
+        window.clearTimeout(failTimer);
+        video.removeEventListener("canplay", tryPlay);
+        video.removeEventListener("loadedmetadata", tryPlay);
+      };
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        maxBufferLength: 12,
+      });
+
+      hlsRef.current = hls;
+
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          finishAd(false, true);
+        }
+      });
+    } else {
+      onFinished();
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(failTimer);
+
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [ad, cleanupVideo, finishAd, onFinished]);
+
+  useEffect(() => {
+    return () => {
+      cleanupVideo();
+    };
+  }, [cleanupVideo]);
+
+  if (!ad) {
+    return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black">
+        <div className="relative h-1 w-64 overflow-hidden rounded-full bg-white/10">
+          <div className="absolute inset-y-0 left-0 w-1/2 animate-[playerLoadSlide_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-sky-300 to-white shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
+        </div>
+      </div>
+    );
+  }
+
+  const skipAfterSeconds = ad.skipAfterSeconds ?? 5;
+  const backendAllowsSkip = ad.canSkip === true;
+  const showSkipButton = !ad.isHouseAd && backendAllowsSkip;
+  const remainingSkipSeconds = Math.max(0, skipAfterSeconds - secondsWatched);
+
+  return (
+    <div className="absolute inset-0 z-50 overflow-hidden bg-black">
+      <video
+        ref={videoRef}
+        onTimeUpdate={() => {
+          const video = videoRef.current;
+          if (!video) return;
+
+          const watched = Math.floor(video.currentTime);
+          setSecondsWatched(watched);
+
+          if (backendAllowsSkip && watched >= skipAfterSeconds) {
+            setSkipReady(true);
+          }
+        }}
+        onEnded={() => finishAd(true, false)}
+        onClick={clickAd}
+        className="h-full w-full bg-black object-contain"
+        playsInline
+      />
+
+      <div className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-white/75 backdrop-blur-xl md:left-7 md:top-6">
+        {getAdLabel(ad)}
+      </div>
+
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+          <div className="relative h-1 w-64 overflow-hidden rounded-full bg-white/10">
+            <div className="absolute inset-y-0 left-0 w-1/2 animate-[playerLoadSlide_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-sky-300 to-white shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
+          </div>
+        </div>
+      )}
+
+      {ad.clickUrl && (
+        <button
+          type="button"
+          onClick={clickAd}
+          className="absolute bottom-8 left-4 z-20 rounded-full border border-sky-300/35 bg-sky-300/10 px-4 py-2 text-xs font-black text-sky-100 backdrop-blur-xl transition hover:bg-sky-300 hover:text-black md:left-10"
+        >
+          Learn More
+        </button>
+      )}
+
+      {showSkipButton ? (
+        <button
+          type="button"
+          disabled={!skipReady}
+          onClick={() => finishAd(false, true)}
+          className="absolute bottom-8 right-4 z-20 rounded-full border border-white/15 bg-black/65 px-5 py-2.5 text-xs font-black text-white/80 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-45 md:right-10"
+        >
+          {skipReady ? "Skip Ad" : `Skip in ${remainingSkipSeconds}`}
+        </button>
+      ) : (
+        <div className="absolute bottom-8 right-4 z-20 rounded-full border border-white/10 bg-black/55 px-5 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-white/50 backdrop-blur-xl md:right-10">
+          {ad.isHouseAd ? "SourceTV Preview" : "Ad Playing"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SourceTVPlayer({
   url,
   poster,
   title,
   slug,
   type,
+  projectId,
   autoPlay = false,
 }: {
   url: string;
@@ -158,11 +517,13 @@ export default function SourceTVPlayer({
   title?: string;
   slug?: string;
   type?: string;
+  projectId?: string;
   autoPlay?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const midRollPlayedRef = useRef(false);
 
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -175,6 +536,8 @@ export default function SourceTVPlayer({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [audioLanguage, setAudioLanguage] = useState("English");
   const [captions, setCaptions] = useState("Off");
+  const [showingMidRoll, setShowingMidRoll] = useState(false);
+  const [resumeAfterMidRoll, setResumeAfterMidRoll] = useState(false);
 
   const hlsUrl = getHlsUrl(url);
 
@@ -241,7 +604,15 @@ export default function SourceTVPlayer({
 
     let cancelled = false;
     let hls: Hls | null = null;
+    let readyMarked = false;
+    let playRequested = false;
+    let sourceAssigned = false;
 
+    const isHlsStream = hlsUrl.includes("playlist.m3u8") || hlsUrl.endsWith(".m3u8");
+
+    midRollPlayedRef.current = false;
+    setShowingMidRoll(false);
+    setResumeAfterMidRoll(false);
     setLoading(true);
     setStarted(false);
     setPlaying(false);
@@ -249,20 +620,17 @@ export default function SourceTVPlayer({
     setCurrentTime(0);
     setDuration(0);
 
-    const readyTimeout = setTimeout(() => {
-      if (cancelled) return;
-      setLoading(false);
-      setStarted(true);
-    }, 7000);
-
     async function tryAutoplay() {
-      if (!autoPlay) return;
+      if (!autoPlay || playRequested) return;
+
+      playRequested = true;
 
       const currentVideo = videoRef.current;
       if (!currentVideo || cancelled) return;
 
       try {
         await currentVideo.play();
+        if (cancelled) return;
         setPlaying(true);
         setStarted(true);
         setLoading(false);
@@ -272,10 +640,12 @@ export default function SourceTVPlayer({
 
         try {
           await currentVideo.play();
+          if (cancelled) return;
           setPlaying(true);
           setStarted(true);
           setLoading(false);
         } catch {
+          if (cancelled) return;
           setPlaying(false);
           setStarted(true);
           setLoading(false);
@@ -284,67 +654,84 @@ export default function SourceTVPlayer({
     }
 
     function markReady() {
-      if (cancelled) return;
+      if (cancelled || readyMarked) return;
 
-      clearTimeout(readyTimeout);
+      readyMarked = true;
       setLoading(false);
       setStarted(true);
-const currentVideo = videoRef.current;
-setDuration(currentVideo?.duration || 0);
+
+      const currentVideo = videoRef.current;
+      setDuration(currentVideo?.duration || 0);
+
       tryAutoplay();
+    }
+
+    function handleFatalLoadFailure(error?: unknown) {
+      if (cancelled || !sourceAssigned) return;
+
+      console.error("SOURCE TV VIDEO LOAD ERROR:", { error, source: hlsUrl, originalUrl: url });
+
+      setLoading(false);
+      setStarted(false);
+      setPlaying(false);
     }
 
     video.pause();
     video.removeAttribute("src");
     video.load();
+    video.muted = false;
+    setMuted(false);
 
     video.addEventListener("loadedmetadata", markReady);
     video.addEventListener("loadeddata", markReady);
     video.addEventListener("canplay", markReady);
-    video.addEventListener("canplaythrough", markReady);
     video.addEventListener("playing", markReady);
+    video.addEventListener("error", handleFatalLoadFailure);
 
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    if (isHlsStream && video.canPlayType("application/vnd.apple.mpegurl")) {
+      sourceAssigned = true;
       video.src = hlsUrl;
       video.load();
-    } else if (Hls.isSupported()) {
+    } else if (isHlsStream && Hls.isSupported()) {
       hls = new Hls({
         enableWorker: true,
         maxBufferLength: 20,
         backBufferLength: 10,
       });
 
-      hls.loadSource(hlsUrl);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, markReady);
-      hls.on(Hls.Events.LEVEL_LOADED, markReady);
-      hls.on(Hls.Events.BUFFER_APPENDED, markReady);
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        if (cancelled || !hls) return;
+        sourceAssigned = true;
+        hls.loadSource(hlsUrl);
+      });
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        markReady();
+      });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
         console.error("SOURCE TV HLS ERROR:", data);
 
         if (data.fatal) {
-          clearTimeout(readyTimeout);
-          setLoading(false);
-          setStarted(true);
+          handleFatalLoadFailure(data);
         }
       });
     } else {
-      clearTimeout(readyTimeout);
-      setLoading(false);
-      setStarted(true);
+      sourceAssigned = true;
+      video.src = hlsUrl;
+      video.load();
     }
 
     return () => {
       cancelled = true;
-      clearTimeout(readyTimeout);
 
       video.removeEventListener("loadedmetadata", markReady);
       video.removeEventListener("loadeddata", markReady);
       video.removeEventListener("canplay", markReady);
-      video.removeEventListener("canplaythrough", markReady);
       video.removeEventListener("playing", markReady);
+      video.removeEventListener("error", handleFatalLoadFailure);
 
       if (hls) {
         hls.destroy();
@@ -356,19 +743,66 @@ setDuration(currentVideo?.duration || 0);
     const video = videoRef.current;
     if (!video || !slug) return;
 
-    const activeProfile = JSON.parse(
-      localStorage.getItem("sourcetv_active_profile") || '{"id":"main"}'
-    );
+    try {
+      const activeProfile = JSON.parse(
+        localStorage.getItem("sourcetv_active_profile") || '{"id":"main"}'
+      );
 
-    const storageKey = `sourcetv_continue_${activeProfile.id}`;
-    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const oldItem = existing.find((item: any) => item.slug === slug);
+      const storageKey = `sourcetv_continue_${activeProfile.id}`;
+      const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const oldItem = existing.find(
+        (item: {
+          slug?: string;
+          currentTime?: number;
+          duration?: number;
+          progress?: number;
+        }) => item.slug === slug
+      );
 
-    if (oldItem?.currentTime) {
-      video.currentTime = oldItem.currentTime;
-      setCurrentTime(oldItem.currentTime);
+      if (!oldItem?.currentTime) return;
+
+      const savedDuration = Number(oldItem.duration || 0);
+      const savedCurrentTime = Number(oldItem.currentTime || 0);
+      const savedProgress = Number(oldItem.progress || 0);
+
+      const isBasicallyFinished =
+        savedProgress >= 95 ||
+        (savedDuration > 0 && savedCurrentTime >= savedDuration - 10);
+
+      if (isBasicallyFinished) {
+        const filtered = existing.filter(
+          (item: { slug?: string }) => item.slug !== slug
+        );
+
+        localStorage.setItem(storageKey, JSON.stringify(filtered));
+
+        video.currentTime = 0;
+        setCurrentTime(0);
+        setProgress(0);
+        return;
+      }
+
+      video.currentTime = savedCurrentTime;
+      setCurrentTime(savedCurrentTime);
+    } catch (error) {
+      console.error("RESTORE CONTINUE WATCHING ERROR:", error);
     }
   }, [slug]);
+
+  async function triggerMidRollIfNeeded(video: HTMLVideoElement) {
+    if (midRollPlayedRef.current) return;
+    if (showingMidRoll) return;
+    if (!video.duration || video.duration < 180) return;
+    if (video.currentTime < video.duration * 0.5) return;
+
+    midRollPlayedRef.current = true;
+    setResumeAfterMidRoll(!video.paused);
+    video.pause();
+    setPlaying(false);
+    setSettingsOpen(false);
+    setControlsVisible(false);
+    setShowingMidRoll(true);
+  }
 
   function saveProgress() {
     const video = videoRef.current;
@@ -380,6 +814,8 @@ setDuration(currentVideo?.duration || 0);
     setCurrentTime(video.currentTime);
     setDuration(video.duration);
 
+    triggerMidRollIfNeeded(video);
+
     if (!slug || !title) return;
 
     const activeProfile = JSON.parse(
@@ -388,7 +824,14 @@ setDuration(currentVideo?.duration || 0);
 
     const storageKey = `sourcetv_continue_${activeProfile.id}`;
     const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const filtered = existing.filter((item: any) => item.slug !== slug);
+    const filtered = existing.filter(
+      (item: { slug?: string }) => item.slug !== slug
+    );
+
+    if (percent >= 95 || video.currentTime >= video.duration - 10) {
+      localStorage.setItem(storageKey, JSON.stringify(filtered));
+      return;
+    }
 
     const updated = [
       {
@@ -407,9 +850,27 @@ setDuration(currentVideo?.duration || 0);
     localStorage.setItem(storageKey, JSON.stringify(updated));
   }
 
-  async function togglePlay() {
+  async function finishMidRoll() {
+    setShowingMidRoll(false);
+
     const video = videoRef.current;
     if (!video) return;
+
+    if (resumeAfterMidRoll) {
+      try {
+        await video.play();
+        setPlaying(true);
+        setStarted(true);
+        setLoading(false);
+      } catch {
+        setPlaying(false);
+      }
+    }
+  }
+
+  async function togglePlay() {
+    const video = videoRef.current;
+    if (!video || showingMidRoll) return;
 
     showControls();
 
@@ -429,15 +890,12 @@ setDuration(currentVideo?.duration || 0);
 
   function seek(event: React.MouseEvent<HTMLDivElement>) {
     const video = videoRef.current;
-    if (!video || !video.duration) return;
+    if (!video || !video.duration || showingMidRoll) return;
 
     showControls();
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const percent = Math.min(
-      1,
-      Math.max(0, (event.clientX - rect.left) / rect.width)
-    );
+    const percent = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
 
     video.currentTime = percent * video.duration;
     saveProgress();
@@ -445,21 +903,18 @@ setDuration(currentVideo?.duration || 0);
 
   function skip(seconds: number) {
     const video = videoRef.current;
-    if (!video || !video.duration) return;
+    if (!video || !video.duration || showingMidRoll) return;
 
     showControls();
 
-    video.currentTime = Math.min(
-      video.duration,
-      Math.max(0, video.currentTime + seconds)
-    );
+    video.currentTime = Math.min(video.duration, Math.max(0, video.currentTime + seconds));
 
     saveProgress();
   }
 
   function toggleMute() {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || showingMidRoll) return;
 
     showControls();
 
@@ -482,6 +937,7 @@ setDuration(currentVideo?.duration || 0);
         onWaiting={() => setLoading(true)}
         onCanPlay={() => setLoading(false)}
         onPlay={() => {
+          if (showingMidRoll) return;
           setPlaying(true);
           setStarted(true);
           setLoading(false);
@@ -496,7 +952,7 @@ setDuration(currentVideo?.duration || 0);
         poster={poster || undefined}
       />
 
-      {loading && (
+      {loading && !showingMidRoll && (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <div className="relative h-1 w-64 overflow-hidden rounded-full bg-white/10">
             <div className="absolute inset-y-0 left-0 w-1/2 animate-[playerLoadSlide_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-sky-300 to-white shadow-[0_0_22px_rgba(56,189,248,0.8)]" />
@@ -504,9 +960,11 @@ setDuration(currentVideo?.duration || 0);
         </div>
       )}
 
+      {showingMidRoll && <MidRollAdGate projectId={projectId} onFinished={finishMidRoll} />}
+
       <div
         className={`absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/88 via-black/42 to-transparent px-4 pb-5 pt-32 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] md:px-10 md:pb-8 ${
-          controlsVisible || settingsOpen
+          (controlsVisible || settingsOpen) && !showingMidRoll
             ? "translate-y-0 opacity-100"
             : "translate-y-20 opacity-0"
         }`}
@@ -627,12 +1085,7 @@ setDuration(currentVideo?.duration || 0);
                     </p>
 
                     <div className="grid gap-1">
-                      {[
-                        "Off",
-                        "English CC",
-                        "Spanish CC",
-                        "Audio Description",
-                      ].map((option) => (
+                      {["Off", "English CC", "Spanish CC", "Audio Description"].map((option) => (
                         <button
                           key={option}
                           onClick={() => {

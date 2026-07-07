@@ -1,17 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import SourceTVPlayer from "@/app/components/SourceTVPlayer";
 import PreRollAdGate from "@/app/components/PreRollAdGate";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function CloseIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className="h-6 w-6 stroke-[1.9]"
-    >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-6 w-6 stroke-[1.9]">
       <path d="M6.5 6.5 17.5 17.5" strokeLinecap="round" />
       <path d="M17.5 6.5 6.5 17.5" strokeLinecap="round" />
     </svg>
@@ -30,11 +25,9 @@ function HandoffLoader() {
           0% {
             transform: translateX(-120%);
           }
-
           50% {
             transform: translateX(80%);
           }
-
           100% {
             transform: translateX(220%);
           }
@@ -60,18 +53,24 @@ export default function FullscreenPlayButton({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
-  const [adFinished, setAdFinished] = useState(false);
-  const [movieReady, setMovieReady] = useState(false);
+  const [phase, setPhase] = useState<"ad" | "handoff" | "movie">("ad");
+  const [playerKey, setPlayerKey] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(false);
 
   const playerWrapRef = useRef<HTMLDivElement>(null);
+  const handoffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function openPlayer() {
+    if (handoffTimerRef.current) {
+      clearTimeout(handoffTimerRef.current);
+      handoffTimerRef.current = null;
+    }
+
     setOpen(true);
     setClosing(false);
     setShowPlayer(false);
-    setAdFinished(false);
-    setMovieReady(false);
+    setPhase("ad");
+    setPlayerKey((current) => current + 1);
     setChromeVisible(true);
 
     setTimeout(() => {
@@ -88,6 +87,11 @@ export default function FullscreenPlayButton({
   }
 
   async function closePlayer() {
+    if (handoffTimerRef.current) {
+      clearTimeout(handoffTimerRef.current);
+      handoffTimerRef.current = null;
+    }
+
     setClosing(true);
     setChromeVisible(false);
 
@@ -102,20 +106,24 @@ export default function FullscreenPlayButton({
 
       setOpen(false);
       setShowPlayer(false);
-      setAdFinished(false);
-      setMovieReady(false);
+      setPhase("ad");
       setChromeVisible(false);
       setClosing(false);
     }, 450);
   }
 
   const finishAd = useCallback(() => {
-    setAdFinished(true);
-    setMovieReady(false);
+    setPhase("handoff");
 
-    setTimeout(() => {
-  setMovieReady(true);
-}, 150);
+    if (handoffTimerRef.current) {
+      clearTimeout(handoffTimerRef.current);
+    }
+
+    handoffTimerRef.current = setTimeout(() => {
+      setPlayerKey((current) => current + 1);
+      setPhase("movie");
+      handoffTimerRef.current = null;
+    }, 450);
   }, []);
 
   useEffect(() => {
@@ -136,6 +144,14 @@ export default function FullscreenPlayButton({
       window.removeEventListener("mousemove", handleMouseMove);
     };
   }, [open, closing]);
+
+  useEffect(() => {
+    return () => {
+      if (handoffTimerRef.current) {
+        clearTimeout(handoffTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <>
@@ -171,28 +187,27 @@ export default function FullscreenPlayButton({
               closing
                 ? "scale-[1.04] opacity-0 blur-md"
                 : showPlayer
-                ? "scale-100 opacity-100 blur-0"
-                : "scale-[1.045] opacity-0 blur-md"
+                  ? "scale-100 opacity-100 blur-0"
+                  : "scale-[1.045] opacity-0 blur-md"
             }`}
           >
-            {showPlayer &&
-              (adFinished ? (
-                movieReady ? (
-                  <SourceTVPlayer
-                    key={`movie-${slug}-${open ? "open" : "closed"}`}
-                    url={url}
-                    poster={poster}
-                    title={title}
-                    slug={slug}
-                    type={type}
-                    autoPlay
-                  />
-                ) : (
-                  <HandoffLoader />
-                )
-              ) : (
-                <PreRollAdGate projectId={slug} onFinished={finishAd} />
-              ))}
+            {showPlayer && phase === "ad" && (
+              <PreRollAdGate projectId={slug} onFinished={finishAd} />
+            )}
+
+            {showPlayer && phase === "handoff" && <HandoffLoader />}
+
+            {showPlayer && phase === "movie" && (
+              <SourceTVPlayer
+                key={`movie-${slug}-${playerKey}`}
+                url={url}
+                poster={poster}
+                title={title}
+                slug={slug}
+                type={type}
+                autoPlay
+              />
+            )}
           </div>
         </div>
       )}

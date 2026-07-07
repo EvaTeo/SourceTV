@@ -146,10 +146,10 @@ export default async function AdminDashboard() {
   const recentApplications = partnerApplications.slice(0, 5);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
+  <div className="relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
 
-      <div className="relative z-10 mx-auto max-w-7xl">
+      <div className="relative z-10 mx-auto max-w-7xl px-8 py-10">
         <section className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
@@ -304,8 +304,8 @@ export default async function AdminDashboard() {
             )}
           </Panel>
         </section>
-      </div>
-    </main>
+            </div>
+        </div>
   );
 }
 

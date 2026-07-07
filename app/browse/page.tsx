@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import BannerAd from "@/app/components/BannerAd";
 import BrowseClient from "./BrowseClient";
 
 export default function BrowsePage() {
@@ -10,7 +11,13 @@ export default function BrowsePage() {
         </main>
       }
     >
-      <BrowseClient />
+      <main className="min-h-screen bg-black">
+        <BrowseClient />
+
+        <div className="pb-12 pt-4">
+          <BannerAd />
+        </div>
+      </main>
     </Suspense>
   );
 }

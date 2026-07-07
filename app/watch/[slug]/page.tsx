@@ -1,12 +1,13 @@
-import WatchHeroTrailer from "./WatchHeroTrailer";
-import TrackView from "./TrackView";
-import AddToWatchlistButton from "./AddToWatchlistButton";
-import SaveToContinueWatching from "./SaveToContinueWatching";
-import FullscreenPlayButton from "./FullscreenPlayButton";
+import BannerAd from "@/app/components/BannerAd";
 import ContentRail from "@/app/components/ContentRail";
+import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/app/lib/prisma";
+import AddToWatchlistButton from "./AddToWatchlistButton";
+import FullscreenPlayButton from "./FullscreenPlayButton";
+import SaveToContinueWatching from "./SaveToContinueWatching";
+import TrackView from "./TrackView";
+import WatchHeroTrailer from "./WatchHeroTrailer";
 
 function cleanRailItems(items: any[]) {
   return items.map((content) => ({
@@ -235,6 +236,10 @@ export default async function WatchPage({
             items={becauseYouWatched}
           />
         )}
+
+        <div className="py-2">
+          <BannerAd projectId={item.id} />
+        </div>
 
         <ContentRail title="More Like This" items={moreLikeThis} />
 

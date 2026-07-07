@@ -14,31 +14,44 @@ model User {
   role      String   @default("user")
   password  String
 
-  profiles              Profile[]
-  partnerApplications   PartnerApplication[]
+  subscriptionTier      String   @default("free")
+  subscriptionStatus    String   @default("inactive")
+  subscriptionPriceId   String?
+  subscriptionEndsAt    DateTime?
+  stripeCustomerId      String?  @unique
+  stripeSubscriptionId  String?  @unique
+
+  profiles            Profile[]
+  partnerApplications PartnerApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Profile {
-  id        String   @id @default(cuid())
-  name      String
-  avatar    String?
+  id     String  @id @default(cuid())
+  name   String
+  avatar String?
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    watchlist         Watchlist[]
-  continueWatching  ContinueWatching[]
-  adImpressions     AdImpression[]
+  watchlist        Watchlist[]
+  continueWatching ContinueWatching[]
+  adImpressions    AdImpression[]
+  reactions        ContentReaction[]
+
+  favoriteGenres            String?
+  favoriteCreators          String?
+  recommendationProfile     String?
+  lastRecommendationRefresh DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Watchlist {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   profileId String
   profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -46,247 +59,291 @@ model Watchlist {
   projectId String
   project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  recommendationWeight Int @default(5)
+
   createdAt DateTime @default(now())
 
   @@unique([profileId, projectId])
 }
 
 model ContinueWatching {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  profileId   String
-  profile     Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  projectId   String
-  project     ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  progress    Int      @default(0)
-  currentTime Float    @default(0)
-  duration    Float    @default(0)
+  progress    Int   @default(0)
+  currentTime Float @default(0)
+  duration    Float @default(0)
 
-  watchedAt   DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  completed          Boolean   @default(false)
+  completedAt        DateTime?
+  totalWatchSessions Int       @default(1)
+
+  watchedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, projectId])
+}
+
+model ContentReaction {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  liked    Boolean?
+  disliked Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([profileId, projectId])
 }
 
 model ProjectSubmission {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  title           String
-  description     String?
-  type            String?
-  genre           String?
-  year            Int?
+  title       String
+  description String?
+  type        String?
+  genre       String?
+  year        Int?
 
-  videoUrl        String?
-  mainVideoUrl    String?
-  trailerUrl      String?
-  thumbnailUrl    String?
-  backdropUrl     String?
-  titleLogoUrl    String?
-  cardArtUrl      String?
+  videoUrl     String?
+  mainVideoUrl String?
+  trailerUrl   String?
+  thumbnailUrl String?
+  backdropUrl  String?
+  titleLogoUrl String?
+  cardArtUrl   String?
 
-  bunnyVideoId    String?
-  bunnyLibraryId  String?
+  bunnyVideoId   String?
+  bunnyLibraryId String?
 
-  maturityRating  String?
-  runtime         String?
+  maturityRating String?
+  runtime        String?
 
-  creatorName     String?
-  creatorEmail    String?
-  creatorCompany  String?
+  creatorName    String?
+  creatorEmail   String?
+  creatorCompany String?
 
-  revenueShare    Int       @default(50)
+  revenueShare Int @default(50)
 
-  rightsOwner       String?
-  rightsContact     String?
-  licenseType       String?
-  licenseStartDate  DateTime?
-  licenseEndDate    DateTime?
-  territories       String?
-  exclusivity       String?
+  rightsOwner      String?
+  rightsContact    String?
+  licenseType      String?
+  licenseStartDate DateTime?
+  licenseEndDate   DateTime?
+  territories      String?
+  exclusivity      String?
 
-  metadataNotes   String?
-  contentNotes    String?
-  rightsNotes     String?
-  reviewNotes     String?
+  metadataNotes String?
+  contentNotes  String?
+  rightsNotes   String?
+  reviewNotes   String?
 
-  workflowStage   String    @default("submission")
-  status          String    @default("pending")
+  workflowStage String @default("submission")
+  status        String @default("pending")
 
-  featured        Boolean   @default(false)
-  featuredRank    Int?
-  editorPick      Boolean   @default(false)
+  featured     Boolean @default(false)
+  featuredRank Int?
+  editorPick   Boolean @default(false)
 
   recognitionLevel String?
 
-  scheduledAt     DateTime?
-  publishedAt     DateTime?
-  archivedAt      DateTime?
-  rejectedAt      DateTime?
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  rejectedAt  DateTime?
 
-  views           Int       @default(0)
+  views Int @default(0)
 
-    watchlist         Watchlist[]
+  watchlist         Watchlist[]
   continueWatching  ContinueWatching[]
   partnerMessages   PartnerMessage[]
   rightsContracts   RightsContract[]
   adImpressions     AdImpression[]
+  reactions         ContentReaction[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PartnerMessage {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  projectId   String?
-  project     ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   partnerEmail String?
   partnerName  String?
 
-  subject     String
-  body        String
+  subject String
+  body    String
 
-  senderTeam  String   @default("SourceTV Partner Relations")
+  senderTeam String @default("SourceTV Partner Relations")
 
-  isRead      Boolean  @default(false)
+  isRead Boolean @default(false)
 
-  replies     PartnerMessageReply[]
+  replies PartnerMessageReply[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PartnerMessageReply {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  messageId   String
-  message     PartnerMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String
+  message   PartnerMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   senderRole  String
   senderName  String?
   senderEmail String?
 
-  body        String
+  body String
 
-  isRead      Boolean  @default(false)
+  isRead Boolean @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PartnerApplication {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  fullName    String
-  email       String
-  company     String?
-  roleTitle   String?
-  website     String?
-  portfolio   String?
+  fullName  String
+  email     String
+  company   String?
+  roleTitle String?
+  website   String?
+  portfolio String?
 
-  workType    String?
-  bio         String?
-  reason      String?
+  workType String?
+  bio      String?
+  reason   String?
 
-  status      String   @default("pending")
-  adminNotes  String?
+  status     String  @default("pending")
+  adminNotes String?
 
-  reviewedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  reviewedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model RightsContract {
-  id               String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  projectId        String
-  project          ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  partnerEmail     String?
-  partnerName      String?
-  rightsOwner      String?
-  rightsContact    String?
+  partnerEmail  String?
+  partnerName   String?
+  rightsOwner   String?
+  rightsContact String?
 
-  status           String   @default("draft")
+  status String @default("draft")
 
   licenseType      String?
   licenseStartDate DateTime?
   licenseEndDate   DateTime?
   territories      String?
   exclusivity      String?
-  revenueShare     Int      @default(50)
+  revenueShare     Int       @default(50)
 
-  contractText     String?
-  partnerNotes     String?
-  adminNotes       String?
+  contractText String?
+  partnerNotes String?
+  adminNotes   String?
 
-  sentAt           DateTime?
-  viewedAt         DateTime?
-  signedAt         DateTime?
+  sentAt   DateTime?
+  viewedAt DateTime?
+  signedAt DateTime?
 
   partnerSignatureName    String?
   partnerSignatureDataUrl String?
   partnerSignedIp         String?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
+
 model AdCampaign {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name        String
-  advertiser  String?
-  status      String   @default("draft")
+  name       String
+  advertiser String?
+  status     String  @default("draft")
 
-  placement   String   @default("pre_roll")
-  videoUrl    String?
-  clickUrl    String?
-  imageUrl    String?
+  adSource   String  @default("direct")
+  vastTagUrl String?
 
-    adSource    String   @default("direct")
-  vastTagUrl  String?
+  adType String @default("commercial")
 
-  skipAfterSeconds Int?
-  durationSeconds  Int?
+  objective String @default("awareness")
 
-  startDate   DateTime?
-  endDate     DateTime?
+  placement String @default("pre_roll")
 
-  budgetCents Int      @default(0)
-  cpmCents    Int      @default(1200)
+  videoUrl String?
+  clickUrl String?
+  imageUrl String?
+
+  skipPolicy       String  @default("after_delay")
+  skipAfterSeconds Int     @default(5)
+  premiumCanSkip   Boolean @default(true)
+
+  durationSeconds Int?
+
+  targetType      String  @default("all")
+  targetGenres    String?
+  targetRatings   String?
+  targetProjectId String?
+
+  priority Int @default(1)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  budgetCents    Int @default(0)
+  spentCents     Int @default(0)
+  cpmCents       Int @default(1200)
+  maxImpressions Int?
 
   impressions AdImpression[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AdImpression {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  campaignId  String
-  campaign    AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  projectId   String?
-  project     ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   ProjectSubmission? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  profileId   String?
-  profile     Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
 
-  placement   String
-  completed   Boolean  @default(false)
-  skipped     Boolean  @default(false)
-  clicked     Boolean  @default(false)
+  placement String
 
-  watchedSeconds Int    @default(0)
+  completed Boolean @default(false)
+  skipped   Boolean @default(false)
+  clicked   Boolean @default(false)
 
-  createdAt   DateTime @default(now())
+  watchedSeconds Int @default(0)
+
+  createdAt DateTime @default(now())
 }

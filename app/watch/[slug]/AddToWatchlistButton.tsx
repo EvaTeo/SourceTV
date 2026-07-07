@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 
 function PlusIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className="h-5 w-5 stroke-[2.3] md:h-6 md:w-6"
-    >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 stroke-[2.3] md:h-6 md:w-6">
       <path d="M12 5v14" strokeLinecap="round" />
       <path d="M5 12h14" strokeLinecap="round" />
     </svg>
@@ -18,17 +13,8 @@ function PlusIcon() {
 
 function CheckIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      className="h-5 w-5 stroke-[2.45] md:h-6 md:w-6"
-    >
-      <path
-        d="M5 12.5 9.2 17 19 7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 stroke-[2.45] md:h-6 md:w-6">
+      <path d="M5 12.5 9.2 17 19 7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -46,30 +32,28 @@ export default function AddToWatchlistButton({
   const [loading, setLoading] = useState(true);
   const [justChanged, setJustChanged] = useState(false);
 
-  async function checkWatchlist() {
-    try {
-      const res = await fetch("/api/watchlist", {
-        cache: "no-store",
-      });
-
-      if (res.status === 401) {
-        setSaved(false);
-        return;
-      }
-
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
-        setSaved(data.some((item) => item.id === slug));
-      }
-    } catch (error) {
-      console.error("WATCHLIST CHECK ERROR:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
+    async function checkWatchlist() {
+      try {
+        const res = await fetch("/api/watchlist", { cache: "no-store" });
+
+        if (res.status === 401) {
+          setSaved(false);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (Array.isArray(data)) {
+          setSaved(data.some((item) => item.id === slug));
+        }
+      } catch (error) {
+        console.error("WATCHLIST CHECK ERROR:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     checkWatchlist();
   }, [slug]);
 
@@ -86,6 +70,7 @@ export default function AddToWatchlistButton({
         },
         body: JSON.stringify({
           projectId: slug,
+          recommendationWeight: saved ? 0 : 5,
         }),
       });
 

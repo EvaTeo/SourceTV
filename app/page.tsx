@@ -1,5 +1,6 @@
 "use client";
 
+import BannerAd from "@/app/components/BannerAd";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -254,6 +255,10 @@ export default function HomePage() {
         title="Today's Trending"
         items={trendingToday}
       />
+
+      <div className="relative z-30 pb-8">
+        <BannerAd />
+      </div>
 
       <section className="relative px-5 py-14 md:px-12 md:py-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.08),transparent_32%),radial-gradient(circle_at_80%_45%,rgba(56,189,248,0.1),transparent_35%)]" />
