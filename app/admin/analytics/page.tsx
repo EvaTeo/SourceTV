@@ -1,9 +1,11 @@
-import AdminLayout from "@/app/components/admin/AdminLayout";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+
+const card = "rounded-2xl border border-white/10 bg-white/[0.035]";
+const muted = "text-white/45";
 
 export default async function AdminAnalyticsPage() {
   const user = await getCurrentUser();
@@ -54,25 +56,31 @@ export default async function AdminAnalyticsPage() {
     }),
   ]);
 
-  const dashboardNow = new Date();
-  const startOfToday = new Date(
-    dashboardNow.getFullYear(),
-    dashboardNow.getMonth(),
-    dashboardNow.getDate()
-  );
-  const startOfMonth = new Date(
-    dashboardNow.getFullYear(),
-    dashboardNow.getMonth(),
-    1
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const totalTitles = titles.length;
+  const totalViews = titles.reduce((sum, title) => sum + (title.views || 0), 0);
+
+  const published = titles.filter((t) => t.workflowStage === "published");
+  const scheduled = titles.filter((t) => t.workflowStage === "scheduled");
+  const rejected = titles.filter((t) => t.workflowStage === "rejected");
+  const archived = titles.filter((t) => t.workflowStage === "archived");
+
+  const inReview = titles.filter((t) =>
+    ["submission", "metadata_review", "content_review", "rights_review"].includes(
+      t.workflowStage || ""
+    )
   );
 
-  const adRevenueFromImpressions = (items: typeof adImpressions) => {
-    const cents = items.reduce((sum, impression) => {
-      return sum + (impression.campaign?.cpmCents || 0) / 1000;
-    }, 0);
+  const pendingPartners = partnerApplications.filter((app) => app.status === "pending");
+  const approvedPartners = partnerApplications.filter((app) => app.status === "approved");
+  const signedContracts = contracts.filter((contract) => contract.status === "signed");
 
-    return cents / 100;
-  };
+  const completedAdViews = adImpressions.filter((ad) => ad.completed);
+  const skippedAds = adImpressions.filter((ad) => ad.skipped);
+  const clickedAds = adImpressions.filter((ad) => ad.clicked);
 
   const impressionsToday = adImpressions.filter(
     (impression) => impression.createdAt >= startOfToday
@@ -86,83 +94,58 @@ export default async function AdminAnalyticsPage() {
     (item) => item.watchedAt >= startOfToday
   );
 
-  const newUsersThisMonth = users.filter(
-    (item) => item.createdAt >= startOfMonth
+  const newUsersThisMonth = users.filter((item) => item.createdAt >= startOfMonth);
+
+  const totalAdSpend = adCampaigns.reduce(
+    (sum, campaign) => sum + (campaign.spentCents || 0),
+    0
   );
 
-  const totalTitles = titles.length;
-  const totalViews = titles.reduce((sum, title) => sum + (title.views || 0), 0);
+  const adRevenue = totalAdSpend / 100;
 
-  const published = titles.filter((t) => t.workflowStage === "published");
-  const scheduled = titles.filter((t) => t.workflowStage === "scheduled");
-  const rejected = titles.filter((t) => t.workflowStage === "rejected");
-  const archived = titles.filter((t) => t.workflowStage === "archived");
-  const featured = titles.filter((t) => t.featured);
+  const adRevenueFromImpressions = (items: typeof adImpressions) => {
+    const cents = items.reduce((sum, impression) => {
+      return sum + (impression.campaign?.cpmCents || 0) / 1000;
+    }, 0);
 
-  const inReview = titles.filter((t) =>
-    ["submission", "metadata_review", "content_review", "rights_review"].includes(
-      t.workflowStage || ""
-    )
+    return cents / 100;
+  };
+
+  const revenueToday = adRevenueFromImpressions(impressionsToday);
+  const revenueThisMonth = adRevenueFromImpressions(impressionsThisMonth);
+
+  const adCtr = percent(clickedAds.length, adImpressions.length);
+  const adCompletionRate = percent(completedAdViews.length, adImpressions.length);
+  const adSkipRate = percent(skippedAds.length, adImpressions.length);
+
+  const averageAdWatchSeconds = adImpressions.length
+    ? Math.round(
+        adImpressions.reduce((sum, ad) => sum + (ad.watchedSeconds || 0), 0) /
+          adImpressions.length
+      )
+    : 0;
+
+  const activeCampaigns = adCampaigns.filter((campaign) => campaign.status === "active");
+
+  const totalWatchSeconds = continueWatching.reduce(
+    (sum, item) => sum + Math.max(item.currentTime || 0, item.duration || 0),
+    0
   );
 
-  const avgViews =
-    totalTitles > 0 ? Math.round(totalViews / Math.max(totalTitles, 1)) : 0;
+  const totalWatchHours = Math.round(totalWatchSeconds / 3600);
+  const completedTitles = continueWatching.filter((item) => item.completed);
+  const completionRate = percent(completedTitles.length, continueWatching.length);
 
-  const mostViewed = [...titles].sort(
-    (a, b) => (b.views || 0) - (a.views || 0)
-  )[0];
+  const likedReactions = reactions.filter((reaction) => reaction.liked);
+  const dislikedReactions = reactions.filter((reaction) => reaction.disliked);
 
-  const pendingPartners = partnerApplications.filter(
-    (app) => app.status === "pending"
-  );
-
-  const approvedPartners = partnerApplications.filter(
-    (app) => app.status === "approved"
-  );
-
-  const signedContracts = contracts.filter(
-    (contract) => contract.status === "signed"
-  );
-
-  const contractsNeedingAction = contracts.filter((contract) =>
-    ["draft", "changes_requested"].includes(contract.status)
-  );
+  const mostViewed = [...titles].sort((a, b) => (b.views || 0) - (a.views || 0))[0];
 
   const topTitles = [...titles]
     .sort((a, b) => (b.views || 0) - (a.views || 0))
-    .slice(0, 10);
+    .slice(0, 8);
 
   const recentTitles = titles.slice(0, 8);
-
-  const genreCounts = titles.reduce((map: Record<string, number>, title) => {
-    const genre = title.genre || "Uncategorized";
-    map[genre] = (map[genre] || 0) + 1;
-    return map;
-  }, {});
-
-  const topGenres = Object.entries(genreCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
-
-  const typeCounts = titles.reduce((map: Record<string, number>, title) => {
-    const type = title.type || "Unknown";
-    map[type] = (map[type] || 0) + 1;
-    return map;
-  }, {});
-
-  const topTypes = Object.entries(typeCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
-
-  const partnerCounts = titles.reduce((map: Record<string, number>, title) => {
-    const partner = title.creatorName || title.creatorEmail || "Unknown";
-    map[partner] = (map[partner] || 0) + 1;
-    return map;
-  }, {});
-
-  const topPartners = Object.entries(partnerCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
 
   const workflowRows = [
     { label: "Submissions", value: titles.filter((t) => t.workflowStage === "submission").length },
@@ -176,37 +159,14 @@ export default async function AdminAnalyticsPage() {
   ];
 
   const contractRows = [
-    { label: "Draft", value: contracts.filter((contract) => contract.status === "draft").length },
-    { label: "Sent", value: contracts.filter((contract) => contract.status === "sent").length },
-    { label: "Viewed", value: contracts.filter((contract) => contract.status === "viewed").length },
-    { label: "Changes Requested", value: contracts.filter((contract) => contract.status === "changes_requested").length },
+    { label: "Draft", value: contracts.filter((c) => c.status === "draft").length },
+    { label: "Sent", value: contracts.filter((c) => c.status === "sent").length },
+    { label: "Viewed", value: contracts.filter((c) => c.status === "viewed").length },
+    { label: "Changes Requested", value: contracts.filter((c) => c.status === "changes_requested").length },
     { label: "Signed", value: signedContracts.length },
-    { label: "Cancelled", value: contracts.filter((contract) => contract.status === "cancelled").length },
-    { label: "Expired", value: contracts.filter((contract) => contract.status === "expired").length },
+    { label: "Cancelled", value: contracts.filter((c) => c.status === "cancelled").length },
+    { label: "Expired", value: contracts.filter((c) => c.status === "expired").length },
   ];
-
-  const completedAdViews = adImpressions.filter((ad) => ad.completed);
-  const skippedAds = adImpressions.filter((ad) => ad.skipped);
-  const clickedAds = adImpressions.filter((ad) => ad.clicked);
-  const totalAdSpend = adCampaigns.reduce(
-    (sum, campaign) => sum + (campaign.spentCents || 0),
-    0
-  );
-
-  const adRevenue = totalAdSpend / 100;
-  const adCtr = percent(clickedAds.length, adImpressions.length);
-  const adCompletionRate = percent(completedAdViews.length, adImpressions.length);
-  const adSkipRate = percent(skippedAds.length, adImpressions.length);
-  const averageAdWatchSeconds = adImpressions.length
-    ? Math.round(
-        adImpressions.reduce((sum, ad) => sum + (ad.watchedSeconds || 0), 0) /
-          adImpressions.length
-      )
-    : 0;
-
-  const activeCampaigns = adCampaigns.filter(
-    (campaign) => campaign.status === "active"
-  );
 
   const campaignRows = adCampaigns
     .map((campaign) => {
@@ -217,7 +177,7 @@ export default async function AdminAnalyticsPage() {
       return {
         id: campaign.id,
         name: campaign.name,
-        advertiser: campaign.advertiser || campaign.adType,
+        advertiser: campaign.advertiser || campaign.adType || "Unknown",
         placement: campaign.placement,
         status: campaign.status,
         impressions,
@@ -227,548 +187,432 @@ export default async function AdminAnalyticsPage() {
       };
     })
     .sort((a, b) => b.impressions - a.impressions)
-    .slice(0, 10);
+    .slice(0, 8);
 
   const placementRows = ["pre_roll", "mid_roll", "post_roll", "banner"].map(
     (placement) => ({
       label: placement.replaceAll("_", " "),
-      value: adImpressions.filter((impression) => impression.placement === placement)
-        .length,
+      value: adImpressions.filter((impression) => impression.placement === placement).length,
     })
   );
 
-  const totalWatchSeconds = continueWatching.reduce(
-    (sum, item) => sum + Math.max(item.currentTime || 0, item.duration || 0),
-    0
+  const topGenres = topEntries(
+    titles.reduce((map: Record<string, number>, title) => {
+      const genre = title.genre || "Uncategorized";
+      map[genre] = (map[genre] || 0) + 1;
+      return map;
+    }, {})
   );
 
-  const totalWatchHours = Math.round(totalWatchSeconds / 3600);
-  const completedTitles = continueWatching.filter((item) => item.completed);
-  const completionRate = percent(completedTitles.length, continueWatching.length);
+  const topTypes = topEntries(
+    titles.reduce((map: Record<string, number>, title) => {
+      const type = title.type || "Unknown";
+      map[type] = (map[type] || 0) + 1;
+      return map;
+    }, {})
+  );
 
-  const topWatchlistTitles = Object.entries(
+  const topPartners = topEntries(
+    titles.reduce((map: Record<string, number>, title) => {
+      const partner = title.creatorName || title.creatorEmail || "Unknown";
+      map[partner] = (map[partner] || 0) + 1;
+      return map;
+    }, {})
+  );
+
+  const topWatchlistTitles = topEntries(
     watchlist.reduce((map: Record<string, number>, item) => {
       const title = item.project?.title || "Unknown Title";
       map[title] = (map[title] || 0) + 1;
       return map;
     }, {})
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
+  );
 
-  const likedReactions = reactions.filter((reaction) => reaction.liked);
-  const dislikedReactions = reactions.filter((reaction) => reaction.disliked);
-
-  const topLikedTitles = Object.entries(
+  const topLikedTitles = topEntries(
     likedReactions.reduce((map: Record<string, number>, reaction) => {
       const title = reaction.project?.title || "Unknown Title";
       map[title] = (map[title] || 0) + 1;
       return map;
     }, {})
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
-
-  const revenueToday = adRevenueFromImpressions(impressionsToday);
-  const revenueThisMonth = adRevenueFromImpressions(impressionsThisMonth);
-
-  const topAdvertisers = Object.entries(
-    adImpressions.reduce((map: Record<string, { impressions: number; revenue: number }>, impression) => {
-      const advertiser =
-        impression.campaign?.advertiser ||
-        impression.campaign?.adType ||
-        "Unknown Advertiser";
-
-      if (!map[advertiser]) {
-        map[advertiser] = { impressions: 0, revenue: 0 };
-      }
-
-      map[advertiser].impressions += 1;
-      map[advertiser].revenue +=
-        ((impression.campaign?.cpmCents || 0) / 1000) / 100;
-
-      return map;
-    }, {})
-  )
-    .map(([advertiser, stats]) => ({
-      advertiser,
-      impressions: stats.impressions,
-      revenue: stats.revenue,
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8);
-
-  const revenueByTitle = Object.entries(
-    adImpressions.reduce((map: Record<string, { impressions: number; revenue: number }>, impression) => {
-      const title = impression.project?.title || "No Title Attached";
-
-      if (!map[title]) {
-        map[title] = { impressions: 0, revenue: 0 };
-      }
-
-      map[title].impressions += 1;
-      map[title].revenue +=
-        ((impression.campaign?.cpmCents || 0) / 1000) / 100;
-
-      return map;
-    }, {})
-  )
-    .map(([title, stats]) => ({
-      title,
-      impressions: stats.impressions,
-      revenue: stats.revenue,
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8);
+  );
 
   const estimatedPartnerShare = adRevenue * 0.45;
   const estimatedPlatformProfit = adRevenue - estimatedPartnerShare;
 
+  const kpis = [
+    { label: "Total Views", value: formatNumber(totalViews), href: "/admin/content" },
+    { label: "Watch Hours", value: formatNumber(totalWatchHours), href: "/admin/analytics" },
+    { label: "Ad Revenue", value: money(adRevenue), href: "/admin/revenue" },
+    { label: "Ad Impressions", value: formatNumber(adImpressions.length), href: "/admin/ads" },
+    { label: "Users", value: formatNumber(users.length), href: "/admin/users" },
+    { label: "Profiles", value: formatNumber(profiles.length), href: "/admin/users" },
+    { label: "Published", value: formatNumber(published.length), href: "/admin/content" },
+    { label: "In Review", value: formatNumber(inReview.length), href: "/admin/review" },
+  ];
+
   return (
-  <AdminLayout>
-    <div className="px-8 py-10">
-      <div className="mx-auto max-w-7xl">
-        <section className="overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-8">
-          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-                SourceTV Analytics
-              </p>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="SourceTV Analytics"
+        title="Platform performance"
+        description="Track audience behavior, catalog health, ad delivery, partner activity, and revenue signals across SourceTV."
+      />
 
-              <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
-                Platform Command Center
-              </h1>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            className={`${card} p-4 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.055]`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
+              {item.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-white">
+              {item.value}
+            </p>
+          </Link>
+        ))}
+      </section>
 
-              <p className="mt-5 max-w-2xl text-sm leading-6 text-white/58 md:text-base">
-                Track catalog performance, viewer engagement, ad revenue,
-                campaign delivery, partner activity, rights health, and
-                recommendation signals from one admin dashboard.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Link href="/admin/content" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200">
-                  Content Center
-                </Link>
-                <Link href="/admin/ads" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200">
-                  Ads Manager
-                </Link>
-                <Link href="/admin/contracts" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white/70 transition hover:border-sky-300/40 hover:text-sky-200">
-                  Rights Contracts
-                </Link>
-                <Link href="/admin/revenue" className="rounded-xl bg-sky-400 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-300">
-                  Revenue
-                </Link>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-sky-300/20 bg-sky-400/10 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-sky-200">
-                Tracked Ad Revenue
-              </p>
-              <p className="mt-3 text-3xl font-black">
-                ${adRevenue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </p>
-              <p className="mt-2 text-xs leading-5 text-white/45">
-                Based on campaign spend tracked through SourceTV ad impressions.
-              </p>
-            </div>
+      <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
+        <SectionCard
+          title="Ad Performance"
+          description="Campaign delivery, revenue, clicks, skips, and completion signals."
+          actionHref="/admin/ads"
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            <MiniStat label="Today" value={money(revenueToday)} />
+            <MiniStat label="This Month" value={money(revenueThisMonth)} />
+            <MiniStat label="Active Campaigns" value={formatNumber(activeCampaigns.length)} />
+            <MiniStat label="CTR" value={`${adCtr}%`} />
+            <MiniStat label="Completion" value={`${adCompletionRate}%`} />
+            <MiniStat label="Avg Watch" value={`${averageAdWatchSeconds}s`} />
           </div>
-        </section>
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total Titles" value={totalTitles} />
-          <StatCard label="Published" value={published.length} />
-          <StatCard label="Total Views" value={totalViews} />
-          <StatCard label="Watch Hours" value={totalWatchHours} />
-          <StatCard label="Users" value={users.length} />
-          <StatCard label="Profiles" value={profiles.length} />
-          <StatCard label="Watchlist Adds" value={watchlist.length} />
-          <StatCard label="Likes" value={likedReactions.length} />
-          <StatCard label="Ad Impressions" value={adImpressions.length} />
-          <StatCard label="Today Ad Impressions" value={impressionsToday.length} />
-          <StatCard label="Monthly Ad Impressions" value={impressionsThisMonth.length} />
-          <StatCard label="Ad Clicks" value={clickedAds.length} />
-          <StatCard label="Active Campaigns" value={activeCampaigns.length} />
-          <StatCard label="Today Watch Events" value={watchEventsToday.length} />
-          <StatCard label="New Users This Month" value={newUsersThisMonth.length} />
-          <StatCard label="Signed Contracts" value={signedContracts.length} />
-        </section>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <Panel title="Ad Performance" eyebrow="Revenue" description="Real campaign delivery based on tracked ad impressions.">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MiniMetric label="Revenue Today" value={`$${revenueToday.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-              <MiniMetric label="Revenue This Month" value={`$${revenueThisMonth.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-              <MiniMetric label="CTR" value={`${adCtr}%`} />
-              <MiniMetric label="Completion Rate" value={`${adCompletionRate}%`} />
-              <MiniMetric label="Skip Rate" value={`${adSkipRate}%`} />
-              <MiniMetric label="Avg Watch" value={`${averageAdWatchSeconds}s`} />
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {campaignRows.length === 0 ? (
-                <Empty />
-              ) : (
-                campaignRows.map((campaign) => (
-                  <div key={campaign.id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="truncate font-black text-white/85">{campaign.name}</p>
-                        <p className="mt-1 text-xs font-bold capitalize text-white/40">
-                          {campaign.advertiser} • {campaign.placement.replaceAll("_", " ")} • {campaign.status}
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-sm font-black text-sky-300">
-                        {campaign.impressions.toLocaleString()} impressions
-                      </p>
-                    </div>
-
-                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                      <SmallRow label="CTR" value={`${campaign.ctr}%`} />
-                      <SmallRow label="Complete" value={`${campaign.completionRate}%`} />
-                      <SmallRow label="Spend" value={`$${(campaign.spend / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Panel>
-
-          <Panel title="Business Snapshot" eyebrow="Summary" description="Quick read on catalog, advertising, and rights health.">
-            <div className="space-y-3">
-              <Row label="Most Viewed" value={mostViewed ? `${mostViewed.title} (${(mostViewed.views || 0).toLocaleString()})` : "No data"} />
-              <Row label="Published Share" value={`${percent(published.length, totalTitles)}%`} />
-              <Row label="Completion Rate" value={`${completionRate}%`} />
-              <Row label="Signed Contract Share" value={`${percent(signedContracts.length, contracts.length)}%`} />
-              <Row label="Partner Share Estimate" value={`$${estimatedPartnerShare.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-              <Row label="Platform Profit Estimate" value={`$${estimatedPlatformProfit.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-            </div>
-          </Panel>
-        </section>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <Panel title="Top Titles" eyebrow="Audience" description="Most watched titles across SourceTV.">
-            {topTitles.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topTitles.map((title, index) => (
-                  <RankRow
-                    key={title.id}
-                    rank={index + 1}
-                    label={title.title}
-                    sublabel={`${title.type || "Title"}${title.genre ? ` • ${title.genre}` : ""}`}
-                    value={`${(title.views || 0).toLocaleString()} views`}
-                  />
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel title="Viewer Taste Signals" eyebrow="Recommendations" description="Signals feeding personalized recommendations.">
-            <div className="space-y-3">
-              <Row label="Continue Watching Records" value={continueWatching.length} />
-              <Row label="Completed Titles" value={completedTitles.length} />
-              <Row label="Watchlist Adds" value={watchlist.length} />
-              <Row label="Likes" value={likedReactions.length} />
-              <Row label="Dislikes" value={dislikedReactions.length} />
-              <Row label="Completion Rate" value={`${completionRate}%`} />
-            </div>
-          </Panel>
-
-          <Panel title="Ad Placements" eyebrow="Inventory" description="Impressions by placement type.">
-            <div className="space-y-3">
-              {placementRows.map((row) => (
-                <ProgressRow key={row.label} label={row.label} value={row.value} total={Math.max(adImpressions.length, 1)} />
-              ))}
-            </div>
-          </Panel>
-        </section>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <Panel title="Workflow Health" eyebrow="Operations" description="Where content currently sits in the pipeline.">
-            <div className="space-y-3">
-              {workflowRows.map((row) => (
-                <ProgressRow key={row.label} label={row.label} value={row.value} total={Math.max(totalTitles, 1)} />
-              ))}
-            </div>
-          </Panel>
-
-          <Panel title="Rights Contract Health" eyebrow="Legal" description="Current legal agreement status across the catalog.">
-            <div className="space-y-3">
-              {contractRows.map((row) => (
-                <ProgressRow key={row.label} label={row.label} value={row.value} total={Math.max(contracts.length, 1)} />
-              ))}
-            </div>
-          </Panel>
-
-          <Panel title="Top Genres" eyebrow="Catalog" description="Most represented categories in the catalog.">
-            {topGenres.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topGenres.map(([genre, count]) => (
-                  <ProgressRow key={genre} label={genre} value={count} total={Math.max(totalTitles, 1)} />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </section>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-2">
-          <Panel
-            title="Top Advertisers"
-            eyebrow="Advertising"
-            description="Advertisers ranked by estimated revenue from tracked impressions."
+          <DataTable
+            className="mt-5"
+            columns={["Campaign", "Impressions", "CTR", "Spend"]}
+            empty="No campaign data yet."
           >
-            {topAdvertisers.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topAdvertisers.map((advertiser) => (
-                  <Row
-                    key={advertiser.advertiser}
-                    label={`${advertiser.advertiser} • ${advertiser.impressions.toLocaleString()} impressions`}
-                    value={`$${advertiser.revenue.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}`}
-                  />
-                ))}
-              </div>
-            )}
-          </Panel>
+            {campaignRows.map((campaign) => (
+              <tr key={campaign.id} className="border-t border-white/10">
+                <Td>
+                  <p className="font-medium text-white">{campaign.name}</p>
+                  <p className="mt-1 text-xs capitalize text-white/35">
+                    {campaign.advertiser} · {campaign.placement.replaceAll("_", " ")} · {campaign.status}
+                  </p>
+                </Td>
+                <Td>{formatNumber(campaign.impressions)}</Td>
+                <Td>{campaign.ctr}%</Td>
+                <Td>{money(campaign.spend / 100)}</Td>
+              </tr>
+            ))}
+          </DataTable>
+        </SectionCard>
 
-          <Panel
-            title="Revenue by Title"
-            eyebrow="Content Revenue"
-            description="Titles ranked by estimated ad revenue attached to their impressions."
-          >
-            {revenueByTitle.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {revenueByTitle.map((title) => (
-                  <Row
-                    key={title.title}
-                    label={`${title.title} • ${title.impressions.toLocaleString()} impressions`}
-                    value={`$${title.revenue.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}`}
-                  />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </section>
+        <SectionCard title="Business Snapshot" description="The fastest read on SourceTV health.">
+          <div className="space-y-2">
+            <InfoRow
+              label="Most Viewed"
+              value={mostViewed ? `${mostViewed.title} (${formatNumber(mostViewed.views || 0)})` : "No data"}
+            />
+            <InfoRow label="Published Share" value={`${percent(published.length, totalTitles)}%`} />
+            <InfoRow label="Completion Rate" value={`${completionRate}%`} />
+            <InfoRow label="Partner Share" value={money(estimatedPartnerShare)} />
+            <InfoRow label="Platform Profit" value={money(estimatedPlatformProfit)} />
+            <InfoRow label="New Users This Month" value={formatNumber(newUsersThisMonth.length)} />
+          </div>
+        </SectionCard>
+      </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <Panel title="Most Watchlisted" eyebrow="Viewer Intent" description="Titles viewers are saving for later.">
-            {topWatchlistTitles.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topWatchlistTitles.map(([title, count]) => (
-                  <Row key={title} label={title} value={`${count} saves`} />
-                ))}
-              </div>
-            )}
-          </Panel>
+      <section className="grid gap-6 xl:grid-cols-3">
+        <SectionCard title="Top Titles" description="Most watched titles across the catalog." actionHref="/admin/content">
+          <RankList
+            items={topTitles.map((title) => ({
+              id: title.id,
+              label: title.title,
+              sublabel: `${title.type || "Title"}${title.genre ? ` · ${title.genre}` : ""}`,
+              value: `${formatNumber(title.views || 0)} views`,
+            }))}
+          />
+        </SectionCard>
 
-          <Panel title="Most Liked" eyebrow="Viewer Taste" description="Titles receiving the strongest positive signals.">
-            {topLikedTitles.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topLikedTitles.map(([title, count]) => (
-                  <Row key={title} label={title} value={`${count} likes`} />
-                ))}
-              </div>
-            )}
-          </Panel>
+        <SectionCard title="Viewer Signals" description="Watchlist, reactions, and completion activity.">
+          <div className="space-y-2">
+            <InfoRow label="Continue Watching" value={formatNumber(continueWatching.length)} />
+            <InfoRow label="Completed Titles" value={formatNumber(completedTitles.length)} />
+            <InfoRow label="Watchlist Adds" value={formatNumber(watchlist.length)} />
+            <InfoRow label="Likes" value={formatNumber(likedReactions.length)} />
+            <InfoRow label="Dislikes" value={formatNumber(dislikedReactions.length)} />
+            <InfoRow label="Today Watch Events" value={formatNumber(watchEventsToday.length)} />
+          </div>
+        </SectionCard>
 
-          <Panel title="Top Partners" eyebrow="Partners" description="Partners contributing the most titles.">
-            {topPartners.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topPartners.map(([partner, count]) => (
-                  <Row key={partner} label={partner} value={`${count} titles`} />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </section>
+        <SectionCard title="Ad Placements" description="Impressions by ad placement.">
+          <div className="space-y-3">
+            {placementRows.map((row) => (
+              <ProgressRow
+                key={row.label}
+                label={row.label}
+                value={row.value}
+                total={Math.max(adImpressions.length, 1)}
+              />
+            ))}
+          </div>
+        </SectionCard>
+      </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <Panel title="Content Types" eyebrow="Catalog" description="Breakdown by films, shows, animation, and other types.">
-            {topTypes.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {topTypes.map(([type, count]) => (
-                  <ProgressRow key={type} label={type} value={count} total={Math.max(totalTitles, 1)} />
-                ))}
-              </div>
-            )}
-          </Panel>
+      <section className="grid gap-6 xl:grid-cols-3">
+        <SectionCard title="Workflow Health" description="Where titles currently sit in the publishing pipeline.">
+          <div className="space-y-3">
+            {workflowRows.map((row) => (
+              <ProgressRow key={row.label} label={row.label} value={row.value} total={Math.max(totalTitles, 1)} />
+            ))}
+          </div>
+        </SectionCard>
 
-          <Panel title="Contracts Needing Attention" eyebrow="Rights" description="Drafts and change requests that need admin action.">
-            {contractsNeedingAction.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {contractsNeedingAction.slice(0, 8).map((contract) => (
-                  <Row key={contract.id} label={contract.project?.title || "Untitled Contract"} value={contract.status.replaceAll("_", " ")} />
-                ))}
-              </div>
-            )}
-          </Panel>
+        <SectionCard title="Contract Health" description="Current status of rights agreements.">
+          <div className="space-y-3">
+            {contractRows.map((row) => (
+              <ProgressRow key={row.label} label={row.label} value={row.value} total={Math.max(contracts.length, 1)} />
+            ))}
+          </div>
+        </SectionCard>
 
-          <Panel title="Partner Applications" eyebrow="Pipeline" description="Current partner onboarding activity.">
-            <div className="space-y-3">
-              <Row label="Total Applications" value={partnerApplications.length} />
-              <Row label="Pending" value={pendingPartners.length} />
-              <Row label="Approved" value={approvedPartners.length} />
-              <Row label="Rejected" value={partnerApplications.filter((app) => app.status === "rejected").length} />
-            </div>
-          </Panel>
-        </section>
+        <SectionCard title="Partner Pipeline" description="Partner onboarding and application status." actionHref="/admin/partners">
+          <div className="space-y-2">
+            <InfoRow label="Total Applications" value={formatNumber(partnerApplications.length)} />
+            <InfoRow label="Pending" value={formatNumber(pendingPartners.length)} />
+            <InfoRow label="Approved" value={formatNumber(approvedPartners.length)} />
+            <InfoRow
+              label="Rejected"
+              value={formatNumber(partnerApplications.filter((app) => app.status === "rejected").length)}
+            />
+          </div>
+        </SectionCard>
+      </section>
 
-        <section className="mt-8">
-          <Panel title="Recent Titles" eyebrow="Catalog Activity" description="Latest titles added to SourceTV.">
+      <section className="grid gap-6 xl:grid-cols-3">
+        <SectionCard title="Top Genres" description="Most represented catalog categories.">
+          <ProgressList items={topGenres} total={Math.max(totalTitles, 1)} />
+        </SectionCard>
+
+        <SectionCard title="Content Types" description="Breakdown by films, shows, animation, and other formats.">
+          <ProgressList items={topTypes} total={Math.max(totalTitles, 1)} />
+        </SectionCard>
+
+        <SectionCard title="Top Partners" description="Partners contributing the most titles.">
+          <SimpleList items={topPartners.map(([label, value]) => [label, `${value} titles`])} />
+        </SectionCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-3">
+        <SectionCard title="Most Watchlisted" description="Titles viewers are saving for later.">
+          <SimpleList items={topWatchlistTitles.map(([label, value]) => [label, `${value} saves`])} />
+        </SectionCard>
+
+        <SectionCard title="Most Liked" description="Titles receiving the strongest positive signals.">
+          <SimpleList items={topLikedTitles.map(([label, value]) => [label, `${value} likes`])} />
+        </SectionCard>
+
+        <SectionCard title="Recent Titles" description="Latest titles added to SourceTV." actionHref="/admin/content">
+          <div className="space-y-2">
             {recentTitles.length === 0 ? (
-              <Empty />
+              <EmptyState text="No recent titles yet." />
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {recentTitles.map((title) => (
-                  <div key={title.id} className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-base font-black text-white/85">{title.title}</p>
-                        <p className="mt-1 text-xs font-bold text-white/40">
-                          {title.type || "Title"}
-                          {title.genre ? ` • ${title.genre}` : ""}
-                          {title.creatorName ? ` • ${title.creatorName}` : ""}
-                        </p>
-                      </div>
-
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
-                        {title.workflowStage || title.status || "unknown"}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-xs font-bold text-sky-300">
-                      {(title.views || 0).toLocaleString()} views
-                    </p>
-                  </div>
-                ))}
-              </div>
+              recentTitles.map((title) => (
+                <Link
+                  key={title.id}
+                  href={`/admin/content/${title.id}/edit`}
+                  className="block rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 transition hover:bg-white/[0.045]"
+                >
+                  <p className="truncate text-sm font-medium text-white">{title.title}</p>
+                  <p className="mt-1 truncate text-xs text-white/35">
+                    {title.workflowStage || title.status || "unknown"}
+                    {title.creatorName ? ` · ${title.creatorName}` : ""}
+                  </p>
+                </Link>
+              ))
             )}
-          </Panel>
-        </section>
-      </div>
-     </div>
-  </AdminLayout>
-);
-}
-
-function percent(value: number, total: number) {
-  if (!total) return 0;
-  return Math.round((value / total) * 100);
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_25px_rgba(14,165,233,0.08)] md:p-6">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-white/38">
-        {label}
-      </p>
-      <h2 className="mt-3 text-4xl font-black text-sky-300">
-        {value.toLocaleString()}
-      </h2>
+          </div>
+        </SectionCard>
+      </section>
     </div>
   );
 }
 
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-sky-300">{value}</p>
-    </div>
-  );
-}
-
-function SmallRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-1 text-xs font-black text-sky-300">{value}</p>
-    </div>
-  );
-}
-
-function Panel({
-  title,
+function PageHeader({
   eyebrow,
+  title,
   description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <section className="border-b border-white/10 pb-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
+        {eyebrow}
+      </p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+        {title}
+      </h1>
+      <p className={`mt-2 max-w-3xl text-sm leading-6 ${muted}`}>
+        {description}
+      </p>
+    </section>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  actionHref,
   children,
 }: {
   title: string;
-  eyebrow: string;
   description: string;
+  actionHref?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="h-full rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-6">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-        {eyebrow}
+    <section className={`${card} overflow-hidden`}>
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+        <div>
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <p className="mt-1 text-sm text-white/40">{description}</p>
+        </div>
+
+        {actionHref && (
+          <Link href={actionHref} className="shrink-0 text-sm font-medium text-sky-300 hover:text-sky-200">
+            View
+          </Link>
+        )}
+      </div>
+
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
+        {label}
       </p>
-      <h2 className="mt-2 text-2xl font-black">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
-      <div className="mt-5">{children}</div>
+      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-      <p className="min-w-0 truncate font-bold text-white/70">{label}</p>
-      <p className="shrink-0 text-right font-black text-sky-300">{value}</p>
-    </div>
-  );
-}
-
-function RankRow({
-  rank,
-  label,
-  sublabel,
-  value,
+function DataTable({
+  columns,
+  children,
+  empty,
+  className = "",
 }: {
-  rank: number;
-  label: string;
-  sublabel: string;
-  value: string;
+  columns: string[];
+  children: ReactNode;
+  empty: string;
+  className?: string;
 }) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
+
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-400 text-sm font-black text-black">
-        {rank}
-      </div>
+    <div className={`${className} overflow-hidden rounded-2xl border border-white/10`}>
+      <table className="w-full text-left text-sm">
+        <thead className="bg-white/[0.025] text-xs uppercase tracking-[0.14em] text-white/35">
+          <tr>
+            {columns.map((column) => (
+              <th key={column} className="px-4 py-3 font-semibold">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-black text-white/80">{label}</p>
-        <p className="mt-1 truncate text-xs font-bold text-white/38">
-          {sublabel}
-        </p>
-      </div>
+        <tbody>
+          {hasChildren ? (
+            children
+          ) : (
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-8 text-white/40">
+                {empty}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-      <p className="shrink-0 text-sm font-black text-sky-300">{value}</p>
+function Td({ children }: { children: ReactNode }) {
+  return <td className="px-4 py-3 text-white/55">{children}</td>;
+}
+
+function InfoRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+      <p className="min-w-0 truncate text-sm text-white/60">{label}</p>
+      <p className="shrink-0 text-right text-sm font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function RankList({
+  items,
+}: {
+  items: { id: string; label: string; sublabel: string; value: string }[];
+}) {
+  if (items.length === 0) return <EmptyState text="No title performance data yet." />;
+
+  return (
+    <div className="space-y-2">
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3"
+        >
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-xs font-semibold text-sky-300">
+            {index + 1}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{item.label}</p>
+            <p className="mt-1 truncate text-xs text-white/35">{item.sublabel}</p>
+          </div>
+
+          <p className="shrink-0 text-xs font-semibold text-white/50">{item.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProgressList({ items, total }: { items: [string, number][]; total: number }) {
+  if (items.length === 0) return <EmptyState text="No breakdown data yet." />;
+
+  return (
+    <div className="space-y-3">
+      {items.map(([label, value]) => (
+        <ProgressRow key={label} label={label} value={value} total={total} />
+      ))}
+    </div>
+  );
+}
+
+function SimpleList({ items }: { items: [string, string][] }) {
+  if (items.length === 0) return <EmptyState text="No data yet." />;
+
+  return (
+    <div className="space-y-2">
+      {items.map(([label, value]) => (
+        <InfoRow key={label} label={label} value={value} />
+      ))}
     </div>
   );
 }
@@ -785,26 +629,44 @@ function ProgressRow({
   const width = Math.max(4, Math.round((value / total) * 100));
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <p className="font-bold capitalize text-white/70">{label}</p>
-        <p className="font-black text-sky-300">{value.toLocaleString()}</p>
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-4">
+        <p className="truncate text-sm capitalize text-white/60">{label}</p>
+        <p className="text-sm font-semibold text-white">{formatNumber(value)}</p>
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-sky-400 shadow-[0_0_18px_rgba(56,189,248,0.6)]"
-          style={{ width: `${width}%` }}
-        />
+      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-sky-300" style={{ width: `${width}%` }} />
       </div>
     </div>
   );
 }
 
-function Empty() {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5 text-white/45">
-      No data yet.
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-8 text-sm text-white/40">
+      {text}
     </div>
   );
+}
+
+function topEntries(map: Record<string, number>) {
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+}
+
+function percent(value: number, total: number) {
+  if (!total) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString();
+}
+
+function money(value: number) {
+  return `$${value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })}`;
 }

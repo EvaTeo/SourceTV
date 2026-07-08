@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import EmptyState from "@/app/components/admin/EmptyState";
+import MetricCard from "@/app/components/admin/MetricCard";
+import StatusBadge from "@/app/components/admin/StatusBadge";
+import Toolbar from "@/app/components/admin/Toolbar";
 
 type PartnerApplication = {
   id: string;
@@ -34,15 +39,6 @@ function formatDate(date?: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   });
-}
-
-function badgeClass(status: string) {
-  if (status === "approved")
-    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
-  if (status === "rejected")
-    return "border-red-400/40 bg-red-500/12 text-red-200";
-
-  return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
 }
 
 export default function AdminPartnersPage() {
@@ -110,6 +106,10 @@ export default function AdminPartnersPage() {
     if (activeFilter === "all") return applications;
     return applications.filter((app) => app.status === activeFilter);
   }, [applications, activeFilter]);
+
+  const selectedApplication = applications.find(
+    (application) => application.id === reviewApplicationId
+  );
 
   function openReviewModal(
     applicationId: string,
@@ -182,229 +182,169 @@ export default function AdminPartnersPage() {
     );
   }
 
-  const selectedApplication = applications.find(
-    (application) => application.id === reviewApplicationId
-  );
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
-
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-              SourceTV Operations
-            </p>
-
-            <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
-              Partner Applications
-            </h1>
-
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-              Review filmmakers, studios, producers, documentarians, and
-              distributors applying to become SourceTV partners.
-            </p>
-          </div>
-
+    <main className="space-y-6">
+      <AdminPageHeader
+        eyebrow="SourceTV Operations"
+        title="Partner Applications"
+        description="Review filmmakers, studios, producers, documentarians, and distributors applying to become SourceTV partners."
+        actions={
           <button
             onClick={loadApplications}
-            className="w-fit rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
+            className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
           >
             Refresh
           </button>
+        }
+      />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <MetricCard key={stat.label} label={stat.label} value={stat.value} />
+        ))}
+      </section>
+
+      <Toolbar>
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => {
+            const active = activeFilter === filter;
+
+            return (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`h-11 rounded-xl px-3 text-sm font-medium capitalize transition ${
+                  active
+                    ? "bg-sky-300 text-[#05070d]"
+                    : "border border-white/10 bg-white/[0.035] text-white/55 hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+                }`}
+              >
+                {filter} ({counts[filter as keyof typeof counts]})
+              </button>
+            );
+          })}
         </div>
+      </Toolbar>
 
-        <section className="mt-8 grid gap-3 md:grid-cols-4">
-          {stats.map((stat) => (
-            <AdminStat key={stat.label} label={stat.label} value={stat.value} />
-          ))}
-        </section>
+      {loading ? (
+        <EmptyState title="Loading partner applications..." />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="No applications found."
+          description="Try changing the selected application filter."
+        />
+      ) : (
+        <section className="grid gap-4">
+          {filtered.map((application) => {
+            const saving = savingId === application.id;
+            const expanded = expandedId === application.id;
 
-        <section className="mt-7 rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {filters.map((filter) => {
-              const active = activeFilter === filter;
+            return (
+              <article
+                key={application.id}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition hover:border-white/20 hover:bg-white/[0.045] md:p-6"
+              >
+                <div className="flex flex-col justify-between gap-5 md:flex-row">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge status={application.status} />
 
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
-                    active
-                      ? "border-sky-300 text-sky-300"
-                      : "border-transparent text-white/38 hover:text-white/72"
-                  }`}
-                >
-                  {filter} ({counts[filter as keyof typeof counts]})
-                </button>
-              );
-            })}
-          </div>
-        </section>
+                      <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] font-semibold capitalize text-white/55">
+                        Current Role: {application.user.role}
+                      </span>
 
-        {loading ? (
-          <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-            Loading partner applications...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-            No applications found for this view.
-          </div>
-        ) : (
-          <section className="mt-8 grid gap-5">
-            {filtered.map((application) => {
-              const saving = savingId === application.id;
-              const expanded = expandedId === application.id;
+                      {application.workType && (
+                        <span className="rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1 text-[11px] font-semibold text-sky-300">
+                          {application.workType}
+                        </span>
+                      )}
+                    </div>
 
-              return (
-                <article
-                  key={application.id}
-                  className="overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl transition hover:border-sky-300/20 md:p-6"
-                >
-                  <div className="flex flex-col justify-between gap-5 md:flex-row">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-2">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] backdrop-blur-xl ${badgeClass(
-                            application.status
-                          )}`}
+                    <h2 className="mt-4 text-xl font-semibold tracking-tight text-white md:text-2xl">
+                      {application.fullName}
+                    </h2>
+
+                    <p className="mt-2 break-words text-sm font-medium text-sky-300">
+                      {application.email}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-white/40">
+                      {application.company && (
+                        <span>Company: {application.company}</span>
+                      )}
+                      {application.roleTitle && (
+                        <span>· Role: {application.roleTitle}</span>
+                      )}
+                      <span>· Submitted {formatDate(application.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap gap-2 md:flex-col">
+                    {application.status === "pending" && (
+                      <>
+                        <button
+                          disabled={saving}
+                          onClick={() =>
+                            openReviewModal(application.id, "approve")
+                          }
+                          className="rounded-xl bg-sky-300 px-4 py-2 text-xs font-semibold text-[#05070d] transition hover:bg-sky-200 disabled:opacity-50"
                         >
-                          {application.status}
-                        </span>
+                          {saving ? "Saving..." : "Approve"}
+                        </button>
 
-                        <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">
-                          Current Role: {application.user.role}
-                        </span>
+                        <button
+                          disabled={saving}
+                          onClick={() => openReviewModal(application.id, "reject")}
+                          className="rounded-xl border border-red-300/25 bg-red-300/10 px-4 py-2 text-xs font-semibold text-red-300 transition hover:border-red-300/45 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
 
-                        {application.workType && (
-                          <span className="rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-200">
-                            {application.workType}
-                          </span>
-                        )}
-                      </div>
-
-                      <h2 className="mt-4 text-2xl font-black leading-tight md:text-4xl">
-                        {application.fullName}
-                      </h2>
-
-                      <p className="mt-2 break-words text-sm font-bold text-sky-300">
-                        {application.email}
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-white/45">
-                        {application.company && (
-                          <span>Company: {application.company}</span>
-                        )}
-                        {application.roleTitle && (
-                          <span>• Role: {application.roleTitle}</span>
-                        )}
-                        <span>
-                          • Submitted {formatDate(application.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 flex-wrap gap-2 md:flex-col">
-                      {application.status === "pending" && (
-                        <>
-                          <button
-                            disabled={saving}
-                            onClick={() =>
-                              openReviewModal(application.id, "approve")
-                            }
-                            className="rounded-md bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-50"
-                          >
-                            {saving ? "Saving..." : "Approve"}
-                          </button>
-
-                          <button
-                            disabled={saving}
-                            onClick={() =>
-                              openReviewModal(application.id, "reject")
-                            }
-                            className="rounded-md border border-red-400/30 bg-red-500/10 px-5 py-3 text-xs font-black text-red-300 transition hover:border-red-400/60 disabled:opacity-50"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedId(expanded ? null : application.id)
-                        }
-                        className="rounded-md border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-black text-white/50 transition hover:border-white/25 hover:text-white"
-                      >
-                        {expanded ? "Hide Details" : "Details"}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedId(expanded ? null : application.id)
+                      }
+                      className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+                    >
+                      {expanded ? "Hide Details" : "Details"}
+                    </button>
                   </div>
+                </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-4">
-                    <InfoBox
-                      label="Website"
-                      value={application.website || "Not provided"}
-                    />
-                    <InfoBox
-                      label="Portfolio / IMDb / Reel"
-                      value={application.portfolio || "Not provided"}
-                    />
-                    <InfoBox
-                      label="Reviewed"
-                      value={formatDate(application.reviewedAt)}
-                    />
-                    <InfoBox
-                      label="User Account"
-                      value={application.user.email}
-                    />
-                  </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  <InfoBox label="Website" value={application.website || "Not provided"} />
+                  <InfoBox label="Portfolio" value={application.portfolio || "Not provided"} />
+                  <InfoBox label="Reviewed" value={formatDate(application.reviewedAt)} />
+                  <InfoBox label="User Account" value={application.user.email} />
+                </div>
 
-                  <div
-                    className={`grid transition-all duration-300 ${
-                      expanded
-                        ? "mt-6 grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <TextBox
-                          label="Bio"
-                          value={application.bio || "No bio provided."}
-                        />
-                        <TextBox
-                          label="Reason"
-                          value={application.reason || "No reason provided."}
-                        />
+                {expanded && (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <TextBox label="Bio" value={application.bio || "No bio provided."} />
+                    <TextBox label="Reason" value={application.reason || "No reason provided."} />
+
+                    {application.adminNotes && (
+                      <div className="md:col-span-2">
+                        <TextBox label="Admin Notes" value={application.adminNotes} />
                       </div>
-
-                      {application.adminNotes && (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                            Admin Notes
-                          </p>
-                          <p className="mt-3 text-sm leading-7 text-white/60">
-                            {application.adminNotes}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
-      </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {reviewModalOpen && reviewAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md">
-          <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#030712]/95 shadow-[0_30px_120px_rgba(0,0,0,0.85)]">
-            <div className="border-b border-white/10 bg-white/[0.035] px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[#05070d] shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+            <div className="border-b border-white/10 px-6 py-5">
               <p
-                className={`text-[10px] font-black uppercase tracking-[0.3em] ${
+                className={`text-xs font-semibold uppercase tracking-[0.22em] ${
                   reviewAction === "approve" ? "text-sky-300" : "text-red-300"
                 }`}
               >
@@ -413,11 +353,11 @@ export default function AdminPartnersPage() {
                   : "Reject Application"}
               </p>
 
-              <h2 className="mt-2 text-2xl font-black text-white">
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
                 {selectedApplication?.fullName || "Partner Application"}
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-white/50">
+              <p className="mt-2 text-sm leading-6 text-white/45">
                 {reviewAction === "approve"
                   ? "Add optional approval notes before granting partner access."
                   : "Add a clear rejection reason so the decision is documented."}
@@ -425,7 +365,7 @@ export default function AdminPartnersPage() {
             </div>
 
             <div className="px-6 py-6">
-              <label className="text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
+              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
                 {reviewAction === "approve"
                   ? "Approval Notes"
                   : "Rejection Reason"}
@@ -440,11 +380,11 @@ export default function AdminPartnersPage() {
                     ? "Example: Approved for partner access. Strong portfolio and clear fit for SourceTV."
                     : "Example: Application rejected because portfolio or rights information was incomplete."
                 }
-                className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-black/65"
+                className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white/[0.035] px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-white/[0.055]"
               />
 
               {reviewAction === "reject" && (
-                <p className="mt-2 text-xs font-bold text-red-200/70">
+                <p className="mt-2 text-xs font-medium text-red-300/80">
                   Rejection reason is required.
                 </p>
               )}
@@ -454,7 +394,7 @@ export default function AdminPartnersPage() {
                   type="button"
                   disabled={!!savingId}
                   onClick={closeReviewModal}
-                  className="rounded-md border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white disabled:opacity-50"
+                  className="rounded-xl border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -463,10 +403,10 @@ export default function AdminPartnersPage() {
                   type="button"
                   disabled={!!savingId}
                   onClick={submitReview}
-                  className={`rounded-md px-5 py-3 text-xs font-black transition disabled:opacity-50 ${
+                  className={`rounded-xl px-5 py-3 text-xs font-semibold transition disabled:opacity-50 ${
                     reviewAction === "approve"
-                      ? "bg-sky-400 text-black hover:bg-sky-300"
-                      : "border border-red-400/35 bg-red-500/15 text-red-200 hover:border-red-400/70 hover:bg-red-500/25"
+                      ? "bg-sky-300 text-[#05070d] hover:bg-sky-200"
+                      : "border border-red-300/25 bg-red-300/10 text-red-300 hover:border-red-300/45"
                   }`}
                 >
                   {savingId
@@ -484,25 +424,13 @@ export default function AdminPartnersPage() {
   );
 }
 
-function AdminStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-        {label}
-      </p>
-
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
 function InfoBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </p>
-      <p className="mt-2 break-words text-sm font-bold text-white/70">
+      <p className="mt-1 break-words text-sm font-medium text-white/65">
         {value}
       </p>
     </div>
@@ -511,11 +439,11 @@ function InfoBox({ label, value }: { label: string; value: string }) {
 
 function TextBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </p>
-      <p className="mt-3 text-sm leading-7 text-white/60">{value}</p>
+      <p className="mt-3 text-sm leading-7 text-white/55">{value}</p>
     </div>
   );
 }

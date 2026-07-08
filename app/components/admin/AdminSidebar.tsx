@@ -44,6 +44,11 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/users", label: "Users", icon: "users" },
       { href: "/admin/ads", label: "Advertising", icon: "ads" },
+      {
+        href: "/admin/subscriptions",
+        label: "Subscriptions",
+        icon: "subscriptions",
+      },
       { href: "/admin/settings", label: "Settings", icon: "settings" },
     ],
   },
@@ -67,28 +72,28 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-[9999] flex h-screen w-72 flex-col border-r border-white/10 bg-[#05070d]">
-      <div className="px-7 pb-6 pt-7">
+    <aside className="fixed left-0 top-0 z-[9999] flex h-screen w-[270px] flex-col border-r border-white/10 bg-[#05070d]">
+      <div className="relative px-7 pb-6 pt-7">
         <Link href="/admin" className="group inline-flex items-center gap-3">
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-sky-300/25 bg-sky-300/10 shadow-[0_0_30px_rgba(56,189,248,0.12)]">
-            <div className="h-5 w-5 rounded-md border-2 border-sky-300/90 shadow-[0_0_18px_rgba(56,189,248,0.35)]" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition group-hover:border-sky-300/35 group-hover:bg-white/[0.06]">
+            <div className="h-5 w-5 rounded-md border-2 border-sky-300" />
           </div>
 
           <div>
-            <h1 className="text-2xl font-black leading-none text-white">
+            <h1 className="text-2xl font-black leading-none tracking-tight text-white">
               Source<span className="text-sky-300">TV</span>
             </h1>
             <p className="mt-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
-              Studio Admin
+              Admin Studio
             </p>
           </div>
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav className="relative flex-1 overflow-y-auto px-3 pb-4">
         {navGroups.map((group) => (
           <div key={group.title} className="mb-5">
-            <p className="mb-2 px-4 text-[10px] font-black uppercase tracking-[0.26em] text-white/28">
+            <p className="mb-1.5 px-4 text-[10px] font-black uppercase tracking-[0.26em] text-white/25">
               {group.title}
             </p>
 
@@ -100,26 +105,27 @@ export default function AdminSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 transition ${
+                    className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-2.5 transition ${
                       active
-                        ? "bg-white/[0.055] text-white"
-                        : "text-white/48 hover:bg-white/[0.035] hover:text-white/82"
+                        ? "bg-white/[0.05] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                        : "text-white/46 hover:bg-white/[0.035] hover:text-white/85"
                     }`}
                   >
                     <span
-                      className={`absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full transition ${
+                      className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full transition ${
                         active
-                          ? "bg-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.8)]"
+                          ? "bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.65)]"
                           : "bg-transparent"
                       }`}
                     />
 
-                    <SourceIcon
-                      name={item.icon}
-                      active={active}
-                    />
+                    <span className="relative">
+                      <SourceIcon name={item.icon} active={active} />
+                    </span>
 
-                    <span className="text-sm font-black">{item.label}</span>
+                    <span className="relative text-sm font-black">
+                      {item.label}
+                    </span>
                   </Link>
                 );
               })}
@@ -128,29 +134,42 @@ export default function AdminSidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-white/10 p-4">
-        <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4">
-          <div className="flex items-center gap-3">
-            <SourceIcon name="storage" active />
+      <div className="relative border-t border-white/10 p-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
+            System Status
+          </p>
 
-            <div>
-              <p className="text-sm font-black text-white/85">Bunny Stream</p>
-              <p className="text-xs font-semibold text-emerald-300/70">
-                Connected
-              </p>
-            </div>
+          <div className="mt-4 space-y-3">
+            <StatusRow label="Bunny Stream" />
+            <StatusRow label="Stripe" />
+            <StatusRow label="Database" />
+            <StatusRow label="Email Service" />
           </div>
         </div>
 
         <button
           onClick={logout}
-          className="mt-3 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black text-white/45 transition hover:bg-red-500/10 hover:text-red-300"
+          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 text-sm font-semibold text-white/55 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
         >
           <SourceIcon name="logout" active={false} />
           Logout
         </button>
       </div>
     </aside>
+  );
+}
+
+function StatusRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+        <span className="text-sm text-white/75">{label}</span>
+      </div>
+
+      <span className="text-xs text-emerald-400">Healthy</span>
+    </div>
   );
 }
 
@@ -164,7 +183,9 @@ function SourceIcon({
   const color = active ? "text-sky-300" : "text-white/42";
 
   return (
-    <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${color}`}>
+    <span
+      className={`flex h-5 w-5 shrink-0 items-center justify-center ${color}`}
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -260,6 +281,15 @@ function SourceIcon({
           <>
             <path d="M4 8h4l7-3v14l-7-3H4z" />
             <path d="M18 9.5c1 .7 1.5 1.5 1.5 2.5s-.5 1.8-1.5 2.5" />
+          </>
+        )}
+
+        {name === "subscriptions" && (
+          <>
+            <path d="M5 7h14v10H5z" />
+            <path d="M8 11h3" />
+            <path d="M15 11h1" />
+            <path d="M8 15h8" />
           </>
         )}
 

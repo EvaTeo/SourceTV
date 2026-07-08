@@ -50,10 +50,6 @@ export default function Header() {
     pathname.startsWith("/profiles") ||
     pathname.startsWith("/account");
 
-    if (isAdmin) {
-  return null;
-}
-
   const logoHref = isLanding ? "/" : "/browse";
 
   function isActive(href: string) {
@@ -114,6 +110,10 @@ export default function Header() {
       loadSubscription();
     }
   }, [isViewer]);
+
+  if (isAdmin) {
+  return null;
+}
 
   return (
     <header className="fixed left-0 top-0 z-50 w-full">

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import EmptyState from "@/app/components/admin/EmptyState";
+import MetricCard from "@/app/components/admin/MetricCard";
+import SearchInput from "@/app/components/admin/SearchInput";
+import StatusBadge from "@/app/components/admin/StatusBadge";
+import Toolbar from "@/app/components/admin/Toolbar";
 
 type UserRow = {
   id: string;
@@ -44,12 +50,6 @@ function getInitial(user: UserRow) {
   return (user.name || user.email || "U").trim().charAt(0).toUpperCase();
 }
 
-function getMembershipLabel(user: UserRow) {
-  if (user.subscriptionStatus === "lifetime") return "Lifetime Premium";
-  if (user.subscriptionTier === "premium") return "Premium Member";
-  return "Free Member";
-}
-
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +83,24 @@ export default function AdminUsersPage() {
       return matchesSearch && matchesFilter;
     });
   }, [users, searchQuery, activeFilter]);
+
+  const stats = useMemo(() => {
+    return [
+      { label: "Total Users", value: users.length },
+      {
+        label: "Premium",
+        value: users.filter((user) => user.subscriptionTier === "premium").length,
+      },
+      {
+        label: "Partners",
+        value: users.filter((user) => user.role === "partner").length,
+      },
+      {
+        label: "Admins",
+        value: users.filter((user) => user.role === "admin").length,
+      },
+    ];
+  }, [users]);
 
   async function loadUsers() {
     try {
@@ -153,69 +171,90 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-28 text-white">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="text-5xl font-black">Users</h1>
-        <p className="mt-3 text-white/60">
-          Manage SourceTV accounts, subscriptions, Stripe records, and roles.
-        </p>
+    <main className="space-y-6">
+      <AdminPageHeader
+        eyebrow="SourceTV Studio"
+        title="Users"
+        description="Manage SourceTV accounts, roles, Premium access, subscription status, and Stripe records."
+      />
 
-        <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, email, role, plan, or status..."
-              className="w-full rounded-2xl border border-white/10 bg-black px-5 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 transition focus:border-sky-300/50 lg:max-w-xl"
-            />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <MetricCard key={stat.label} label={stat.label} value={stat.value} />
+        ))}
+      </section>
 
-            <div className="flex flex-wrap gap-2">
-              {filters.map((filter) => (
-                <button
-                  key={filter.value}
-                  type="button"
-                  onClick={() => setActiveFilter(filter.value)}
-                  className={`rounded-full border px-4 py-2 text-xs font-black transition ${
-                    activeFilter === filter.value
-                      ? "border-sky-300/50 bg-sky-300/15 text-sky-100"
-                      : "border-white/10 bg-black/30 text-white/50 hover:border-sky-300/30 hover:text-sky-200"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
+      <Toolbar>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search name, email, role, plan, or status..."
+        />
+
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => setActiveFilter(filter.value)}
+              className={`h-11 rounded-xl px-3 text-sm font-medium transition ${
+                activeFilter === filter.value
+                  ? "bg-sky-300 text-[#05070d]"
+                  : "border border-white/10 bg-white/[0.035] text-white/55 hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </Toolbar>
+
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-white">Accounts</h2>
+            <p className="mt-1 text-sm text-white/40">
+              Showing {filteredUsers.length} of {users.length} users.
+            </p>
           </div>
-
-          <p className="mt-4 text-xs font-bold text-white/35">
-            Showing {filteredUsers.length} of {users.length} users.
-          </p>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035]">
-          <table className="w-full">
-            <thead className="bg-white/5">
-              <tr className="text-left text-sm">
-                <th className="p-4">Name</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Plan</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Joined</th>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left">
+            <thead className="bg-white/[0.025]">
+              <tr>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
+                  User
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
+                  Role
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
+                  Plan
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
+                  Status
+                </th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
+                  Joined
+                </th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y divide-white/10">
               {loading ? (
                 <tr>
-                  <td className="p-6" colSpan={6}>
-                    Loading...
+                  <td className="px-5 py-8" colSpan={5}>
+                    <EmptyState title="Loading users..." />
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td className="p-6" colSpan={6}>
-                    No users found.
+                  <td className="px-5 py-8" colSpan={5}>
+                    <EmptyState
+                      title="No users found."
+                      description="Try changing the search or selected filter."
+                    />
                   </td>
                 </tr>
               ) : (
@@ -223,17 +262,32 @@ export default function AdminUsersPage() {
                   <tr
                     key={user.id}
                     onClick={() => setSelectedUserId(user.id)}
-                    className="cursor-pointer border-t border-white/10 transition hover:bg-white/[0.05]"
+                    className="cursor-pointer transition hover:bg-white/[0.03]"
                   >
-                    <td className="p-4 font-bold">{user.name || "—"}</td>
-                    <td className="p-4 text-white/65">{user.email}</td>
-                    <td className="p-4">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-sky-300">
+                          {getInitial(user)}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {user.name || "Unnamed User"}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-white/40">
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-5 py-4">
                       <select
                         value={user.role}
                         disabled={savingUserId === user.id}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateRole(user.id, e.target.value)}
-                        className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm font-bold capitalize text-white outline-none transition hover:border-sky-300/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-xl border border-white/10 bg-[#05070d] px-3 py-2 text-sm font-medium capitalize text-white outline-none transition hover:border-sky-300/40 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {roleOptions.map((role) => (
                           <option key={role} value={role}>
@@ -242,209 +296,186 @@ export default function AdminUsersPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="p-4 capitalize">{user.subscriptionTier}</td>
-                    <td className="p-4 capitalize">
-                      {user.subscriptionStatus}
+
+                    <td className="px-5 py-4">
+                      <span className="text-sm capitalize text-white/60">
+                        {user.subscriptionTier}
+                      </span>
                     </td>
-                    <td className="p-4">{formatDate(user.createdAt)}</td>
+
+                    <td className="px-5 py-4">
+                      <StatusBadge status={user.subscriptionStatus || "inactive"} />
+                    </td>
+
+                    <td className="px-5 py-4 text-sm text-white/45">
+                      {formatDate(user.createdAt)}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       {selectedUser && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm"
-          onClick={() => setSelectedUserId(null)}
-        >
-          <aside
-            onClick={(event) => event.stopPropagation()}
-            className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-[#05070d] shadow-[0_0_90px_rgba(0,0,0,0.72)]"
-          >
-            <div className="sticky top-0 z-20 border-b border-white/10 bg-[#05070d]/92 px-6 py-5 backdrop-blur-2xl">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
-                  User Management
-                </p>
-
-                <button
-                  onClick={() => setSelectedUserId(null)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl font-light text-white/60 transition hover:border-sky-300/35 hover:text-white"
-                  aria-label="Close user drawer"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 pb-10 pt-8">
-              <section className="text-center">
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-sky-300/25 via-white/[0.08] to-yellow-300/10 text-4xl font-black text-white shadow-[0_0_60px_rgba(56,189,248,0.18)]">
-                  {getInitial(selectedUser)}
-                </div>
-
-                <h2 className="mt-5 text-4xl font-black tracking-tight">
-                  {selectedUser.name || "Unnamed User"}
-                </h2>
-
-                <p className="mt-2 break-all text-sm font-semibold text-white/45">
-                  {selectedUser.email}
-                </p>
-
-                <div className="mt-4 flex justify-center">
-                  <MembershipBadge user={selectedUser} />
-                </div>
-              </section>
-
-              <DrawerSection title="Account">
-                <InfoLine label="Role" value={selectedUser.role} />
-                <InfoLine label="Member Since" value={formatDate(selectedUser.createdAt)} />
-              </DrawerSection>
-
-              <DrawerSection title="Membership">
-                <div className="rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-5">
-                  <div className="flex items-start justify-between gap-5">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-                        Current Plan
-                      </p>
-
-                      <p className="mt-2 text-2xl font-black capitalize">
-                        {selectedUser.subscriptionTier === "premium"
-                          ? "Premium"
-                          : "Free"}
-                      </p>
-                    </div>
-
-                    <StatusDot status={selectedUser.subscriptionStatus} />
-                  </div>
-
-                  <div className="mt-5 grid gap-3">
-                    <InfoLine
-                      label="Status"
-                      value={selectedUser.subscriptionStatus}
-                    />
-                    <InfoLine
-                      label="Renews / Ends"
-                      value={formatDate(selectedUser.subscriptionEndsAt)}
-                    />
-                  </div>
-                </div>
-              </DrawerSection>
-
-              <DrawerSection title="Premium Controls">
-                <div className="grid gap-3">
-                  <ActionButton
-                    label="Grant Premium — 1 Year"
-                    description="Comp this account with Premium access for one year."
-                    disabled={savingUserId === selectedUser.id}
-                    onClick={() =>
-                      updatePremiumAction(selectedUser.id, "grant_premium")
-                    }
-                    tone="blue"
-                  />
-
-                  <ActionButton
-                    label="Grant Lifetime Premium"
-                    description="Give this account Premium access through 2099."
-                    disabled={savingUserId === selectedUser.id}
-                    onClick={() =>
-                      updatePremiumAction(selectedUser.id, "lifetime_premium")
-                    }
-                    tone="gold"
-                  />
-
-                  <ActionButton
-                    label="Remove Premium"
-                    description="Return this account to the free plan."
-                    disabled={savingUserId === selectedUser.id}
-                    onClick={() =>
-                      updatePremiumAction(selectedUser.id, "remove_premium")
-                    }
-                    tone="red"
-                  />
-                </div>
-              </DrawerSection>
-
-              <DrawerSection title="Security">
-                <div className="rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-5">
-                  <p className="text-sm font-black text-white/80">
-                    Change Role
-                  </p>
-
-                  <select
-                    value={selectedUser.role}
-                    disabled={savingUserId === selectedUser.id}
-                    onChange={(e) =>
-                      updateRole(selectedUser.id, e.target.value)
-                    }
-                    className="mt-4 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm font-black capitalize text-white outline-none transition hover:border-sky-300/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {roleOptions.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 grid gap-3">
-                    <DisabledAction label="Reset Password" />
-                    <DisabledAction label="Suspend Account" />
-                  </div>
-                </div>
-              </DrawerSection>
-
-              <DrawerSection title="Stripe">
-                <div className="grid gap-3">
-                  <CodeLine
-                    label="Customer"
-                    value={selectedUser.stripeCustomerId || "No customer ID"}
-                  />
-                  <CodeLine
-                    label="Subscription"
-                    value={
-                      selectedUser.stripeSubscriptionId ||
-                      "No subscription ID"
-                    }
-                  />
-
-                  <button
-                    type="button"
-                    disabled={!selectedUser.stripeCustomerId}
-                    className="mt-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left text-sm font-black text-white/55 transition hover:border-sky-300/35 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    Open Stripe Customer →
-                  </button>
-                </div>
-              </DrawerSection>
-            </div>
-          </aside>
-        </div>
+        <UserDrawer
+          user={selectedUser}
+          saving={savingUserId === selectedUser.id}
+          onClose={() => setSelectedUserId(null)}
+          updateRole={updateRole}
+          updatePremiumAction={updatePremiumAction}
+        />
       )}
     </main>
   );
 }
 
-function DrawerSection({
-  title,
-  children,
+function UserDrawer({
+  user,
+  saving,
+  onClose,
+  updateRole,
+  updatePremiumAction,
 }: {
-  title: string;
-  children: React.ReactNode;
+  user: UserRow;
+  saving: boolean;
+  onClose: () => void;
+  updateRole: (userId: string, role: string) => Promise<void>;
+  updatePremiumAction: (userId: string, action: string) => Promise<void>;
 }) {
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/10" />
-        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-300">
-          {title}
-        </p>
-        <div className="h-px flex-1 bg-white/10" />
-      </div>
+    <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm" onClick={onClose}>
+      <aside
+        onClick={(event) => event.stopPropagation()}
+        className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-[#05070d] shadow-[0_0_90px_rgba(0,0,0,0.72)]"
+      >
+        <div className="sticky top-0 z-20 border-b border-white/10 bg-[#05070d]/95 px-6 py-5 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300">
+              User Management
+            </p>
 
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-white/60 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+              aria-label="Close user drawer"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 pb-10 pt-7">
+          <section>
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-2xl font-semibold text-sky-300">
+                {getInitial(user)}
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="truncate text-2xl font-semibold tracking-tight text-white">
+                  {user.name || "Unnamed User"}
+                </h2>
+                <p className="mt-1 break-all text-sm text-white/45">{user.email}</p>
+              </div>
+            </div>
+          </section>
+
+          <DrawerSection title="Account">
+            <InfoLine label="Role" value={user.role} />
+            <InfoLine label="Member Since" value={formatDate(user.createdAt)} />
+          </DrawerSection>
+
+          <DrawerSection title="Membership">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
+                    Current Plan
+                  </p>
+
+                  <p className="mt-2 text-2xl font-semibold capitalize text-white">
+                    {user.subscriptionTier === "premium" ? "Premium" : "Free"}
+                  </p>
+                </div>
+
+                <StatusBadge status={user.subscriptionStatus || "inactive"} />
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                <InfoLine label="Status" value={user.subscriptionStatus} />
+                <InfoLine label="Renews / Ends" value={formatDate(user.subscriptionEndsAt)} />
+              </div>
+            </div>
+          </DrawerSection>
+
+          <DrawerSection title="Premium Controls">
+            <div className="grid gap-3">
+              <DrawerAction
+                label="Grant Premium — 1 Year"
+                description="Comp this account with Premium access for one year."
+                disabled={saving}
+                onClick={() => updatePremiumAction(user.id, "grant_premium")}
+              />
+
+              <DrawerAction
+                label="Grant Lifetime Premium"
+                description="Give this account Premium access through 2099."
+                disabled={saving}
+                onClick={() => updatePremiumAction(user.id, "lifetime_premium")}
+              />
+
+              <DrawerAction
+                label="Remove Premium"
+                description="Return this account to the free plan."
+                disabled={saving}
+                destructive
+                onClick={() => updatePremiumAction(user.id, "remove_premium")}
+              />
+            </div>
+          </DrawerSection>
+
+          <DrawerSection title="Security">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+              <p className="text-sm font-semibold text-white">Change Role</p>
+
+              <select
+                value={user.role}
+                disabled={saving}
+                onChange={(e) => updateRole(user.id, e.target.value)}
+                className="mt-4 w-full rounded-xl border border-white/10 bg-[#05070d] px-4 py-3 text-sm font-medium capitalize text-white outline-none transition hover:border-sky-300/40 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </DrawerSection>
+
+          <DrawerSection title="Stripe">
+            <div className="grid gap-3">
+              <CodeLine label="Customer" value={user.stripeCustomerId || "No customer ID"} />
+              <CodeLine
+                label="Subscription"
+                value={user.stripeSubscriptionId || "No subscription ID"}
+              />
+            </div>
+          </DrawerSection>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-8">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">
+        {title}
+      </p>
       {children}
     </section>
   );
@@ -452,104 +483,54 @@ function DrawerSection({
 
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-5 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-white/35">
+    <div className="flex items-center justify-between gap-5 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </p>
-      <p className="break-all text-right text-sm font-black capitalize text-white/82">
+      <p className="break-all text-right text-sm font-medium capitalize text-white/70">
         {value}
       </p>
     </div>
   );
 }
 
-function MembershipBadge({ user }: { user: UserRow }) {
-  const isPremium = user.subscriptionTier === "premium";
-  const isLifetime = user.subscriptionStatus === "lifetime";
-
-  return (
-    <span
-      className={`inline-flex rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] ${
-        isPremium
-          ? "border-yellow-300/35 bg-yellow-300/12 text-yellow-100"
-          : "border-white/10 bg-white/[0.04] text-white/45"
-      }`}
-    >
-      {isPremium ? (isLifetime ? "♾ Lifetime Premium" : "👑 Premium Member") : "Free Member"}
-    </span>
-  );
-}
-
-function StatusDot({ status }: { status: string }) {
-  const active = ["active", "trialing", "lifetime"].includes(status);
-
-  return (
-    <span
-      className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
-        active
-          ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-          : status === "past_due"
-            ? "border-red-300/30 bg-red-300/10 text-red-100"
-            : "border-white/10 bg-white/[0.04] text-white/45"
-      }`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function ActionButton({
+function DrawerAction({
   label,
   description,
   disabled,
+  destructive,
   onClick,
-  tone,
 }: {
   label: string;
   description: string;
   disabled: boolean;
+  destructive?: boolean;
   onClick: () => void;
-  tone: "blue" | "gold" | "red";
 }) {
-  const toneClass =
-    tone === "blue"
-      ? "border-sky-300/25 bg-sky-300/10 text-sky-100 hover:bg-sky-300/16"
-      : tone === "gold"
-        ? "border-yellow-300/25 bg-yellow-300/10 text-yellow-100 hover:bg-yellow-300/16"
-        : "border-red-300/25 bg-red-300/10 text-red-100 hover:bg-red-300/16";
-
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-[1.45rem] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${toneClass}`}
+      className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+        destructive
+          ? "border-red-300/25 bg-red-300/10 text-red-300 hover:border-red-300/45"
+          : "border-sky-300/25 bg-sky-300/10 text-sky-300 hover:border-sky-300/45"
+      }`}
     >
-      <p className="text-sm font-black">{label}</p>
+      <p className="text-sm font-semibold">{label}</p>
       <p className="mt-1 text-xs leading-5 text-white/42">{description}</p>
-    </button>
-  );
-}
-
-function DisabledAction({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left text-sm font-black text-white/28"
-    >
-      {label} <span className="text-white/18">— coming soon</span>
     </button>
   );
 }
 
 function CodeLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.45rem] border border-white/10 bg-black/30 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </p>
-      <p className="mt-2 break-all font-mono text-xs text-white/65">{value}</p>
+      <p className="mt-2 break-all font-mono text-xs text-white/60">{value}</p>
     </div>
   );
 }

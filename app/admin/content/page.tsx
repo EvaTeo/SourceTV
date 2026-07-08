@@ -1,5 +1,8 @@
 "use client";
-
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import MetricCard from "@/app/components/admin/MetricCard";
+import Toolbar from "@/app/components/admin/Toolbar";
+import SearchInput from "@/app/components/admin/SearchInput";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -350,160 +353,136 @@ const filteredContent = useMemo(() => {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
+   <main className="space-y-6">
+  <AdminPageHeader
+    eyebrow="SourceTV Operations"
+    title="Content Library"
+    description="Manage submissions, metadata review, content review, rights, scheduling, publishing, featuring, recognition, and archive decisions."
+    actions={
+      <>
+        <Link
+          href="/admin/review"
+          className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+        >
+          Review Queue
+        </Link>
 
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-              SourceTV Operations
-            </p>
+        <Link
+          href="/admin/upload"
+          className="rounded-xl bg-sky-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200"
+        >
+          Upload Title
+        </Link>
+      </>
+    }
+  />
 
-            <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-7xl">
-              Content Control Center
-            </h1>
+  <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    {stats.map((stat) => (
+      <MetricCard key={stat.label} label={stat.label} value={stat.value} />
+    ))}
+  </section>
 
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-              Manage submissions, metadata review, content review, rights,
-              scheduling, publishing, featuring, recognition, and archive
-              decisions.
-            </p>
-          </div>
+  <Toolbar>
+    <SearchInput
+      value={search}
+      onChange={setSearch}
+      placeholder="Search title, partner, genre, email, recognition..."
+    />
 
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin/review"
-              className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
-            >
-              Review Queue
-            </Link>
+    <button
+      onClick={loadContent}
+      className="h-11 rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+    >
+      Refresh
+    </button>
 
-            <Link
-              href="/admin/upload"
-              className="rounded-md bg-sky-400 px-4 py-2.5 text-xs font-black text-black shadow-[0_0_28px_rgba(56,189,248,0.3)] transition hover:bg-sky-300"
-            >
-              Upload Title
-            </Link>
-          </div>
-        </div>
+    <button
+      type="button"
+      onClick={() => setShowFilters((current) => !current)}
+      className="h-11 rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-medium text-white/65 transition hover:border-sky-300/35 hover:bg-white/[0.055] hover:text-sky-300"
+    >
+      Filters {showFilters ? "▲" : "▼"}
+    </button>
+  </Toolbar>
 
-        <section className="mt-8 grid gap-3 md:grid-cols-4">
-          {stats.map((stat) => (
-            <AdminStat key={stat.label} label={stat.label} value={stat.value} />
-          ))}
-        </section>
+  {showFilters && (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
+        Workflow Pipeline
+      </p>
 
-        <section className="mt-7 rounded-[1.7rem] border border-white/10 bg-white/[0.035] p-3 shadow-2xl backdrop-blur-xl md:p-4">
-          <div className="flex flex-col gap-3 md:flex-row">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title, partner, genre, email, recognition..."
-              className="min-h-12 flex-1 rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-sky-300/60 md:rounded-2xl"
-            />
-
+      <div className="flex flex-wrap gap-2">
+        {filters
+          .filter(
+            (filter) =>
+              !["featured", "archived", "rejected", "all"].includes(
+                filter.value
+              )
+          )
+          .map((filter) => (
             <button
-              onClick={loadContent}
-              className="rounded-xl border border-white/10 bg-black/35 px-5 py-3 text-xs font-black text-white/65 transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200 md:rounded-2xl"
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <button
+              key={filter.value}
               type="button"
-              onClick={() => setShowFilters((current) => !current)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-xs font-black uppercase tracking-[0.15em] text-white/70 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+              onClick={() => setActiveFilter(filter.value)}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                activeFilter === filter.value
+                  ? "bg-sky-300 text-[#05070d]"
+                  : "bg-white/[0.035] text-white/55 hover:bg-white/[0.06] hover:text-white"
+              }`}
             >
-              Filters
-              <span className="text-sky-300">
-                {showFilters ? "▲" : "▼"}
-              </span>
+              {filter.label} ({counts[filter.value] || 0})
             </button>
+          ))}
+      </div>
 
-            {showFilters && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
-                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                  Workflow Pipeline
-                </p>
+      <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
+        Content Type
+      </p>
 
-                <div className="flex flex-wrap gap-3">
-                  {filters
-                    .filter(
-                      (filter) =>
-                        !["featured", "archived", "rejected", "all"].includes(
-                          filter.value
-                        )
-                    )
-                    .map((filter) => (
-                      <button
-                        key={filter.value}
-                        type="button"
-                        onClick={() => setActiveFilter(filter.value)}
-                        className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
-                          activeFilter === filter.value
-                            ? "bg-sky-300 text-black"
-                            : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        {filter.label} ({counts[filter.value] || 0})
-                      </button>
-                    ))}
-                </div>
+      <div className="flex flex-wrap gap-2">
+        {contentTypes.map((type) => (
+          <button
+            key={String(type)}
+            type="button"
+            onClick={() => setActiveType(String(type))}
+            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+              activeType === type
+                ? "bg-sky-300 text-[#05070d]"
+                : "bg-white/[0.035] text-white/55 hover:bg-white/[0.06] hover:text-white"
+            }`}
+          >
+            {type === "all" ? "All Types" : type}
+          </button>
+        ))}
+      </div>
 
-                <p className="mb-3 mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                  Content Type
-                </p>
+      <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
+        Special States
+      </p>
 
-                <div className="flex flex-wrap gap-3">
-                  {contentTypes.map((type) => (
-                    <button
-                      key={String(type)}
-                      type="button"
-                      onClick={() => setActiveType(String(type))}
-                      className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
-                        activeType === type
-                          ? "bg-sky-300 text-black"
-                          : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      {type === "all" ? "All Types" : type}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mb-3 mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                  Special States
-                </p>
-
-                <div className="flex flex-wrap gap-3">
-                  {filters
-                    .filter((filter) =>
-                      ["featured", "archived", "rejected"].includes(
-                        filter.value
-                      )
-                    )
-                    .map((filter) => (
-                      <button
-                        key={filter.value}
-                        type="button"
-                        onClick={() => setActiveFilter(filter.value)}
-                        className={`rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition ${
-                          activeFilter === filter.value
-                            ? "bg-sky-300 text-black"
-                            : "bg-white/5 text-white/55 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        {filter.label} ({counts[filter.value] || 0})
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+      <div className="flex flex-wrap gap-2">
+        {filters
+          .filter((filter) =>
+            ["featured", "archived", "rejected"].includes(filter.value)
+          )
+          .map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => setActiveFilter(filter.value)}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                activeFilter === filter.value
+                  ? "bg-sky-300 text-[#05070d]"
+                  : "bg-white/[0.035] text-white/55 hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              {filter.label} ({counts[filter.value] || 0})
+            </button>
+          ))}
+      </div>
+    </section>
+  )}
 
         {loading ? (
           <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
@@ -526,16 +505,16 @@ const filteredContent = useMemo(() => {
 
               return (
                 <article
-                  key={item.id}
-                  className="overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.045] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl transition hover:border-sky-300/20"
-                >
+  key={item.id}
+  className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] transition hover:border-white/20 hover:bg-white/[0.045]"
+>
                   <div className="grid gap-0 md:grid-cols-[230px_1fr]">
                     <div
                       className="relative min-h-[210px] bg-zinc-950 bg-cover bg-center md:min-h-full"
                       style={{
                         backgroundImage: artwork
                           ? `linear-gradient(to top, rgba(0,0,0,0.94), rgba(0,0,0,0.2)), url(${artwork})`
-                          : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.18), transparent 34%), linear-gradient(to right, black, #020617)",
+: "linear-gradient(to right, #05070d, #05070d)",
                       }}
                     >
                       <div className="absolute left-4 top-4 flex flex-wrap gap-2">
@@ -578,8 +557,8 @@ const filteredContent = useMemo(() => {
                     <div className="p-5 md:p-6">
                       <div className="flex flex-col justify-between gap-5 md:flex-row">
                         <div className="min-w-0">
-                          <h2 className="text-2xl font-black md:text-4xl">
-                            {item.title}
+<h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
+                              {item.title}
                           </h2>
 
 
@@ -684,8 +663,8 @@ const filteredContent = useMemo(() => {
                         </div>
                       </div>
 
-                      <div className="mt-6 grid gap-4 md:grid-cols-3">
-                        <InfoBox
+<div className="mt-5 grid gap-3 md:grid-cols-3">
+                          <InfoBox
                           label="Current Stage"
                           value={stageLabels[stage] || stage.replaceAll("_", " ")}
                         />
@@ -881,9 +860,7 @@ const filteredContent = useMemo(() => {
             })}
           </section>
         )}
-      </div>
-
-      {messageTarget && (
+           {messageTarget && (
         <SourceModal
           title="Message Partner"
           eyebrow="SourceTV Communication"
@@ -1158,12 +1135,12 @@ function AdminStat({ label, value }: { label: string; value: number }) {
 
 function InfoBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
         {label}
       </p>
 
-      <p className="mt-2 line-clamp-2 text-sm font-bold text-white/70">
+      <p className="mt-1 line-clamp-2 text-sm font-medium text-white/65">
         {value}
       </p>
     </div>
@@ -1197,26 +1174,29 @@ function ActionButton({
   onClick: () => void;
   variant: "primary" | "green" | "blue" | "purple" | "red" | "default";
 }) {
-  const classes: Record<typeof variant, string> = {
-    primary:
-      "bg-sky-400 text-black hover:bg-sky-300 shadow-[0_0_24px_rgba(56,189,248,0.22)]",
+  const classes: Record<
+    "primary" | "green" | "blue" | "purple" | "red" | "default",
+    string
+  > = {
+    primary: "bg-sky-300 text-[#05070d] hover:bg-sky-200",
     green:
-      "border border-green-300/30 bg-green-300/10 text-green-200 hover:border-green-300/60",
+      "border border-emerald-300/25 bg-emerald-300/10 text-emerald-300 hover:border-emerald-300/45",
     blue:
-      "border border-sky-300/30 bg-sky-300/10 text-sky-200 hover:border-sky-300/60",
+      "border border-sky-300/25 bg-sky-300/10 text-sky-300 hover:border-sky-300/45",
     purple:
-      "border border-purple-400/30 bg-purple-500/10 text-purple-300 hover:border-purple-400/60",
+      "border border-purple-300/25 bg-purple-300/10 text-purple-300 hover:border-purple-300/45",
     red:
-      "border border-red-400/30 bg-red-500/10 text-red-300 hover:border-red-400/60",
+      "border border-red-300/25 bg-red-300/10 text-red-300 hover:border-red-300/45",
     default:
-      "border border-white/15 bg-white/[0.04] text-white/60 hover:border-white/30 hover:text-white",
+      "border border-white/10 bg-white/[0.035] text-white/60 hover:border-white/20 hover:bg-white/[0.055] hover:text-white",
   };
 
   return (
     <button
+      type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-md px-4 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-35 ${classes[variant]}`}
+      className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${classes[variant]}`}
     >
       {children}
     </button>

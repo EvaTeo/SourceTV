@@ -3,6 +3,27 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
+const card =
+  "rounded-2xl border border-white/10 bg-white/[0.035] transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.055] hover:shadow-[0_18px_60px_rgba(0,0,0,0.28)]";
+
+const panel = "rounded-2xl border border-white/10 bg-white/[0.035]";
+
+const reviewStages = [
+  "submission",
+  "metadata_review",
+  "content_review",
+  "rights_review",
+];
+
+function formatNumber(value: number) {
+  return value.toLocaleString();
+}
+
+function label(value?: string | null) {
+  if (!value) return "Unknown";
+  return value.replaceAll("_", " ");
+}
+
 export default async function AdminDashboard() {
   const user = await getCurrentUser();
 
@@ -18,396 +39,339 @@ export default async function AdminDashboard() {
     orderBy: { createdAt: "desc" },
   });
 
-  const totalSubmissions = submissions.length;
-
-  const submissionStage = submissions.filter(
-    (s) => s.workflowStage === "submission"
-  ).length;
-
-  const metadataReview = submissions.filter(
-    (s) => s.workflowStage === "metadata_review"
-  ).length;
-
-  const contentReview = submissions.filter(
-    (s) => s.workflowStage === "content_review"
-  ).length;
-
-  const rightsReview = submissions.filter(
-    (s) => s.workflowStage === "rights_review"
-  ).length;
-
-  const published = submissions.filter(
-    (s) => s.workflowStage === "published"
-  ).length;
-
-  const scheduled = submissions.filter(
-    (s) => s.workflowStage === "scheduled"
-  ).length;
-
-  const featured = submissions.filter((s) => s.featured).length;
-
-  const pendingPartnerApplications = partnerApplications.filter(
-    (app) => app.status === "pending"
-  ).length;
-
   const totalViews = submissions.reduce(
     (sum, submission) => sum + (submission.views || 0),
     0
   );
 
-  const estimatedAdRevenue = (totalViews / 1000) * 12;
-  const estimatedParticipationEarnings = estimatedAdRevenue * 0.45;
-  const estimatedSourceTVProfit =
-    estimatedAdRevenue - estimatedParticipationEarnings;
+  const inReview = submissions.filter((s) =>
+    reviewStages.includes(s.workflowStage || "")
+  );
 
-  const statCards = [
-    { label: "Total Titles", value: totalSubmissions },
-    { label: "Submissions", value: submissionStage },
-    { label: "Metadata Review", value: metadataReview },
-    { label: "Content Review", value: contentReview },
-    { label: "Rights Review", value: rightsReview },
-    { label: "Scheduled", value: scheduled },
-    { label: "Published", value: published },
-    { label: "Featured", value: featured },
-  ];
+  const published = submissions.filter((s) => s.workflowStage === "published");
+  const scheduled = submissions.filter((s) => s.workflowStage === "scheduled");
+  const featured = submissions.filter((s) => s.featured);
 
-  const moneyCards = [
-    {
-      label: "Estimated Ad Revenue",
-      value: money(estimatedAdRevenue),
-      note: `${totalViews.toLocaleString()} internal views at prototype CPM.`,
-    },
-    {
-      label: "Partner Pool",
-      value: money(estimatedParticipationEarnings),
-      note: "Estimated 45% partner participation model.",
-    },
-    {
-      label: "SourceTV Profit",
-      value: money(estimatedSourceTVProfit),
-      note: "Estimated retained platform revenue.",
-    },
-  ];
+  const pendingApplications = partnerApplications.filter(
+    (app) => app.status === "pending"
+  );
 
-  const adminLinks = [
+  const metrics = [
+    { label: "Titles", value: submissions.length, href: "/admin/content" },
+    { label: "Published", value: published.length, href: "/admin/content" },
+    { label: "In Review", value: inReview.length, href: "/admin/review" },
+    { label: "Views", value: totalViews, href: "/admin/analytics" },
     {
-      title: "Content Control Center",
-      href: "/admin/content",
-      eyebrow: "Catalog",
-      description:
-        "Manage submissions, workflow stages, publishing, recognition, rights, and messaging.",
-    },
-    {
-      title: "Applications",
+      label: "Applications",
+      value: partnerApplications.length,
       href: "/admin/partners",
-      eyebrow: "Partners",
-      description:
-        "Review filmmakers, studios, producers, and distributors applying to join SourceTV.",
-      alert: pendingPartnerApplications,
     },
     {
-  title: "Partner Inbox",
-  href: "/admin/inbox",
-  eyebrow: "Communications",
-  description:
-    "Send messages to partners, review conversations, rights requests, and publishing communications.",
-},
-    {
-      title: "Review Queue",
-      href: "/admin/review",
-      eyebrow: "Approvals",
-      description:
-        "Approve, schedule, reject, archive, preview, and update uploaded titles.",
+      label: "Pending",
+      value: pendingApplications.length,
+      href: "/admin/partners",
     },
+    { label: "Scheduled", value: scheduled.length, href: "/admin/content" },
+    { label: "Featured", value: featured.length, href: "/admin/content" },
+  ];
+
+  const quickActions = [
     {
-      title: "Analytics",
-      href: "/admin/analytics",
-      eyebrow: "Insights",
-      description:
-        "Track views, top titles, workflow health, partners, genres, and platform activity.",
-    },
-    {
-      title: "Revenue Center",
-      href: "/admin/revenue",
-      eyebrow: "Finance",
-      description:
-        "Track ads, participation earnings, platform profit, and future payout cycles.",
-    },
-    {
-      title: "Admin Upload",
+      icon: "＋",
+      title: "Upload Content",
+      description: "Add a new title",
       href: "/admin/upload",
-      eyebrow: "Publishing",
-      description:
-        "Upload or add SourceTV-controlled titles directly into the platform.",
+    },
+    {
+      icon: "✓",
+      title: "Review Queue",
+      description: `${inReview.length} needs review`,
+      href: "/admin/review",
+      badge: inReview.length,
+    },
+    {
+      icon: "👥",
+      title: "Review Partners",
+      description: `${pendingApplications.length} pending`,
+      href: "/admin/partners",
+      badge: pendingApplications.length,
+    },
+    {
+      icon: "✉",
+      title: "Open Inbox",
+      description: "Partner messages",
+      href: "/admin/inbox",
+    },
+    {
+      icon: "📊",
+      title: "Analytics",
+      description: "Platform metrics",
+      href: "/admin/analytics",
     },
   ];
 
-  const recentTitles = submissions.slice(0, 5);
+  const tools = [
+    { icon: "📁", title: "Content", href: "/admin/content" },
+    { icon: "✓", title: "Review", href: "/admin/review" },
+    { icon: "👥", title: "Partners", href: "/admin/partners" },
+    { icon: "✉", title: "Inbox", href: "/admin/inbox" },
+    { icon: "📄", title: "Contracts", href: "/admin/contracts" },
+    { icon: "📺", title: "Ads", href: "/admin/ads" },
+    { icon: "👤", title: "Users", href: "/admin/users" },
+    { icon: "📈", title: "Analytics", href: "/admin/analytics" },
+    { icon: "💰", title: "Revenue", href: "/admin/revenue" },
+  ];
+
+  const recentTitles = submissions.slice(0, 6);
   const recentApplications = partnerApplications.slice(0, 5);
 
   return (
-  <div className="relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
+            SourceTV Studio
+          </p>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-8 py-10">
-        <section className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-              Admin Portal
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Overview
+          </h1>
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+            Your command center for content, partners, users, advertising,
+            revenue, and publishing.
+          </p>
+        </div>
+
+        <Link
+          href="/browse"
+          className="w-fit rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+        >
+          Open Viewer Site
+        </Link>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <Link key={metric.label} href={metric.href} className={`${card} p-4`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
+              {metric.label}
             </p>
-
-            <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tight md:text-7xl">
-              SourceTV Control Center
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-white/58 md:text-base">
-              Manage content operations, partner applications, publishing,
-              recognition, analytics, revenue, and platform tools from one
-              place.
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-white">
+              {formatNumber(metric.value)}
             </p>
-          </div>
+          </Link>
+        ))}
+      </section>
 
-          <div className="rounded-[1.5rem] border border-sky-300/20 bg-sky-400/10 p-5 shadow-[0_0_45px_rgba(56,189,248,0.08)] backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-200">
-              Pending Applications
-            </p>
+      <section className="grid gap-3 lg:grid-cols-5">
+        {quickActions.map((action) => (
+          <Link key={action.href} href={action.href} className={`${card} p-4`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-sm">
+                {action.icon}
+              </div>
 
-            <p className="mt-2 text-4xl font-black">
-              {pendingPartnerApplications}
-            </p>
-
-            <Link
-              href="/admin/partners"
-              className="mt-3 inline-flex text-xs font-black text-sky-200 transition hover:text-white"
-            >
-              Review Applications →
-            </Link>
-          </div>
-        </section>
-
-        <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {statCards.map((card) => (
-            <AdminStat key={card.label} label={card.label} value={card.value} />
-          ))}
-        </section>
-
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          {moneyCards.map((card) => (
-            <MoneyCard
-              key={card.label}
-              label={card.label}
-              value={card.value}
-              note={card.note}
-            />
-          ))}
-        </section>
-
-        <section className="mt-10">
-          <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
-            <div>
-              <h2 className="text-3xl font-black">Admin Tools</h2>
-              <p className="mt-2 text-sm text-white/50">
-                The operating system for SourceTV content, partners, analytics,
-                and monetization.
-              </p>
+              {!!action.badge && (
+                <span className="rounded-full bg-sky-300/10 px-2 py-0.5 text-xs font-semibold text-sky-300">
+                  {action.badge}
+                </span>
+              )}
             </div>
 
-            <Link
-              href="/browse"
-              className="w-fit rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
-            >
-              Open Viewer Site
-            </Link>
-          </div>
+            <h3 className="mt-3 text-sm font-semibold text-white">
+              {action.title}
+            </h3>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {adminLinks.map((link) => (
-              <Link key={link.title} href={link.href}>
-                <div className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:-translate-y-1 hover:border-sky-300/45 hover:shadow-[0_0_40px_rgba(14,165,233,0.16)]">
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(56,189,248,0.09),transparent_34%)] opacity-0 transition group-hover:opacity-100" />
+            <p className="mt-1 text-sm text-white/42">{action.description}</p>
+          </Link>
+        ))}
+      </section>
 
-                  <div className="relative">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                        {link.eyebrow}
-                      </p>
+      <section className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        <div className={`${panel} overflow-hidden`}>
+          <SectionHeader
+            title="Recent Activity"
+            description="Latest movement across the publishing pipeline."
+            href="/admin/content"
+          />
 
-                      {!!link.alert && (
-                        <span className="rounded-full border border-sky-300/35 bg-sky-300/12 px-2.5 py-1 text-[10px] font-black text-sky-100">
-                          {link.alert}
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="mt-3 text-2xl font-black transition group-hover:text-sky-300">
-                      {link.title}
-                    </h3>
-
-                    <p className="mt-3 text-sm leading-6 text-white/55">
-                      {link.description}
+          <div className="divide-y divide-white/10">
+            {recentTitles.length === 0 ? (
+              <EmptyState
+                title="No recent activity."
+                description="Content updates will appear here once titles are added."
+              />
+            ) : (
+              recentTitles.map((title) => (
+                <Link
+                  key={title.id}
+                  href={`/admin/content/${title.id}/edit`}
+                  className="grid gap-3 px-5 py-3.5 transition hover:bg-white/[0.03] md:grid-cols-[1fr_150px_70px]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">
+                      {title.title}
                     </p>
 
-                    <p className="mt-5 text-xs font-black text-white/35 transition group-hover:text-sky-200">
-                      Open →
+                    <p className="mt-1 truncate text-xs text-white/40">
+                      {label(title.workflowStage || title.status)}
+                      {title.creatorName ? ` • ${title.creatorName}` : ""}
                     </p>
                   </div>
-                </div>
+
+                  <p className="text-xs text-white/35 md:text-right">
+                    {title.views ? `${formatNumber(title.views)} views` : "No views"}
+                  </p>
+
+                  <p className="text-xs font-semibold text-sky-300 md:text-right">
+                    Open
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className={`${panel} overflow-hidden`}>
+          <SectionHeader
+            title="System Status"
+            description="Core services and platform health."
+          />
+
+          <div className="space-y-1 px-5 pb-5">
+            <StatusRow label="Bunny Stream" value="Connected" />
+            <StatusRow label="Stripe" value="Connected" />
+            <StatusRow label="Database" value="Healthy" />
+            <StatusRow label="Admin Shell" value="Active" />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        <div className={`${panel} overflow-hidden`}>
+          <SectionHeader
+            title="Recent Partner Applications"
+            description="Creators, studios, and distributors requesting access."
+            href="/admin/partners"
+          />
+
+          <div className="divide-y divide-white/10">
+            {recentApplications.length === 0 ? (
+              <EmptyState
+                title="No recent partner applications."
+                description="New creator applications will appear here."
+              />
+            ) : (
+              recentApplications.map((application) => (
+                <Link
+                  key={application.id}
+                  href="/admin/partners"
+                  className="grid gap-3 px-5 py-3.5 transition hover:bg-white/[0.03] md:grid-cols-[1fr_140px_70px]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">
+                      {application.fullName || "Untitled application"}
+                    </p>
+
+                    <p className="mt-1 truncate text-xs text-white/40">
+                      {application.company || "Independent creator"}
+                    </p>
+                  </div>
+
+                  <p className="text-xs capitalize text-white/35 md:text-right">
+                    {application.status || "pending"}
+                  </p>
+
+                  <p className="text-xs font-semibold text-sky-300 md:text-right">
+                    Review
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className={`${panel} p-5`}>
+          <div>
+            <h2 className="text-base font-semibold text-white">Admin Tools</h2>
+            <p className="mt-1 text-sm text-white/40">
+              Run every part of SourceTV from one place.
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {tools.map((tool) => (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-center transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.05]"
+              >
+                <div className="text-base">{tool.icon}</div>
+                <p className="mt-2 truncate text-xs font-semibold text-white/65">
+                  {tool.title}
+                </p>
               </Link>
             ))}
           </div>
-        </section>
-
-        <section className="mt-10 grid gap-6 lg:grid-cols-2">
-          <Panel
-            eyebrow="Catalog Activity"
-            title="Recently Updated Titles"
-            description="Latest titles touched in the SourceTV catalog."
-          >
-            {recentTitles.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {recentTitles.map((title) => (
-                  <ActivityRow
-                    key={title.id}
-                    title={title.title}
-                    meta={`${title.workflowStage || title.status || "unknown"}${
-                      title.creatorName ? ` • ${title.creatorName}` : ""
-                    }`}
-                    href={`/admin/content/${title.id}/edit`}
-                  />
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel
-            eyebrow="Partner Activity"
-            title="Recent Applications"
-            description="Newest partner submissions and their review status."
-          >
-            {recentApplications.length === 0 ? (
-              <Empty />
-            ) : (
-              <div className="space-y-3">
-                {recentApplications.map((application) => (
-                  <ActivityRow
-                    key={application.id}
-                    title={application.fullName}
-                    meta={`${application.status}${
-                      application.company ? ` • ${application.company}` : ""
-                    }`}
-                    href="/admin/partners"
-                  />
-                ))}
-              </div>
-            )}
-          </Panel>
-        </section>
-            </div>
         </div>
-  );
-}
-
-function money(value: number) {
-  return `$${value.toLocaleString(undefined, {
-    minimumFractionDigits: value > 0 && value < 100 ? 2 : 0,
-    maximumFractionDigits: value > 0 && value < 100 ? 2 : 0,
-  })}`;
-}
-
-function AdminStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-        {label}
-      </p>
-
-      <p className="mt-2 text-3xl font-black text-white">
-        {value.toLocaleString()}
-      </p>
+      </section>
     </div>
   );
 }
 
-function MoneyCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <div className="rounded-[1.5rem] border border-sky-300/20 bg-sky-400/10 p-5 shadow-[0_0_35px_rgba(56,189,248,0.07)]">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-200">
-        {label}
-      </p>
-
-      <p className="mt-3 text-3xl font-black text-white">{value}</p>
-
-      <p className="mt-2 text-xs leading-5 text-white/45">{note}</p>
-    </div>
-  );
-}
-
-function Panel({
-  eyebrow,
+function SectionHeader({
   title,
   description,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="h-full rounded-[1.65rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-6">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-        {eyebrow}
-      </p>
-
-      <h2 className="mt-2 text-2xl font-black">{title}</h2>
-
-      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
-
-      <div className="mt-5">{children}</div>
-    </div>
-  );
-}
-
-function ActivityRow({
-  title,
-  meta,
   href,
 }: {
   title: string;
-  meta: string;
-  href: string;
+  description: string;
+  href?: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 transition hover:border-sky-300/35 hover:bg-sky-300/8"
-    >
-      <div className="min-w-0">
-        <p className="truncate font-black text-white/80">{title}</p>
-        <p className="mt-1 truncate text-xs font-bold uppercase tracking-[0.12em] text-white/35">
-          {meta}
-        </p>
+    <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+      <div>
+        <h2 className="text-base font-semibold text-white">{title}</h2>
+        <p className="mt-1 text-sm text-white/40">{description}</p>
       </div>
 
-      <span className="shrink-0 text-xs font-black text-sky-300">Open</span>
-    </Link>
+      {href && (
+        <Link
+          href={href}
+          className="shrink-0 text-sm font-medium text-sky-300 transition hover:text-sky-200"
+        >
+          View all
+        </Link>
+      )}
+    </div>
   );
 }
 
-function Empty() {
+function StatusRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5 text-white/45">
-      No data yet.
+    <div className="flex items-center justify-between rounded-xl px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+        <span className="text-sm text-white/65">{label}</span>
+      </div>
+
+      <span className="text-xs font-medium text-white/35">{value}</span>
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="px-5 py-8">
+      <p className="text-sm font-medium text-white/65">{title}</p>
+      <p className="mt-1 text-sm text-white/35">{description}</p>
     </div>
   );
 }
