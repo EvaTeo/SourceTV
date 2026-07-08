@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+
+import ActionButton from "./ActionButton";
+import DetailBlock from "./DetailBlock";
+import InfoBox from "./InfoBox";
+import MessageHistoryBlock from "./MessageHistoryBlock";
 
 type PartnerMessage = {
   id: string;
@@ -47,159 +51,277 @@ export type ContentItem = {
   partnerMessages?: PartnerMessage[];
 };
 
-const stageLabels: Record<string, string> = {
-  submission: "Submission",
-  metadata_review: "Metadata Review",
-  content_review: "Content Review",
-  rights_review: "Rights Review",
-  approved: "Approved",
-  scheduled: "Scheduled",
-  published: "Published",
-  archived: "Archived",
-  rejected: "Rejected",
+type Props = {
+  item: ContentItem;
+  saving: boolean;
+  expanded: boolean;
+  messageHistory: PartnerMessage[];
+  latestMessage?: PartnerMessage;
+  recognitionLevels: string[];
+  stageLabels: Record<string, string>;
+  stageBadgeClass: (stage: string) => string;
+  formatDate: (date?: string | null) => string;
+  onMoveForward: () => void;
+  onPublish: () => void;
+  onFeature: () => void;
+  onArchive: () => void;
+  onRecognitionChange: (value: string) => void;
+  onMessage: () => void;
+  onReject: () => void;
+  onToggleDetails: () => void;
 };
 
 export default function ContentCard({
   item,
   saving,
   expanded,
+  messageHistory,
+  latestMessage,
+  recognitionLevels,
+  stageLabels,
+  stageBadgeClass,
+  formatDate,
+  onMoveForward,
+  onPublish,
+  onFeature,
+  onArchive,
+  onRecognitionChange,
+  onMessage,
+  onReject,
   onToggleDetails,
-  updateContent,
-  openMessageModal,
-  openRejectModal,
-}: {
-  item: ContentItem;
-  saving: boolean;
-  expanded: boolean;
-  onToggleDetails: () => void;
-  updateContent: (id: string, body: any) => Promise<void>;
-  openMessageModal: (item: ContentItem) => void;
-  openRejectModal: (item: ContentItem) => void;
-}) {
+}: Props) {
   const stage = item.workflowStage || "submission";
   const artwork = item.cardArtUrl || item.backdropUrl || item.thumbnailUrl || "";
-  const messageHistory = [...(item.partnerMessages || [])].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
 
   return (
     <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] transition hover:border-white/20 hover:bg-white/[0.045]">
-      <div className="grid gap-0 md:grid-cols-[220px_1fr]">
+      <div className="grid gap-0 md:grid-cols-[230px_1fr]">
         <div
-          className="relative min-h-[190px] bg-[#05070d] bg-cover bg-center md:min-h-full"
+          className="relative min-h-[210px] bg-zinc-950 bg-cover bg-center md:min-h-full"
           style={{
             backgroundImage: artwork
-              ? `linear-gradient(to top, rgba(5,7,13,0.92), rgba(5,7,13,0.2)), url(${artwork})`
+              ? `linear-gradient(to top, rgba(0,0,0,0.94), rgba(0,0,0,0.2)), url(${artwork})`
               : "linear-gradient(to right, #05070d, #05070d)",
           }}
         >
           <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-            <Badge stage={stage}>{stageLabels[stage] || stage}</Badge>
+            <span
+              className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] backdrop-blur-xl ${stageBadgeClass(
+                stage
+              )}`}
+            >
+              {stageLabels[stage] || stage.replaceAll("_", " ")}
+            </span>
 
-            {item.featured && <Badge stage="featured">Featured</Badge>}
+            {item.featured && (
+              <span className="rounded-full border border-sky-300/45 bg-sky-300/14 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 backdrop-blur-xl">
+                Featured
+              </span>
+            )}
+
+            {item.recognitionLevel && (
+              <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/75 backdrop-blur-xl">
+                {item.recognitionLevel}
+              </span>
+            )}
 
             {messageHistory.length > 0 && (
-              <Badge stage="messages">{messageHistory.length} Msg</Badge>
+              <span className="rounded-full border border-cyan-300/35 bg-cyan-300/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100 backdrop-blur-xl">
+                {messageHistory.length} Message
+                {messageHistory.length === 1 ? "" : "s"}
+              </span>
             )}
           </div>
 
-          <p className="absolute bottom-4 left-4 right-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
-            {item.type || "Title"} {item.genre ? `· ${item.genre}` : ""}
-          </p>
+          <div className="absolute bottom-4 left-4 right-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">
+              {item.type || "Title"} {item.genre ? `• ${item.genre}` : ""}
+            </p>
+          </div>
         </div>
 
-        <div className="p-5">
+        <div className="p-5 md:p-6">
           <div className="flex flex-col justify-between gap-5 md:flex-row">
             <div className="min-w-0">
               <h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
                 {item.title}
               </h2>
 
-              <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-white/50">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                {[
+                  "submission",
+                  "metadata_review",
+                  "content_review",
+                  "rights_review",
+                  "approved",
+                  "scheduled",
+                  "published",
+                ].map((step, index, steps) => {
+                  const currentIndex = steps.indexOf(stage);
+                  const state =
+                    index < currentIndex
+                      ? "complete"
+                      : index === currentIndex
+                      ? "current"
+                      : "future";
+
+                  return (
+                    <div key={step} className="flex items-center gap-2">
+                      <span
+                        className={
+                          state === "current"
+                            ? "text-sky-300"
+                            : state === "complete"
+                            ? "text-white/80"
+                            : "text-white/25"
+                        }
+                      >
+                        {state === "current"
+                          ? "►"
+                          : state === "complete"
+                          ? "●"
+                          : "○"}
+                      </span>
+
+                      <span
+                        className={
+                          state === "current"
+                            ? "text-sky-300"
+                            : state === "complete"
+                            ? "text-white/65"
+                            : "text-white/25"
+                        }
+                      >
+                        {stageLabels[step]}
+                      </span>
+
+                      {index < steps.length - 1 && (
+                        <span className="text-white/15">→</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-white/58">
                 {item.description || "No description provided."}
               </p>
 
-              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium text-white/40">
+              <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-white/45">
                 <span>Partner: {item.creatorName || "Unknown"}</span>
-                {item.creatorEmail && <span>· {item.creatorEmail}</span>}
-                {item.runtime && <span>· {item.runtime}</span>}
-                {item.maturityRating && <span>· {item.maturityRating}</span>}
+
+                {item.creatorEmail && <span>• {item.creatorEmail}</span>}
+
+                {item.runtime && <span>• {item.runtime}</span>}
+
+                {item.maturityRating && <span>• {item.maturityRating}</span>}
+
+                {item.scheduledAt && (
+                  <span>• Scheduled: {formatDate(item.scheduledAt)}</span>
+                )}
               </div>
             </div>
 
             <div className="flex shrink-0 flex-row gap-2 md:flex-col">
-              <Link href={`/watch/${item.id}?preview=admin`} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-center text-xs font-semibold text-white/60 transition hover:bg-white/[0.055] hover:text-white">
+              <Link
+                href={`/watch/${item.id}?preview=admin`}
+                className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+              >
                 Preview
               </Link>
 
-              <Link href={`/admin/content/${item.id}`} className="rounded-xl bg-sky-300 px-4 py-2 text-center text-xs font-semibold text-[#05070d] transition hover:bg-sky-200">
+              <Link
+                href={`/admin/content/${item.id}`}
+                className="rounded-md bg-sky-400 px-4 py-2 text-center text-xs font-black text-black transition hover:bg-sky-300"
+              >
                 Review
               </Link>
 
-              <Link href={`/admin/content/${item.id}/edit`} className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2 text-center text-xs font-semibold text-white/60 transition hover:bg-white/[0.055] hover:text-white">
+              <Link
+                href={`/admin/content/${item.id}/edit`}
+                className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-center text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
+              >
                 Edit
               </Link>
             </div>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <InfoBox label="Current Stage" value={stageLabels[stage] || stage} />
+            <InfoBox
+              label="Current Stage"
+              value={stageLabels[stage] || stage.replaceAll("_", " ")}
+            />
+
             <InfoBox label="Schedule" value={formatDate(item.scheduledAt)} />
+
             <InfoBox
               label="Partner"
-              value={item.creatorCompany || item.creatorName || item.creatorEmail || "Unknown"}
+              value={
+                item.creatorCompany ||
+                item.creatorName ||
+                item.creatorEmail ||
+                "Unknown"
+              }
             />
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
             <ActionButton
               disabled={saving || stage === "published"}
-              onClick={() => updateContent(item.id, { action: "move_forward" })}
+              onClick={onMoveForward}
               variant="primary"
             >
               {saving ? "Saving..." : "Move Forward"}
             </ActionButton>
 
-            <ActionButton disabled={saving} onClick={() => updateContent(item.id, { action: "publish" })} variant="green">
+            <ActionButton
+              disabled={saving}
+              onClick={onPublish}
+              variant="green"
+            >
               Publish
+            </ActionButton>
+
+            <ActionButton disabled={saving} onClick={onFeature} variant="blue">
+              {item.featured ? "Unfeature" : "Feature"}
             </ActionButton>
 
             <ActionButton
               disabled={saving}
-              onClick={() =>
-                updateContent(item.id, {
-                  action: item.featured ? "unfeature" : "feature",
-                })
-              }
-              variant="blue"
+              onClick={onArchive}
+              variant="default"
             >
-              {item.featured ? "Unfeature" : "Feature"}
-            </ActionButton>
-
-            <ActionButton disabled={saving} onClick={() => updateContent(item.id, { action: "archive" })} variant="default">
               Archive
             </ActionButton>
 
-            <ActionButton disabled={saving} onClick={() => openMessageModal(item)} variant="purple">
+            <ActionButton
+              disabled={saving}
+              onClick={onMessage}
+              variant="purple"
+            >
               Message
             </ActionButton>
 
-            <ActionButton disabled={saving} onClick={() => openRejectModal(item)} variant="red">
+            <ActionButton disabled={saving} onClick={onReject} variant="red">
               Reject
             </ActionButton>
 
             <button
               type="button"
               onClick={onToggleDetails}
-              className="rounded-xl border border-white/10 bg-white/[0.035] px-3.5 py-2 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+              className="rounded-md border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-black text-white/50 transition hover:border-white/25 hover:text-white"
             >
               {expanded ? "Hide Details" : "Details"}
             </button>
           </div>
 
-          {expanded && (
-            <div className="mt-5 space-y-4">
-              <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:grid-cols-3">
+          <div
+            className={`grid transition-all duration-300 ${
+              expanded ? "mt-6 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 md:grid-cols-3">
                 <DetailBlock
                   title="Rights"
                   lines={[
@@ -223,142 +345,71 @@ export default function ContentCard({
                 <DetailBlock
                   title="Review Notes"
                   lines={[
-                    item.metadataNotes ? `Metadata: ${item.metadataNotes}` : "Metadata: none",
-                    item.contentNotes ? `Content: ${item.contentNotes}` : "Content: none",
+                    item.metadataNotes
+                      ? `Metadata: ${item.metadataNotes}`
+                      : "Metadata: none",
+                    item.contentNotes
+                      ? `Content: ${item.contentNotes}`
+                      : "Content: none",
                     item.rightsNotes ? `Rights: ${item.rightsNotes}` : "Rights: none",
-                    item.reviewNotes ? `General: ${item.reviewNotes}` : "General: none",
+                    item.reviewNotes
+                      ? `General: ${item.reviewNotes}`
+                      : "General: none",
                   ]}
                 />
               </div>
 
+              <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 md:grid-cols-3">
+                <DetailBlock
+                  title="Admin Summary"
+                  lines={[
+                    `Internal views: ${item.views || 0}`,
+                    `Featured: ${item.featured ? "Yes" : "No"}`,
+                    `Messages: ${messageHistory.length}`,
+                    latestMessage
+                      ? `Latest: ${latestMessage.subject}`
+                      : "Latest: none",
+                  ]}
+                />
+
+                <div className="md:col-span-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                    Recognition Level
+                  </p>
+
+                  <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+                    <select
+                      disabled={saving}
+                      value={item.recognitionLevel || ""}
+                      onChange={(event) =>
+                        onRecognitionChange(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-sm font-bold text-white outline-none focus:border-sky-300 md:max-w-xs"
+                    >
+                      <option value="">No Recognition</option>
+
+                      {recognitionLevels
+                        .filter((level) => level !== "")
+                        .map((level) => (
+                          <option key={level} value={level}>
+                            {level}
+                          </option>
+                        ))}
+                    </select>
+
+                    <p className="text-xs leading-5 text-white/40">
+                      Assign SourceTV Selection, Featured Selection,
+                      Editor&apos;s Selection, or Premier Selection.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <MessageHistoryBlock messages={messageHistory} />
             </div>
-          )}
+          </div>
         </div>
       </div>
     </article>
   );
-}
-
-function Badge({ stage, children }: { stage: string; children: ReactNode }) {
-  let classes = "border-white/10 bg-white/[0.04] text-white/55";
-
-  if (stage === "published" || stage === "approved") {
-    classes = "border-emerald-300/30 bg-emerald-300/10 text-emerald-300";
-  } else if (stage === "rejected") {
-    classes = "border-red-300/30 bg-red-300/10 text-red-300";
-  } else if (stage === "scheduled" || stage.includes("review")) {
-    classes = "border-sky-300/30 bg-sky-300/10 text-sky-300";
-  }
-
-  return (
-    <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${classes}`}>
-      {children}
-    </span>
-  );
-}
-
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-1 line-clamp-2 text-sm font-medium text-white/65">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function DetailBlock({ title, lines }: { title: string; lines: string[] }) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-300">
-        {title}
-      </p>
-      <div className="mt-3 space-y-2 text-xs leading-5 text-white/45">
-        {lines.map((line, index) => (
-          <p key={`${title}-${index}`}>{line}</p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MessageHistoryBlock({ messages }: { messages: PartnerMessage[] }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-300">
-          Message History
-        </p>
-        <p className="text-xs text-white/35">{messages.length} Total</p>
-      </div>
-
-      {messages.length === 0 ? (
-        <p className="mt-4 text-sm text-white/40">
-          No messages have been sent for this title yet.
-        </p>
-      ) : (
-        <div className="mt-4 space-y-3">
-          {messages.map((message) => (
-            <div key={message.id} className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
-              <div className="flex justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">{message.subject}</p>
-                  <p className="mt-1 text-xs text-sky-300/70">{message.senderTeam}</p>
-                </div>
-                <p className="text-xs text-white/35">{formatDate(message.createdAt)}</p>
-              </div>
-              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/50">
-                {message.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ActionButton({
-  children,
-  disabled,
-  onClick,
-  variant,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  onClick: () => void;
-  variant: "primary" | "green" | "blue" | "purple" | "red" | "default";
-}) {
-  const classes = {
-    primary: "bg-sky-300 text-[#05070d] hover:bg-sky-200",
-    green: "border border-emerald-300/25 bg-emerald-300/10 text-emerald-300 hover:border-emerald-300/45",
-    blue: "border border-sky-300/25 bg-sky-300/10 text-sky-300 hover:border-sky-300/45",
-    purple: "border border-purple-300/25 bg-purple-300/10 text-purple-300 hover:border-purple-300/45",
-    red: "border border-red-300/25 bg-red-300/10 text-red-300 hover:border-red-300/45",
-    default: "border border-white/10 bg-white/[0.035] text-white/60 hover:border-white/20 hover:bg-white/[0.055] hover:text-white",
-  };
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${classes[variant]}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function formatDate(date?: string | null) {
-  if (!date) return "Not set";
-
-  return new Date(date).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 }
