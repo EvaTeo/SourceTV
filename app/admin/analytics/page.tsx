@@ -1,3 +1,12 @@
+import SimpleList from "./components/SimpleList";
+import ProgressList from "./components/ProgressList";
+import RankList from "./components/RankList";
+import DataTable, { Td } from "./components/DataTable";
+import ProgressRow from "./components/ProgressRow";
+import InfoRow from "./components/InfoRow";
+import MiniStat from "./components/MiniStat";
+import SectionCard from "./components/SectionCard";
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -252,11 +261,11 @@ export default async function AdminAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="SourceTV Analytics"
-        title="Platform performance"
-        description="Track audience behavior, catalog health, ad delivery, partner activity, and revenue signals across SourceTV."
-      />
+     <AdminPageHeader
+  eyebrow="SourceTV Analytics"
+  title="Platform performance"
+  description="Track audience behavior, catalog health, ad delivery, partner activity, and revenue signals across SourceTV."
+/>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((item) => (
@@ -438,206 +447,6 @@ export default async function AdminAnalyticsPage() {
           </div>
         </SectionCard>
       </section>
-    </div>
-  );
-}
-
-function PageHeader({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <section className="border-b border-white/10 pb-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
-        {eyebrow}
-      </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-        {title}
-      </h1>
-      <p className={`mt-2 max-w-3xl text-sm leading-6 ${muted}`}>
-        {description}
-      </p>
-    </section>
-  );
-}
-
-function SectionCard({
-  title,
-  description,
-  actionHref,
-  children,
-}: {
-  title: string;
-  description: string;
-  actionHref?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`${card} overflow-hidden`}>
-      <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
-        <div>
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <p className="mt-1 text-sm text-white/40">{description}</p>
-        </div>
-
-        {actionHref && (
-          <Link href={actionHref} className="shrink-0 text-sm font-medium text-sky-300 hover:text-sky-200">
-            View
-          </Link>
-        )}
-      </div>
-
-      <div className="p-5">{children}</div>
-    </section>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
-    </div>
-  );
-}
-
-function DataTable({
-  columns,
-  children,
-  empty,
-  className = "",
-}: {
-  columns: string[];
-  children: ReactNode;
-  empty: string;
-  className?: string;
-}) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
-
-  return (
-    <div className={`${className} overflow-hidden rounded-2xl border border-white/10`}>
-      <table className="w-full text-left text-sm">
-        <thead className="bg-white/[0.025] text-xs uppercase tracking-[0.14em] text-white/35">
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className="px-4 py-3 font-semibold">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-
-        <tbody>
-          {hasChildren ? (
-            children
-          ) : (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-white/40">
-                {empty}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Td({ children }: { children: ReactNode }) {
-  return <td className="px-4 py-3 text-white/55">{children}</td>;
-}
-
-function InfoRow({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3">
-      <p className="min-w-0 truncate text-sm text-white/60">{label}</p>
-      <p className="shrink-0 text-right text-sm font-semibold text-white">{value}</p>
-    </div>
-  );
-}
-
-function RankList({
-  items,
-}: {
-  items: { id: string; label: string; sublabel: string; value: string }[];
-}) {
-  if (items.length === 0) return <EmptyState text="No title performance data yet." />;
-
-  return (
-    <div className="space-y-2">
-      {items.map((item, index) => (
-        <div
-          key={item.id}
-          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3"
-        >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-xs font-semibold text-sky-300">
-            {index + 1}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{item.label}</p>
-            <p className="mt-1 truncate text-xs text-white/35">{item.sublabel}</p>
-          </div>
-
-          <p className="shrink-0 text-xs font-semibold text-white/50">{item.value}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProgressList({ items, total }: { items: [string, number][]; total: number }) {
-  if (items.length === 0) return <EmptyState text="No breakdown data yet." />;
-
-  return (
-    <div className="space-y-3">
-      {items.map(([label, value]) => (
-        <ProgressRow key={label} label={label} value={value} total={total} />
-      ))}
-    </div>
-  );
-}
-
-function SimpleList({ items }: { items: [string, string][] }) {
-  if (items.length === 0) return <EmptyState text="No data yet." />;
-
-  return (
-    <div className="space-y-2">
-      {items.map(([label, value]) => (
-        <InfoRow key={label} label={label} value={value} />
-      ))}
-    </div>
-  );
-}
-
-function ProgressRow({
-  label,
-  value,
-  total,
-}: {
-  label: string;
-  value: number;
-  total: number;
-}) {
-  const width = Math.max(4, Math.round((value / total) * 100));
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-4">
-        <p className="truncate text-sm capitalize text-white/60">{label}</p>
-        <p className="text-sm font-semibold text-white">{formatNumber(value)}</p>
-      </div>
-
-      <div className="h-2 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-sky-300" style={{ width: `${width}%` }} />
-      </div>
     </div>
   );
 }
