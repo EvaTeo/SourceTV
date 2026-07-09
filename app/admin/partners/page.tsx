@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { filters } from "./constants";
+import { formatDate } from "./utils";
+import PartnerReviewModal from "./components/PartnerReviewModal";
+import InfoBox from "@/app/components/admin/InfoBox";
+import TextBox from "@/app/components/admin/TextBox";
+import { useEffect, useMemo, useState } from "react";
 import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
 import EmptyState from "@/app/components/admin/EmptyState";
 import MetricCard from "@/app/components/admin/MetricCard";
@@ -29,17 +34,6 @@ type PartnerApplication = {
     role: string;
   };
 };
-
-const filters = ["all", "pending", "approved", "rejected"];
-
-function formatDate(date?: string | null) {
-  if (!date) return "Not reviewed";
-
-  return new Date(date).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 export default function AdminPartnersPage() {
   const [applications, setApplications] = useState<PartnerApplication[]>([]);
@@ -339,111 +333,19 @@ export default function AdminPartnersPage() {
         </section>
       )}
 
-      {reviewModalOpen && reviewAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[#05070d] shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
-            <div className="border-b border-white/10 px-6 py-5">
-              <p
-                className={`text-xs font-semibold uppercase tracking-[0.22em] ${
-                  reviewAction === "approve" ? "text-sky-300" : "text-red-300"
-                }`}
-              >
-                {reviewAction === "approve"
-                  ? "Approve Partner"
-                  : "Reject Application"}
-              </p>
-
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-                {selectedApplication?.fullName || "Partner Application"}
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-white/45">
-                {reviewAction === "approve"
-                  ? "Add optional approval notes before granting partner access."
-                  : "Add a clear rejection reason so the decision is documented."}
-              </p>
-            </div>
-
-            <div className="px-6 py-6">
-              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-                {reviewAction === "approve"
-                  ? "Approval Notes"
-                  : "Rejection Reason"}
-              </label>
-
-              <textarea
-                value={reviewNotes}
-                onChange={(event) => setReviewNotes(event.target.value)}
-                rows={6}
-                placeholder={
-                  reviewAction === "approve"
-                    ? "Example: Approved for partner access. Strong portfolio and clear fit for SourceTV."
-                    : "Example: Application rejected because portfolio or rights information was incomplete."
-                }
-                className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-white/[0.035] px-4 py-4 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-white/[0.055]"
-              />
-
-              {reviewAction === "reject" && (
-                <p className="mt-2 text-xs font-medium text-red-300/80">
-                  Rejection reason is required.
-                </p>
-              )}
-
-              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={!!savingId}
-                  onClick={closeReviewModal}
-                  className="rounded-xl border border-white/10 bg-white/[0.035] px-5 py-3 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  disabled={!!savingId}
-                  onClick={submitReview}
-                  className={`rounded-xl px-5 py-3 text-xs font-semibold transition disabled:opacity-50 ${
-                    reviewAction === "approve"
-                      ? "bg-sky-300 text-[#05070d] hover:bg-sky-200"
-                      : "border border-red-300/25 bg-red-300/10 text-red-300 hover:border-red-300/45"
-                  }`}
-                >
-                  {savingId
-                    ? "Saving..."
-                    : reviewAction === "approve"
-                    ? "Approve Partner"
-                    : "Reject Partner"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
-  );
-}
-
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-1 break-words text-sm font-medium text-white/65">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function TextBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
-        {label}
-      </p>
-      <p className="mt-3 text-sm leading-7 text-white/55">{value}</p>
-    </div>
+<PartnerReviewModal
+  open={reviewModalOpen}
+  action={reviewAction}
+  application={selectedApplication}
+  notes={reviewNotes}
+  setNotes={setReviewNotes}
+  saving={Boolean(savingId)}
+  savingCurrent={
+    reviewApplicationId !== null && savingId === reviewApplicationId
+  }
+  onClose={closeReviewModal}
+  onSubmit={submitReview}
+  />
+</main>
   );
 }
