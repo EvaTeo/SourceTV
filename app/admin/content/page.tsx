@@ -1,5 +1,6 @@
 "use client";
 
+import { filters, recognitionLevels, stageLabels } from "./constants";
 import ContentCard from "./components/ContentCard";
 import SourceModal from "./components/SourceModal";
 import MessageHistoryBlock from "./components/MessageHistoryBlock";
@@ -68,40 +69,6 @@ type ContentItem = {
   createdAt: string;
   updatedAt: string;
   partnerMessages?: PartnerMessage[];
-};
-
-const filters = [
-  { label: "All", value: "all" },
-  { label: "Submissions", value: "submission" },
-  { label: "Metadata", value: "metadata_review" },
-  { label: "Content", value: "content_review" },
-  { label: "Rights", value: "rights_review" },
-  { label: "Approved", value: "approved" },
-  { label: "Scheduled", value: "scheduled" },
-  { label: "Published", value: "published" },
-  { label: "Featured", value: "featured" },
-  { label: "Archived", value: "archived" },
-  { label: "Rejected", value: "rejected" },
-];
-
-const recognitionLevels = [
-  "",
-  "SourceTV Selection",
-  "Featured Selection",
-  "Editor's Selection",
-  "Premier Selection",
-];
-
-const stageLabels: Record<string, string> = {
-  submission: "Submission",
-  metadata_review: "Metadata Review",
-  content_review: "Content Review",
-  rights_review: "Rights Review",
-  approved: "Approved",
-  scheduled: "Scheduled",
-  published: "Published",
-  archived: "Archived",
-  rejected: "Rejected",
 };
 
 function stageBadgeClass(stage: string) {
