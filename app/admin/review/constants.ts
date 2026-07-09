@@ -1,0 +1,1 @@
+export const filters = ["all", "pending", "approved", "scheduled", "rejected"];
