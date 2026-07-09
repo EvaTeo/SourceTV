@@ -1,3 +1,13 @@
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import EmptyState from "@/app/components/admin/EmptyState";
+import MetricCard from "@/app/components/admin/MetricCard";
+
+import Panel from "./components/Panel";
+import MoneyRow from "./components/MoneyRow";
+import PartnerRow from "./components/PartnerRow";
+import RevenueTitleRow from "./components/RevenueTitleRow";
+import RoadmapCard from "./components/RoadmapCard";
+import { money } from "./utils";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
@@ -125,15 +135,14 @@ export default async function AdminRevenuePage() {
         </section>
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total Views" value={totalViews.toLocaleString()} />
-          <StatCard label="Published Titles" value={published.length} />
-          <StatCard label="Estimated CPM" value={`$${ESTIMATED_CPM}`} />
-          <StatCard label="Avg Revenue / Title" value={money(avgRevenuePerTitle)} />
-          <StatCard label="Ad Revenue" value={money(estimatedAdRevenue)} />
-          <StatCard label="Partner Pool" value={money(partnerPool)} />
-          <StatCard label="SourceTV Profit" value={money(sourceTVProfit)} />
-          <StatCard
-            label="Profit Margin"
+          <MetricCard label="Total Views" value={totalViews.toLocaleString()} />
+          <MetricCard label="Published Titles" value={published.length} />
+          <MetricCard label="Estimated CPM" value={`$${ESTIMATED_CPM}`} />
+          <MetricCard label="Avg Revenue / Title" value={money(avgRevenuePerTitle)} />
+          <MetricCard label="Ad Revenue" value={money(estimatedAdRevenue)} />
+          <MetricCard label="Partner Pool" value={money(partnerPool)} />
+          <MetricCard label="SourceTV Profit" value={money(sourceTVProfit)} />
+          <MetricCard label="Profit Margin"
             value={`${Math.round(SOURCETV_SHARE_RATE * 100)}%`}
           />
         </section>
@@ -198,7 +207,7 @@ export default async function AdminRevenuePage() {
             description="Estimated earnings by title, ranked by internal views."
           >
             {topRevenueTitles.length === 0 ? (
-              <Empty />
+<EmptyState title="No revenue data yet." />
             ) : (
               <div className="space-y-3">
                 {topRevenueTitles.map((title, index) => {
@@ -229,7 +238,7 @@ export default async function AdminRevenuePage() {
             description="Estimated partner participation by catalog contribution."
           >
             {topPartners.length === 0 ? (
-              <Empty />
+<EmptyState title="No revenue data yet." />
             ) : (
               <div className="space-y-3">
                 {topPartners.map((partner) => (
@@ -273,87 +282,6 @@ export default async function AdminRevenuePage() {
   );
 }
 
-function money(value: number) {
-  return `$${value.toLocaleString(undefined, {
-    minimumFractionDigits: value > 0 && value < 100 ? 2 : 0,
-    maximumFractionDigits: value > 0 && value < 100 ? 2 : 0,
-  })}`;
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_25px_rgba(14,165,233,0.08)] md:p-6">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-white/38">
-        {label}
-      </p>
-      <h2 className="mt-3 text-3xl font-black text-sky-300 md:text-4xl">
-        {value}
-      </h2>
-    </div>
-  );
-}
-
-function Panel({
-  eyebrow,
-  title,
-  description,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="h-full rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl md:p-6">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-        {eyebrow}
-      </p>
-      <h2 className="mt-2 text-2xl font-black">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
-      <div className="mt-5">{children}</div>
-    </div>
-  );
-}
-
-function MoneyRow({
-  label,
-  value,
-  note,
-  percent,
-}: {
-  label: string;
-  value: number;
-  note: string;
-  percent: number;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-black text-white/80">{label}</p>
-          <p className="mt-1 text-xs leading-5 text-white/38">{note}</p>
-        </div>
-
-        <p className="shrink-0 text-xl font-black text-sky-300">
-          {money(value)}
-        </p>
-      </div>
-
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-sky-400 shadow-[0_0_18px_rgba(56,189,248,0.6)]"
-          style={{ width: `${Math.max(4, percent)}%` }}
-        />
-      </div>
-
-      <p className="mt-2 text-right text-[10px] font-black uppercase tracking-[0.2em] text-white/35">
-        {percent}% of model
-      </p>
-    </div>
-  );
-}
-
 function InfoBox({
   label,
   value,
@@ -370,84 +298,6 @@ function InfoBox({
       </p>
       <p className="mt-2 text-2xl font-black text-sky-300">{value}</p>
       <p className="mt-2 text-xs leading-5 text-white/38">{note}</p>
-    </div>
-  );
-}
-
-function RevenueTitleRow({
-  rank,
-  title,
-  meta,
-  revenue,
-  partnerShare,
-}: {
-  rank: number;
-  title: string;
-  meta: string;
-  revenue: string;
-  partnerShare: string;
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-400 text-sm font-black text-black">
-        {rank}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-black text-white/80">{title}</p>
-        <p className="mt-1 truncate text-xs font-bold text-white/38">{meta}</p>
-      </div>
-
-      <div className="shrink-0 text-right">
-        <p className="text-sm font-black text-sky-300">{revenue}</p>
-        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">
-          Partner {partnerShare}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function PartnerRow({
-  partner,
-  titles,
-  views,
-  value,
-}: {
-  partner: string;
-  titles: number;
-  views: number;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate font-black text-white/80">{partner}</p>
-          <p className="mt-1 text-xs font-bold text-white/38">
-            {titles} titles • {views.toLocaleString()} views
-          </p>
-        </div>
-
-        <p className="shrink-0 font-black text-sky-300">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function RoadmapCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
-      <h3 className="text-lg font-black">{title}</h3>
-      <p className="mt-3 text-sm leading-6 text-white/45">{body}</p>
-    </div>
-  );
-}
-
-function Empty() {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5 text-white/45">
-      No revenue data yet.
     </div>
   );
 }
