@@ -1,5 +1,6 @@
 "use client";
 
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
@@ -359,59 +360,12 @@ const [sendingMessage, setSendingMessage] = useState(false);
   }
 
   if (!form) {
-    return (
-      <main className="min-h-screen bg-black px-6 py-10 text-white">
-        Content not found.
-      </main>
-    );
-
-    async function sendPartnerMessage() {
-if (!form) return;
-
-  if (!messageBody.trim()) {
-    alert("Please enter a message.");
-    return;
-  }
-
-  try {
-    setSendingMessage(true);
-
-const res = await fetch(`/api/admin/content/${id}`, {
-        method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "send_message",
-        partnerEmail: form.creatorEmail,
-partnerName:
-  form.creatorName ||
-  form.creatorCompany ||
-  "",
-        senderTeam: messageSenderTeam,
-        subject: messageSubject,
-        message: messageBody,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "Failed to send message.");
-      return;
-    }
-
-    setMessageBody("");
-
-    alert("Message sent to partner.");
-  } catch (error) {
-    console.error(error);
-    alert("Failed to send message.");
-  } finally {
-    setSendingMessage(false);
-  }
+  return (
+    <main className="min-h-screen bg-black px-6 py-10 text-white">
+      Content not found.
+    </main>
+  );
 }
-  }
 
   const fileInputClass =
     "mt-4 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm text-white/70 file:mr-4 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-xs file:font-bold file:text-white/70";
@@ -422,29 +376,34 @@ partnerName:
   const selectedDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
-        <Link href="/admin/review" className="text-sm font-bold text-sky-300">
-          ← Back to Review Queue
-        </Link>
+  <main className="space-y-6">
+    <AdminPageHeader
+      eyebrow="SourceTV CMS"
+      title="Edit Title"
+      description="Manage metadata, artwork, video assets, publishing, scheduling, and creator details."
+      actions={
+        <>
+          <Link
+            href="/admin/review"
+            className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+          >
+            Review Queue
+          </Link>
 
-        <div className="mt-8">
-          <p className="text-sm font-black uppercase tracking-[0.35em] text-sky-300">
-            SourceTV CMS
-          </p>
+          <Link
+            href={`/watch/${form.id}?preview=admin`}
+            className="rounded-xl bg-sky-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200"
+          >
+            Preview
+          </Link>
+        </>
+      }
+    />
 
-          <h1 className="mt-3 text-5xl font-black">Edit Title</h1>
-
-          <p className="mt-4 text-white/60">
-            Manage metadata, artwork, video assets, publishing, and creator
-            details.
-          </p>
-        </div>
-
-        <form
-          onSubmit={saveChanges}
-          className="mt-10 grid gap-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6 md:grid-cols-2"
-        >
+    <form
+      onSubmit={saveChanges}
+      className="grid gap-6 rounded-2xl border border-white/10 bg-white/[0.035] p-6 md:grid-cols-2"
+    >
           <div className="md:col-span-2">
             <h2 className="text-2xl font-black">Metadata</h2>
             <p className="mt-2 text-white/50">
@@ -1124,27 +1083,8 @@ partnerName:
               Preview
             </Link>
           </div>
-        </form>
-      </div>
+               </form>
     </main>
-  );
-}
-
-function EditorPanel({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl">
-      <h2 className="mb-6 text-xl font-black text-white">
-        {title}
-      </h2>
-
-      {children}
-    </div>
   );
 }
 

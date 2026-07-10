@@ -1,5 +1,8 @@
 "use client";
 
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import MetricCard from "@/app/components/admin/MetricCard";
+import EmptyState from "@/app/components/admin/EmptyState";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -375,43 +378,29 @@ export default function AdminAdsPage() {
   }, [campaigns]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(56,189,248,0.14),transparent_30%),linear-gradient(to_bottom,#020617_0%,#000_46%)]" />
+<main className="space-y-6">
 
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <section className="rounded-[2.4rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-            SourceTV Ads
-          </p>
+        <AdminPageHeader
+  eyebrow="SourceTV Advertising"
+  title="Campaign Manager"
+  description="Create commercial ads, SourceTV house campaigns, sponsor placements, targeting rules, skip rules, budgets, and schedules."
+  actions={
+    <button
+      onClick={loadCampaigns}
+      className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+    >
+      Refresh
+    </button>
+  }
+/>
 
-          <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-4xl font-black leading-[0.95] md:text-7xl">
-                Campaign Manager
-              </h1>
-
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/58 md:text-base">
-                Create commercial ads, SourceTV house promotions, sponsor
-                campaigns, targeting rules, skip rules, budgets, and schedules.
-              </p>
-            </div>
-
-            <button
-              onClick={loadCampaigns}
-              className="w-fit rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 transition hover:border-sky-300/45 hover:text-sky-200"
-            >
-              Refresh
-            </button>
-          </div>
-        </section>
-
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Campaigns" value={stats.total} />
-          <StatCard label="Active" value={stats.active} />
-          <StatCard label="Impressions" value={stats.impressions} />
-          <StatCard label="Completed" value={stats.completed} />
-          <StatCard label="Clicks" value={stats.clicks} />
-        </section>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+  <MetricCard label="Campaigns" value={stats.total} />
+  <MetricCard label="Active" value={stats.active} />
+  <MetricCard label="Impressions" value={stats.impressions} />
+  <MetricCard label="Completed" value={stats.completed} />
+  <MetricCard label="Clicks" value={stats.clicks} />
+</section>
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[460px_1fr]">
           <form
@@ -876,14 +865,13 @@ export default function AdminAdsPage() {
                           </div>
                         </div>
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                                      </article>
+                );
+              })}
+            </div>
+          )}
         </section>
-      </div>
+      </section>
     </main>
   );
 }
