@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   useEffect,
   useRef,
   useState,
   type MouseEvent,
+  type ReactNode,
   type TouchEvent,
 } from "react";
 
@@ -51,20 +53,31 @@ function formatDate(date?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === "signed")
-    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
-  if (status === "viewed")
-    return "border-purple-300/40 bg-purple-400/12 text-purple-200";
-  if (status === "changes_requested")
-    return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
-  if (status === "sent")
-    return "border-sky-300/40 bg-sky-300/12 text-sky-200";
+  if (status === "signed") {
+    return "border-emerald-300/35 bg-emerald-300/10 text-emerald-200";
+  }
 
-  return "border-white/15 bg-white/[0.05] text-white/65";
+  if (status === "viewed") {
+    return "border-purple-300/35 bg-purple-300/10 text-purple-200";
+  }
+
+  if (status === "changes_requested") {
+    return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
+  }
+
+  if (status === "sent") {
+    return "border-sky-300/35 bg-sky-300/10 text-sky-200";
+  }
+
+  if (status === "cancelled" || status === "expired") {
+    return "border-red-300/35 bg-red-300/10 text-red-200";
+  }
+
+  return "border-white/10 bg-white/[0.035] text-white/60";
 }
 
 export default function PartnerContractDetailClient() {
-      const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
@@ -98,6 +111,7 @@ export default function PartnerContractDetailClient() {
 
       if (!res.ok) {
         alert(data.error || "Could not load contract.");
+        setContract(null);
         return;
       }
 
@@ -108,6 +122,7 @@ export default function PartnerContractDetailClient() {
     } catch (error) {
       console.error("LOAD PARTNER CONTRACT ERROR:", error);
       alert("Could not load contract.");
+      setContract(null);
     } finally {
       setLoading(false);
     }
@@ -115,6 +130,7 @@ export default function PartnerContractDetailClient() {
 
   function prepareCanvas() {
     const canvas = canvasRef.current;
+
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -123,21 +139,24 @@ export default function PartnerContractDetailClient() {
     canvas.width = rect.width * scale;
     canvas.height = rect.height * scale;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const context = canvas.getContext("2d");
 
-    ctx.scale(scale, scale);
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#111111";
+    if (!context) return;
+
+    context.scale(scale, scale);
+    context.lineWidth = 2.5;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = "#111111";
 
     if (signatureDataUrl) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      const image = new Image();
+
+      image.onload = () => {
+        context.drawImage(image, 0, 0, rect.width, rect.height);
       };
-      img.src = signatureDataUrl;
+
+      image.src = signatureDataUrl;
     }
   }
 
@@ -145,12 +164,14 @@ export default function PartnerContractDetailClient() {
     event: MouseEvent<HTMLCanvasElement> | TouchEvent<HTMLCanvasElement>
   ) {
     const canvas = canvasRef.current;
+
     if (!canvas) return null;
 
     const rect = canvas.getBoundingClientRect();
 
     if ("touches" in event) {
       const touch = event.touches[0] || event.changedTouches[0];
+
       return {
         x: touch.clientX - rect.left,
         y: touch.clientY - rect.top,
@@ -169,14 +190,14 @@ export default function PartnerContractDetailClient() {
     event.preventDefault();
 
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const context = canvas?.getContext("2d");
     const point = getCanvasPoint(event);
 
-    if (!ctx || !point) return;
+    if (!context || !point) return;
 
     drawingRef.current = true;
-    ctx.beginPath();
-    ctx.moveTo(point.x, point.y);
+    context.beginPath();
+    context.moveTo(point.x, point.y);
   }
 
   function drawSignature(
@@ -187,21 +208,20 @@ export default function PartnerContractDetailClient() {
     if (!drawingRef.current) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const context = canvas?.getContext("2d");
     const point = getCanvasPoint(event);
 
-    if (!ctx || !point || !canvas) return;
+    if (!context || !point || !canvas) return;
 
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-
-    setSignatureDataUrl(canvas.toDataURL("image/png"));
+    context.lineTo(point.x, point.y);
+    context.stroke();
   }
 
   function stopDrawing() {
     drawingRef.current = false;
 
     const canvas = canvasRef.current;
+
     if (!canvas) return;
 
     setSignatureDataUrl(canvas.toDataURL("image/png"));
@@ -209,11 +229,11 @@ export default function PartnerContractDetailClient() {
 
   function clearSignature() {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const context = canvas?.getContext("2d");
 
-    if (!canvas || !ctx) return;
+    if (!canvas || !context) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     setSignatureDataUrl("");
   }
 
@@ -259,6 +279,7 @@ export default function PartnerContractDetailClient() {
 
       setContract(data);
       setShowSignatureModal(false);
+      setAgreed(false);
     } catch (error) {
       console.error("SIGN CONTRACT ERROR:", error);
       alert("Could not sign contract.");
@@ -311,27 +332,31 @@ export default function PartnerContractDetailClient() {
   }, []);
 
   useEffect(() => {
-    if (showSignatureModal) {
-      setTimeout(prepareCanvas, 50);
-    }
+    if (!showSignatureModal) return;
+
+    const timeout = window.setTimeout(prepareCanvas, 50);
+
+    return () => window.clearTimeout(timeout);
   }, [showSignatureModal]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black px-4 pt-28 text-white md:px-10">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-          Loading contract...
-        </div>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <EmptyPanel
+          title="Loading agreement..."
+          description="Retrieving your SourceTV rights contract."
+        />
       </main>
     );
   }
 
   if (!contract) {
     return (
-      <main className="min-h-screen bg-black px-4 pt-28 text-white md:px-10">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-          Contract not found.
-        </div>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <EmptyPanel
+          title="Contract not found."
+          description="This agreement could not be loaded or may no longer be available."
+        />
       </main>
     );
   }
@@ -342,200 +367,286 @@ export default function PartnerContractDetailClient() {
     contract.status === "expired";
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 text-white">
+      <section className="border-b border-white/10 pb-6">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300">
+              SourceTV Rights Agreement
+            </p>
 
-      <div className="relative z-10 mx-auto max-w-6xl">
-       
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+              {contract.project?.title || "Streaming Rights Agreement"}
+            </h1>
 
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-10">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-                SourceTV Streaming Rights Agreement
-              </p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45">
+              Review the agreement carefully. Signing confirms that you have
+              authority to grant SourceTV the streaming rights listed below.
+            </p>
 
-              <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-6xl">
-                {contract.project?.title || "Contract"}
-              </h1>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span
+                className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${statusClass(
+                  contract.status
+                )}`}
+              >
+                {contract.status.replaceAll("_", " ")}
+              </span>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statusClass(
-                    contract.status
-                  )}`}
-                >
-                  {contract.status.replaceAll("_", " ")}
-                </span>
-
-                <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
-                  Revenue Share: {contract.revenueShare ?? 50}%
-                </span>
-              </div>
+              <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                Revenue Share: {contract.revenueShare ?? 50}%
+              </span>
 
               {contract.licenseType && (
-  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
-    {contract.licenseType}
-  </span>
-)}
+                <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                  {contract.licenseType}
+                </span>
+              )}
 
-{contract.exclusivity && (
-  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
-    {contract.exclusivity}
-  </span>
-)}
-
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-white/55">
-                Review this agreement carefully. Signing confirms that you have
-                the authority to grant SourceTV streaming rights for this title
-                under the listed terms.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                disabled={saving || locked}
-                onClick={() => setShowSignatureModal(true)}
-                className="rounded-md bg-sky-400 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {saving ? "Saving..." : "Accept & Sign"}
-              </button>
-
-              <button
-                disabled={saving || locked}
-                onClick={() => setShowChangeBox((current) => !current)}
-                className="rounded-md border border-yellow-300/35 bg-yellow-300/10 px-4 py-2.5 text-xs font-black text-yellow-100 transition hover:border-yellow-300/70 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Request Changes
-              </button>
+              {contract.exclusivity && (
+                <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                  {contract.exclusivity}
+                </span>
+              )}
             </div>
           </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/partner/contracts"
+              className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+            >
+              Contracts
+            </Link>
+
+            <button
+              type="button"
+              disabled={saving || locked}
+              onClick={() => setShowSignatureModal(true)}
+              className="rounded-xl bg-sky-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? "Saving..." : "Accept & Sign"}
+            </button>
+
+            <button
+              type="button"
+              disabled={saving || locked}
+              onClick={() => setShowChangeBox((current) => !current)}
+              className="rounded-xl border border-yellow-300/25 bg-yellow-300/10 px-4 py-2.5 text-sm font-semibold text-yellow-100 transition hover:border-yellow-300/45 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Request Changes
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <ContractTimeline contract={contract} />
+
+      {locked && (
+        <StatusNotice
+          eyebrow="Agreement Locked"
+          title={
+            contract.status === "signed"
+              ? "This agreement has been signed."
+              : `This agreement is ${contract.status}.`
+          }
+          description={
+            contract.status === "signed"
+              ? "Your electronic signature has been recorded and the agreement can no longer be edited."
+              : "No further action can be taken on this agreement."
+          }
+          tone={contract.status === "signed" ? "green" : "red"}
+        />
+      )}
+
+      {contract.status === "changes_requested" && !locked && (
+        <StatusNotice
+          eyebrow="Changes Requested"
+          title="Your requested changes were sent to SourceTV."
+          description="SourceTV will review your notes and may send an updated agreement."
+          tone="yellow"
+        />
+      )}
+
+      {showChangeBox && !locked && (
+        <section className="rounded-2xl border border-yellow-300/20 bg-yellow-300/[0.05] p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-yellow-100">
+            Request Contract Changes
+          </p>
+
+          <p className="mt-2 text-sm leading-6 text-white/50">
+            Explain which terms or details should be reviewed by SourceTV.
+          </p>
+
+          <textarea
+            value={changeNotes}
+            onChange={(event) => setChangeNotes(event.target.value)}
+            placeholder="Describe the requested edits..."
+            className="mt-4 min-h-36 w-full resize-y rounded-2xl border border-white/10 bg-[#05070d] px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-yellow-300/60"
+          />
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setShowChangeBox(false)}
+              className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/60 transition hover:text-white disabled:opacity-40"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={saving}
+              onClick={requestChanges}
+              className="rounded-xl bg-yellow-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-yellow-200 disabled:opacity-40"
+            >
+              {saving ? "Sending..." : "Send Request"}
+            </button>
+          </div>
         </section>
+      )}
 
-        <ContractTimeline contract={contract} />
-
-        {locked && (
-          <section className="mt-6 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">
-              Executed Agreement
-            </p>
-
-            <h2 className="mt-2 text-xl font-black text-white">
-              This agreement has been signed and locked.
-            </h2>
-          </section>
-        )}
-
-        {showChangeBox && !locked && (
-          <section className="mt-6 rounded-[1.6rem] border border-yellow-300/20 bg-yellow-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-yellow-100">
-              Request Contract Changes
-            </p>
-
-            <textarea
-              value={changeNotes}
-              onChange={(event) => setChangeNotes(event.target.value)}
-              placeholder="Explain the edits or terms you want SourceTV to review..."
-              className="mt-4 min-h-36 w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-yellow-300/60"
+      <section className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
+        <div className="space-y-6">
+          <InfoPanel
+            eyebrow="Agreement"
+            title="Agreement Terms"
+            description="Partner, ownership, licensing, and revenue terms."
+          >
+            <InfoRow
+              label="Partner"
+              value={contract.partnerName || "Not set"}
             />
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                disabled={saving}
-                onClick={() => setShowChangeBox(false)}
-                className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/60 transition hover:text-white disabled:opacity-40"
-              >
-                Cancel
-              </button>
+            <InfoRow
+              label="Partner Email"
+              value={contract.partnerEmail || "Not set"}
+            />
 
-              <button
-                disabled={saving}
-                onClick={requestChanges}
-                className="rounded-md bg-yellow-300 px-4 py-2.5 text-xs font-black text-black transition hover:bg-yellow-200 disabled:opacity-40"
-              >
-                Send Request
-              </button>
-            </div>
-          </section>
-        )}
+            <InfoRow
+              label="Rights Owner"
+              value={contract.rightsOwner || "Not set"}
+            />
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
-          <div className="space-y-6">
-            <InfoPanel title="Agreement Terms">
-              <InfoRow label="Partner" value={contract.partnerName || "Not set"} />
-              <InfoRow label="Partner Email" value={contract.partnerEmail || "Not set"} />
-              <InfoRow label="Rights Owner" value={contract.rightsOwner || "Not set"} />
-              <InfoRow label="Rights Contact" value={contract.rightsContact || "Not set"} />
-              <InfoRow label="License Type" value={contract.licenseType || "Not set"} />
-              <InfoRow label="Territories" value={contract.territories || "Not set"} />
-              <InfoRow label="Exclusivity" value={contract.exclusivity || "Not set"} />
-              <InfoRow label="Revenue Share" value={`${contract.revenueShare ?? 50}%`} />
-            </InfoPanel>
+            <InfoRow
+              label="Rights Contact"
+              value={contract.rightsContact || "Not set"}
+            />
 
-            <InfoPanel title="Dates">
-              <InfoRow label="License Starts" value={formatDate(contract.licenseStartDate)} />
-              <InfoRow label="License Ends" value={formatDate(contract.licenseEndDate)} />
-              <InfoRow label="Sent" value={formatDate(contract.sentAt)} />
-              <InfoRow label="Viewed" value={formatDate(contract.viewedAt)} />
-              <InfoRow label="Signed" value={formatDate(contract.signedAt)} />
-            </InfoPanel>
+            <InfoRow
+              label="License Type"
+              value={contract.licenseType || "Not set"}
+            />
 
-            {contract.partnerSignatureName && (
-              <InfoPanel title="Signature">
-                <InfoRow label="Signed By" value={contract.partnerSignatureName} />
+            <InfoRow
+              label="Territories"
+              value={contract.territories || "Not set"}
+            />
 
-                {contract.partnerSignatureDataUrl && (
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-                      Drawn Signature
-                    </p>
+            <InfoRow
+              label="Exclusivity"
+              value={contract.exclusivity || "Not set"}
+            />
 
-                    <img
-                      src={contract.partnerSignatureDataUrl}
-                      alt="Partner signature"
-                      className="mt-3 max-h-32 rounded-xl border border-white/10 bg-white p-3"
-                    />
-                  </div>
-                )}
-              </InfoPanel>
-            )}
-
-            {contract.partnerNotes && (
-              <InfoPanel title="Your Notes">
-                <p className="text-sm leading-7 text-white/60">
-                  {contract.partnerNotes}
-                </p>
-              </InfoPanel>
-            )}
-          </div>
-
-          <InfoPanel title="Contract Text">
-            <div className="max-h-[760px] overflow-y-auto whitespace-pre-line rounded-2xl border border-white/10 bg-black/45 p-5 text-sm leading-8 text-white/70">
-              {contract.contractText || "No contract text provided."}
-            </div>
+            <InfoRow
+              label="Revenue Share"
+              value={`${contract.revenueShare ?? 50}%`}
+            />
           </InfoPanel>
-        </section>
-      </div>
+
+          <InfoPanel
+            eyebrow="Schedule"
+            title="Agreement Dates"
+            description="License term and contract activity dates."
+          >
+            <InfoRow
+              label="License Starts"
+              value={formatDate(contract.licenseStartDate)}
+            />
+
+            <InfoRow
+              label="License Ends"
+              value={formatDate(contract.licenseEndDate)}
+            />
+
+            <InfoRow label="Sent" value={formatDate(contract.sentAt)} />
+
+            <InfoRow label="Viewed" value={formatDate(contract.viewedAt)} />
+
+            <InfoRow label="Signed" value={formatDate(contract.signedAt)} />
+          </InfoPanel>
+
+          {contract.partnerSignatureName && (
+            <InfoPanel
+              eyebrow="Execution"
+              title="Signature Record"
+              description="The electronic signature attached to this agreement."
+            >
+              <InfoRow
+                label="Signed By"
+                value={contract.partnerSignatureName}
+              />
+
+              {contract.partnerSignatureDataUrl && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+                    Drawn Signature
+                  </p>
+
+                  <img
+                    src={contract.partnerSignatureDataUrl}
+                    alt="Partner signature"
+                    className="mt-3 max-h-32 rounded-xl border border-white/10 bg-white p-3"
+                  />
+                </div>
+              )}
+            </InfoPanel>
+          )}
+
+          {contract.partnerNotes && (
+            <InfoPanel
+              eyebrow="Partner"
+              title="Your Notes"
+              description="Your most recent notes or requested changes."
+            >
+              <p className="text-sm leading-7 text-white/60">
+                {contract.partnerNotes}
+              </p>
+            </InfoPanel>
+          )}
+        </div>
+
+        <InfoPanel
+          eyebrow="Legal Agreement"
+          title="Contract Text"
+          description="Read the complete agreement before accepting and signing."
+        >
+          <div className="max-h-[760px] overflow-y-auto whitespace-pre-line rounded-2xl border border-white/10 bg-[#05070d] p-5 text-sm leading-8 text-white/70">
+            {contract.contractText || "No contract text provided."}
+          </div>
+        </InfoPanel>
+      </section>
 
       {showSignatureModal && !locked && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-xl">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-white/10 bg-zinc-950 p-6 shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#05070d] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300">
               Electronic Signature
             </p>
 
-            <h2 className="mt-2 text-3xl font-black text-white">
-              Accept & Sign
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+              Accept and Sign
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-white/50">
-              Type your legal name, draw your signature, and confirm that you
-              agree to the SourceTV streaming rights agreement.
+              Enter your legal name, draw your signature, and confirm your
+              authority to sign this agreement.
             </p>
 
-            <div className="mt-6 grid gap-4">
+            <div className="mt-6 grid gap-5">
               <label>
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+                <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
                   Legal Full Name
                 </span>
 
@@ -543,20 +654,20 @@ export default function PartnerContractDetailClient() {
                   value={signatureName}
                   onChange={(event) => setSignatureName(event.target.value)}
                   placeholder="Enter your legal name"
-                  className="w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
+                  className="w-full rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
                 />
               </label>
 
               <div>
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
                     Draw Signature
                   </span>
 
                   <button
                     type="button"
                     onClick={clearSignature}
-                    className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black text-white/55 transition hover:text-white"
+                    className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-white/55 transition hover:text-white"
                   >
                     Clear
                   </button>
@@ -575,17 +686,16 @@ export default function PartnerContractDetailClient() {
                 />
 
                 <p className="mt-2 text-xs leading-5 text-white/35">
-                  Use your mouse, trackpad, finger, or stylus to draw your
-                  signature.
+                  Use a mouse, trackpad, finger, or stylus.
                 </p>
               </div>
 
-              <label className="flex gap-3 rounded-2xl border border-white/10 bg-black/35 p-4 text-sm leading-6 text-white/65">
+              <label className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm leading-6 text-white/65">
                 <input
                   type="checkbox"
                   checked={agreed}
                   onChange={(event) => setAgreed(event.target.checked)}
-                  className="mt-1"
+                  className="mt-1 h-4 w-4 accent-sky-300"
                 />
 
                 <span>
@@ -600,7 +710,7 @@ export default function PartnerContractDetailClient() {
                   type="button"
                   disabled={saving}
                   onClick={() => setShowSignatureModal(false)}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white disabled:opacity-40"
+                  className="rounded-xl border border-white/10 bg-white/[0.035] px-5 py-3 text-sm font-medium text-white/55 transition hover:text-white disabled:opacity-40"
                 >
                   Cancel
                 </button>
@@ -609,7 +719,7 @@ export default function PartnerContractDetailClient() {
                   type="button"
                   disabled={saving}
                   onClick={signContract}
-                  className="rounded-xl bg-sky-400 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-40"
+                  className="rounded-xl bg-sky-300 px-5 py-3 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200 disabled:opacity-40"
                 >
                   {saving ? "Signing..." : "Submit Signature"}
                 </button>
@@ -647,41 +757,34 @@ function ContractTimeline({ contract }: { contract: Contract }) {
   ];
 
   return (
-    <section className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300">
         Contract Timeline
       </p>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-4">
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step.label} className="relative">
-            {index < steps.length - 1 && (
-              <div
-                className={`absolute left-7 top-6 hidden h-px w-[calc(100%_-_1rem)] md:block ${
-                  step.complete ? "bg-sky-300/70" : "bg-white/10"
-                }`}
-              />
-            )}
-
-            <div className="relative z-10 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div
-                className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black ${
-                  step.complete
-                    ? "border-sky-300/60 bg-sky-300/15 text-sky-200"
-                    : "border-white/10 bg-white/[0.04] text-white/30"
-                }`}
-              >
-                {step.complete ? "✓" : index + 1}
-              </div>
-
-              <p className="mt-3 text-sm font-black text-white">
-                {step.label}
-              </p>
-
-              <p className="mt-1 text-xs font-bold text-white/40">
-                {formatDate(step.date)}
-              </p>
+          <div
+            key={step.label}
+            className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"
+          >
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${
+                step.complete
+                  ? "border-sky-300/45 bg-sky-300/10 text-sky-200"
+                  : "border-white/10 bg-white/[0.035] text-white/30"
+              }`}
+            >
+              {step.complete ? "✓" : index + 1}
             </div>
+
+            <p className="mt-3 text-sm font-semibold text-white">
+              {step.label}
+            </p>
+
+            <p className="mt-1 text-xs text-white/40">
+              {formatDate(step.date)}
+            </p>
           </div>
         ))}
       </div>
@@ -689,34 +792,91 @@ function ContractTimeline({ contract }: { contract: Contract }) {
   );
 }
 
-function InfoPanel({
+function StatusNotice({
+  eyebrow,
   title,
-  children,
+  description,
+  tone,
 }: {
+  eyebrow: string;
   title: string;
-  children: React.ReactNode;
+  description: string;
+  tone: "yellow" | "green" | "red";
 }) {
+  const classes =
+    tone === "green"
+      ? "border-emerald-300/20 bg-emerald-300/[0.05] text-emerald-200"
+      : tone === "red"
+        ? "border-red-300/20 bg-red-300/[0.05] text-red-200"
+        : "border-yellow-300/20 bg-yellow-300/[0.05] text-yellow-100";
+
   return (
-    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl">
-      <p className="mb-4 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-        {title}
+    <section className={`rounded-2xl border p-5 ${classes}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]">
+        {eyebrow}
       </p>
 
-      <div className="grid gap-3">{children}</div>
-    </div>
+      <h2 className="mt-2 text-lg font-semibold text-white">{title}</h2>
+
+      <p className="mt-2 text-sm leading-6 text-white/55">{description}</p>
+    </section>
+  );
+}
+
+function InfoPanel({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 md:p-6">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300">
+        {eyebrow}
+      </p>
+
+      <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+        {title}
+      </h2>
+
+      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
+
+      <div className="mt-5 grid gap-3">{children}</div>
+    </section>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
         {label}
       </p>
 
-      <p className="mt-2 break-words text-sm font-bold text-white/70">
+      <p className="mt-2 break-words text-sm font-medium text-white/70">
         {value}
       </p>
     </div>
+  );
+}
+
+function EmptyPanel({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-8 text-white">
+      <h1 className="text-xl font-semibold">{title}</h1>
+
+      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
+    </section>
   );
 }

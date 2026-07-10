@@ -1,7 +1,11 @@
 "use client";
 
+import AdminPageHeader from "@/app/components/admin/AdminPageHeader";
+import EmptyState from "@/app/components/admin/EmptyState";
+import InfoBox from "@/app/components/admin/InfoBox";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 type Contract = {
@@ -56,18 +60,27 @@ function formatDate(date?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === "signed")
-    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
-  if (status === "sent")
-    return "border-sky-300/40 bg-sky-300/12 text-sky-200";
-  if (status === "viewed")
-    return "border-purple-300/40 bg-purple-400/12 text-purple-200";
-  if (status === "changes_requested")
-    return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
-  if (status === "cancelled" || status === "expired")
-    return "border-red-400/40 bg-red-500/12 text-red-200";
+  if (status === "signed") {
+    return "border-emerald-300/35 bg-emerald-300/10 text-emerald-200";
+  }
 
-  return "border-white/15 bg-white/[0.05] text-white/65";
+  if (status === "sent") {
+    return "border-sky-300/35 bg-sky-300/10 text-sky-200";
+  }
+
+  if (status === "viewed") {
+    return "border-purple-300/35 bg-purple-300/10 text-purple-200";
+  }
+
+  if (status === "changes_requested") {
+    return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
+  }
+
+  if (status === "cancelled" || status === "expired") {
+    return "border-red-300/35 bg-red-300/10 text-red-200";
+  }
+
+  return "border-white/10 bg-white/[0.035] text-white/60";
 }
 
 export default function AdminContractEditorPage() {
@@ -96,6 +109,7 @@ export default function AdminContractEditorPage() {
 
       if (!res.ok) {
         alert(data.error || "Could not load contract.");
+        setContract(null);
         return;
       }
 
@@ -103,6 +117,7 @@ export default function AdminContractEditorPage() {
     } catch (error) {
       console.error("LOAD CONTRACT ERROR:", error);
       alert("Could not load contract.");
+      setContract(null);
     } finally {
       setLoading(false);
     }
@@ -159,388 +174,422 @@ export default function AdminContractEditorPage() {
     }
   }
 
-  useEffect(() => {
-    loadContract();
-  }, []);
+ useEffect(() => {
+  loadContract();
+}, []);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black px-4 pt-28 text-white md:px-10">
-        <div className="mx-auto max-w-6xl rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-          Loading contract...
-        </div>
+      <main className="space-y-6">
+        <EmptyState title="Loading contract..." />
       </main>
     );
   }
 
   if (!contract) {
     return (
-      <main className="min-h-screen bg-black px-4 pt-28 text-white md:px-10">
-        <div className="mx-auto max-w-6xl rounded-[2rem] border border-white/10 bg-white/[0.04] p-10 text-white/50">
-          Contract not found.
-        </div>
+      <main className="space-y-6">
+        <AdminPageHeader
+          eyebrow="SourceTV Legal Operations"
+          title="Contract Not Found"
+          description="This contract could not be loaded or may no longer exist."
+          actions={
+            <Link
+              href="/admin/contracts"
+              className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+            >
+              Back to Contracts
+            </Link>
+          }
+        />
+
+        <EmptyState
+          title="Contract not found."
+          description="Return to the contracts library and choose another agreement."
+        />
       </main>
     );
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
+    <main className="space-y-6">
+      <AdminPageHeader
+        eyebrow="SourceTV Rights Agreement"
+        title={contract.project?.title || "Contract Editor"}
+        description="Manage partner information, licensing terms, agreement text, signatures, and contract status."
+        actions={
+          <>
+            <Link
+              href="/admin/contracts"
+              className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+            >
+              Contracts
+            </Link>
 
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <Link
-          href="/admin/contracts"
-          className="text-sm font-black text-sky-300 transition hover:text-sky-200"
-        >
-          ← Back to Contracts
-        </Link>
+            <button
+              type="button"
+              disabled={saving || isSigned}
+              onClick={() => saveContract()}
+              className="rounded-xl bg-sky-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? "Saving..." : "Save Draft"}
+            </button>
+          </>
+        }
+      />
 
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-10">
-          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-start">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-                SourceTV Rights Agreement
-              </p>
+      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+          <div className="flex flex-wrap gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${statusClass(
+                contract.status
+              )}`}
+            >
+              {contract.status.replaceAll("_", " ")}
+            </span>
 
-              <h1 className="mt-3 text-4xl font-black leading-[0.95] md:text-6xl">
-                {contract.project?.title || "Contract Editor"}
-              </h1>
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+              Revenue Share: {contract.revenueShare ?? 50}%
+            </span>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${statusClass(
-                    contract.status
-                  )}`}
-                >
-                  {contract.status.replaceAll("_", " ")}
-                </span>
-
-                <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/55">
-                  Revenue Share: {contract.revenueShare ?? 50}%
-                </span>
-
-                {contract.signedAt && (
-                  <span className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200">
-                    Signed {formatDate(contract.signedAt)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                disabled={saving || isSigned}
-                onClick={() => saveContract()}
-                className="rounded-md bg-sky-400 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-300 disabled:opacity-40"
-              >
-                {saving ? "Saving..." : "Save Draft"}
-              </button>
-
-              <button
-                disabled={saving || isSigned}
-                onClick={() => saveContract("send")}
-                className="rounded-md border border-purple-300/35 bg-purple-400/10 px-4 py-2.5 text-xs font-black text-purple-200 transition hover:border-purple-300/70 disabled:opacity-40"
-              >
-                Send To Partner
-              </button>
-
-              <button
-                disabled={saving}
-                onClick={() => saveContract("mark_signed")}
-                className="rounded-md border border-emerald-300/35 bg-emerald-300/10 px-4 py-2.5 text-xs font-black text-emerald-200 transition hover:border-emerald-300/70 disabled:opacity-40"
-              >
-                Mark Signed
-              </button>
-
-              <Link
-                href={`/admin/contracts/${contract.id}/print`}
-                className="rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 transition hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
-              >
-                Print Record
-              </Link>
-
-              <button
-                disabled={saving || isSigned}
-                onClick={() => saveContract("cancel")}
-                className="rounded-md border border-red-400/35 bg-red-500/10 px-4 py-2.5 text-xs font-black text-red-200 transition hover:border-red-400/70 disabled:opacity-40"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <ContractTimeline contract={contract} />
-
-        {contract.status === "changes_requested" && (
-  <section className="mt-6 rounded-[1.6rem] border border-yellow-300/20 bg-yellow-300/[0.08] p-5 shadow-2xl backdrop-blur-xl">
-    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-yellow-200">
-      Partner Action Required
-    </p>
-
-    <h2 className="mt-2 text-xl font-black text-white">
-      Changes have been requested by the partner.
-    </h2>
-
-    <p className="mt-2 text-sm leading-6 text-white/60">
-      Review the partner notes below, update the agreement, and resend the
-      contract when ready.
-    </p>
-  </section>
-)}
-
-{contract.status === "sent" && (
-  <section className="mt-6 rounded-[1.6rem] border border-sky-300/20 bg-sky-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-200">
-      Awaiting Review
-    </p>
-
-    <h2 className="mt-2 text-xl font-black text-white">
-      Contract has been sent to the partner.
-    </h2>
-  </section>
-)}
-
-{contract.status === "viewed" && (
-  <section className="mt-6 rounded-[1.6rem] border border-purple-300/20 bg-purple-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-200">
-      Viewed By Partner
-    </p>
-
-    <h2 className="mt-2 text-xl font-black text-white">
-      Partner has opened and reviewed this agreement.
-    </h2>
-  </section>
-)}
-
-        {isSigned && (
-          <section className="mt-6 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">
-              Executed Agreement
-            </p>
-
-            <h2 className="mt-2 text-xl font-black text-white">
-              This agreement has been signed and locked.
-            </h2>
-          </section>
-        )}
-
-        {contract.partnerSignatureName && (
-          <section className="mt-8 rounded-[1.6rem] border border-emerald-300/20 bg-emerald-300/[0.06] p-5 shadow-2xl backdrop-blur-xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200">
-              Signed Agreement Record
-            </p>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <InfoBox
-                label="Signed By"
-                value={contract.partnerSignatureName}
-              />
-              <InfoBox
-                label="Signed Date"
-                value={formatDate(contract.signedAt)}
-              />
-              <InfoBox
-                label="Viewed Date"
-                value={formatDate(contract.viewedAt)}
-              />
-
-              {contract.partnerSignatureDataUrl && (
-                <div className="rounded-2xl border border-white/10 bg-black/25 p-4 md:col-span-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-                    Drawn Signature
-                  </p>
-
-                  <img
-                    src={contract.partnerSignatureDataUrl}
-                    alt="Partner signature"
-                    className="mt-3 max-h-36 rounded-xl border border-white/10 bg-white p-4"
-                  />
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="space-y-6">
-            <EditorPanel title="Partner">
-              <Field label="Partner Name">
-                <input
-                  disabled={isSigned}
-                  value={contract.partnerName || ""}
-                  onChange={(event) =>
-                    setContract({ ...contract, partnerName: event.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Partner Email">
-                <input
-                  disabled={isSigned}
-                  value={contract.partnerEmail || ""}
-                  onChange={(event) =>
-                    setContract({
-                      ...contract,
-                      partnerEmail: event.target.value,
-                    })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rights Owner">
-                <input
-                  disabled={isSigned}
-                  value={contract.rightsOwner || ""}
-                  onChange={(event) =>
-                    setContract({ ...contract, rightsOwner: event.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Rights Contact">
-                <input
-                  disabled={isSigned}
-                  value={contract.rightsContact || ""}
-                  onChange={(event) =>
-                    setContract({
-                      ...contract,
-                      rightsContact: event.target.value,
-                    })
-                  }
-                  className="input"
-                />
-              </Field>
-            </EditorPanel>
-
-            <EditorPanel title="License Terms">
-              <Field label="License Type">
-                <input
-                  disabled={isSigned}
-                  value={contract.licenseType || ""}
-                  onChange={(event) =>
-                    setContract({ ...contract, licenseType: event.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Start Date">
-                  <input
-                    type="date"
-                    disabled={isSigned}
-                    value={formatDateInput(contract.licenseStartDate)}
-                    onClick={(event) => event.currentTarget.showPicker?.()}
-                    onChange={(event) =>
-                      setContract({
-                        ...contract,
-                        licenseStartDate: event.target.value,
-                      })
-                    }
-                    className="input cursor-pointer"
-                  />
-                </Field>
-
-                <Field label="End Date">
-                  <input
-                    type="date"
-                    disabled={isSigned}
-                    value={formatDateInput(contract.licenseEndDate)}
-                    onClick={(event) => event.currentTarget.showPicker?.()}
-                    onChange={(event) =>
-                      setContract({
-                        ...contract,
-                        licenseEndDate: event.target.value,
-                      })
-                    }
-                    className="input cursor-pointer"
-                  />
-                </Field>
-              </div>
-
-              <Field label="Territories">
-                <input
-                  disabled={isSigned}
-                  value={contract.territories || ""}
-                  onChange={(event) =>
-                    setContract({ ...contract, territories: event.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Exclusivity">
-                <input
-                  disabled={isSigned}
-                  value={contract.exclusivity || ""}
-                  onChange={(event) =>
-                    setContract({ ...contract, exclusivity: event.target.value })
-                  }
-                  className="input"
-                />
-              </Field>
-
-              <Field label="Revenue Share">
-                <input
-                  type="number"
-                  disabled={isSigned}
-                  value={contract.revenueShare ?? 50}
-                  onChange={(event) =>
-                    setContract({
-                      ...contract,
-                      revenueShare: Number(event.target.value),
-                    })
-                  }
-                  className="input"
-                />
-              </Field>
-            </EditorPanel>
+            {contract.signedAt && (
+              <span className="rounded-full border border-emerald-300/35 bg-emerald-300/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                Signed {formatDate(contract.signedAt)}
+              </span>
+            )}
           </div>
 
-          <div className="space-y-6">
-            <EditorPanel title="Contract Text">
-              <textarea
-                disabled={isSigned}
-                value={contract.contractText || ""}
-                onChange={(event) =>
-                  setContract({
-                    ...contract,
-                    contractText: event.target.value,
-                  })
-                }
-                className="min-h-[620px] w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 font-mono text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
-              />
-            </EditorPanel>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={saving || isSigned}
+              onClick={() => saveContract("send")}
+              className="rounded-xl border border-purple-300/25 bg-purple-300/10 px-4 py-2.5 text-xs font-semibold text-purple-200 transition hover:border-purple-300/45 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Send to Partner
+            </button>
 
-            <EditorPanel title="Admin Notes">
-              <textarea
-                disabled={isSigned}
-                value={contract.adminNotes || ""}
-                onChange={(event) =>
-                  setContract({
-                    ...contract,
-                    adminNotes: event.target.value,
-                  })
-                }
-                className="min-h-32 w-full resize-y rounded-2xl border border-white/10 bg-black/55 px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-white/25 focus:border-sky-300/60"
-                placeholder="Internal notes for SourceTV only..."
-              />
-            </EditorPanel>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => saveContract("mark_signed")}
+              className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-2.5 text-xs font-semibold text-emerald-200 transition hover:border-emerald-300/45 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Mark Signed
+            </button>
 
-            {contract.partnerNotes && (
-              <EditorPanel title="Partner Notes">
-                <p className="text-sm leading-7 text-white/60">
-                  {contract.partnerNotes}
+            <Link
+              href={`/admin/contracts/${contract.id}/print`}
+              className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs font-semibold text-white/65 transition hover:border-white/20 hover:bg-white/[0.055] hover:text-white"
+            >
+              Print Record
+            </Link>
+
+            <button
+              type="button"
+              disabled={saving || isSigned}
+              onClick={() => saveContract("cancel")}
+              className="rounded-xl border border-red-300/25 bg-red-300/10 px-4 py-2.5 text-xs font-semibold text-red-200 transition hover:border-red-300/45 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <ContractTimeline contract={contract} />
+
+      {contract.status === "changes_requested" && (
+        <StatusNotice
+          eyebrow="Partner Action Required"
+          title="Changes have been requested by the partner."
+          description="Review the partner notes below, update the agreement, and resend the contract when ready."
+          tone="yellow"
+        />
+      )}
+
+      {contract.status === "sent" && (
+        <StatusNotice
+          eyebrow="Awaiting Review"
+          title="The contract has been sent to the partner."
+          description="The agreement is waiting for the partner to open and review it."
+          tone="sky"
+        />
+      )}
+
+      {contract.status === "viewed" && (
+        <StatusNotice
+          eyebrow="Viewed by Partner"
+          title="The partner has opened this agreement."
+          description="The agreement has been reviewed but has not yet been signed."
+          tone="purple"
+        />
+      )}
+
+      {isSigned && (
+        <StatusNotice
+          eyebrow="Executed Agreement"
+          title="This agreement has been signed and locked."
+          description="Signed agreements cannot be edited unless the contract workflow is reopened."
+          tone="green"
+        />
+      )}
+
+      {contract.partnerSignatureName && (
+        <section className="rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.05] p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200">
+            Signed Agreement Record
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <InfoBox
+              label="Signed By"
+              value={contract.partnerSignatureName}
+            />
+
+            <InfoBox
+              label="Signed Date"
+              value={formatDate(contract.signedAt)}
+            />
+
+            <InfoBox
+              label="Viewed Date"
+              value={formatDate(contract.viewedAt)}
+            />
+
+            {contract.partnerSignatureDataUrl && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:col-span-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+                  Drawn Signature
                 </p>
-              </EditorPanel>
+
+                <img
+                  src={contract.partnerSignatureDataUrl}
+                  alt="Partner signature"
+                  className="mt-3 max-h-36 rounded-xl border border-white/10 bg-white p-4"
+                />
+              </div>
             )}
           </div>
         </section>
-      </div>
+      )}
+
+      <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className="space-y-6">
+          <EditorPanel
+            eyebrow="Partner"
+            title="Partner and Rights Owner"
+            description="Contact and rights-holder information attached to this agreement."
+          >
+            <Field label="Partner Name">
+              <input
+                disabled={isSigned}
+                value={contract.partnerName || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    partnerName: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Partner Email">
+              <input
+                disabled={isSigned}
+                value={contract.partnerEmail || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    partnerEmail: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Rights Owner">
+              <input
+                disabled={isSigned}
+                value={contract.rightsOwner || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    rightsOwner: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Rights Contact">
+              <input
+                disabled={isSigned}
+                value={contract.rightsContact || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    rightsContact: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+          </EditorPanel>
+
+          <EditorPanel
+            eyebrow="License"
+            title="License Terms"
+            description="Define the duration, territories, exclusivity, and participation terms."
+          >
+            <Field label="License Type">
+              <input
+                disabled={isSigned}
+                value={contract.licenseType || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    licenseType: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Start Date">
+                <input
+                  type="date"
+                  disabled={isSigned}
+                  value={formatDateInput(contract.licenseStartDate)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onChange={(event) =>
+                    setContract({
+                      ...contract,
+                      licenseStartDate: event.target.value,
+                    })
+                  }
+                  className="input cursor-pointer"
+                />
+              </Field>
+
+              <Field label="End Date">
+                <input
+                  type="date"
+                  disabled={isSigned}
+                  value={formatDateInput(contract.licenseEndDate)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  onChange={(event) =>
+                    setContract({
+                      ...contract,
+                      licenseEndDate: event.target.value,
+                    })
+                  }
+                  className="input cursor-pointer"
+                />
+              </Field>
+            </div>
+
+            <Field label="Territories">
+              <input
+                disabled={isSigned}
+                value={contract.territories || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    territories: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Exclusivity">
+              <input
+                disabled={isSigned}
+                value={contract.exclusivity || ""}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    exclusivity: event.target.value,
+                  })
+                }
+                className="input"
+              />
+            </Field>
+
+            <Field label="Revenue Share">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                disabled={isSigned}
+                value={contract.revenueShare ?? 50}
+                onChange={(event) =>
+                  setContract({
+                    ...contract,
+                    revenueShare: Number(event.target.value),
+                  })
+                }
+                className="input"
+              />
+            </Field>
+          </EditorPanel>
+        </div>
+
+        <div className="space-y-6">
+          <EditorPanel
+            eyebrow="Agreement"
+            title="Contract Text"
+            description="The complete legal agreement presented to the content partner."
+          >
+            <textarea
+              disabled={isSigned}
+              value={contract.contractText || ""}
+              onChange={(event) =>
+                setContract({
+                  ...contract,
+                  contractText: event.target.value,
+                })
+              }
+              className="min-h-[620px] w-full resize-y rounded-2xl border border-white/10 bg-[#05070d] px-4 py-4 font-mono text-sm leading-7 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/60 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </EditorPanel>
+
+          <EditorPanel
+            eyebrow="Internal"
+            title="Admin Notes"
+            description="Private notes visible only to SourceTV administrators."
+          >
+            <textarea
+              disabled={isSigned}
+              value={contract.adminNotes || ""}
+              onChange={(event) =>
+                setContract({
+                  ...contract,
+                  adminNotes: event.target.value,
+                })
+              }
+              className="min-h-32 w-full resize-y rounded-2xl border border-white/10 bg-[#05070d] px-4 py-4 text-sm leading-7 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/60 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Internal notes for SourceTV only..."
+            />
+          </EditorPanel>
+
+          {contract.partnerNotes && (
+            <EditorPanel
+              eyebrow="Partner"
+              title="Partner Notes"
+              description="Feedback or requested changes submitted by the partner."
+            >
+              <p className="text-sm leading-7 text-white/60">
+                {contract.partnerNotes}
+              </p>
+            </EditorPanel>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
@@ -570,41 +619,34 @@ function ContractTimeline({ contract }: { contract: Contract }) {
   ];
 
   return (
-    <section className="mt-6 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300">
         Contract Timeline
       </p>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-4">
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step.label} className="relative">
-            {index < steps.length - 1 && (
-              <div
-                className={`absolute left-7 top-6 hidden h-px w-[calc(100%_-_1rem)] md:block ${
-                  step.complete ? "bg-sky-300/70" : "bg-white/10"
-                }`}
-              />
-            )}
-
-            <div className="relative z-10 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div
-                className={`flex h-12 w-12 items-center justify-center rounded-full border text-sm font-black ${
-                  step.complete
-                    ? "border-sky-300/60 bg-sky-300/15 text-sky-200"
-                    : "border-white/10 bg-white/[0.04] text-white/30"
-                }`}
-              >
-                {step.complete ? "✓" : index + 1}
-              </div>
-
-              <p className="mt-3 text-sm font-black text-white">
-                {step.label}
-              </p>
-
-              <p className="mt-1 text-xs font-bold text-white/40">
-                {formatDate(step.date)}
-              </p>
+          <div
+            key={step.label}
+            className="relative rounded-2xl border border-white/10 bg-white/[0.025] p-4"
+          >
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold ${
+                step.complete
+                  ? "border-sky-300/45 bg-sky-300/10 text-sky-200"
+                  : "border-white/10 bg-white/[0.035] text-white/30"
+              }`}
+            >
+              {step.complete ? "✓" : index + 1}
             </div>
+
+            <p className="mt-3 text-sm font-semibold text-white">
+              {step.label}
+            </p>
+
+            <p className="mt-1 text-xs text-white/40">
+              {formatDate(step.date)}
+            </p>
           </div>
         ))}
       </div>
@@ -612,21 +654,64 @@ function ContractTimeline({ contract }: { contract: Contract }) {
   );
 }
 
-function EditorPanel({
+function StatusNotice({
+  eyebrow,
   title,
-  children,
+  description,
+  tone,
 }: {
+  eyebrow: string;
   title: string;
-  children: React.ReactNode;
+  description: string;
+  tone: "yellow" | "sky" | "purple" | "green";
 }) {
+  const classes =
+    tone === "yellow"
+      ? "border-yellow-300/20 bg-yellow-300/[0.06] text-yellow-200"
+      : tone === "purple"
+        ? "border-purple-300/20 bg-purple-300/[0.06] text-purple-200"
+        : tone === "green"
+          ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200"
+          : "border-sky-300/20 bg-sky-300/[0.06] text-sky-200";
+
   return (
-    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl backdrop-blur-xl">
-      <p className="mb-4 text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-        {title}
+    <section className={`rounded-2xl border p-5 ${classes}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]">
+        {eyebrow}
       </p>
 
-      <div className="grid gap-4">{children}</div>
-    </div>
+      <h2 className="mt-2 text-lg font-semibold text-white">{title}</h2>
+
+      <p className="mt-2 text-sm leading-6 text-white/55">{description}</p>
+    </section>
+  );
+}
+
+function EditorPanel({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 md:p-6">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-300">
+        {eyebrow}
+      </p>
+
+      <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+        {title}
+      </h2>
+
+      <p className="mt-2 text-sm leading-6 text-white/45">{description}</p>
+
+      <div className="mt-5 grid gap-4">{children}</div>
+    </section>
   );
 }
 
@@ -635,29 +720,15 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
+      <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
         {label}
       </span>
 
       {children}
     </label>
-  );
-}
-
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
-        {label}
-      </p>
-
-      <p className="mt-2 break-words text-sm font-bold text-white/70">
-        {value}
-      </p>
-    </div>
   );
 }
