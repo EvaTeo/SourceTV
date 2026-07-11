@@ -837,6 +837,142 @@ const [sendingMessage, setSendingMessage] = useState(false);
             </select>
           </div>
 
+       <div className="md:col-span-2 border-t border-white/10 pt-8">
+  <h2 className="text-2xl font-black">Hero Editorial</h2>
+
+  <p className="mt-2 text-white/50">
+    Choose whether this title appears in the SourceTV hero, its display order,
+    and the editorial label shown above the title.
+  </p>
+</div>
+
+<div>
+  <label className="block text-sm font-bold text-white/60">
+    Hero Placement
+  </label>
+
+  <select
+    value={form.featured ? "featured" : "normal"}
+    onChange={(event) =>
+      updateField("featured", event.target.value === "featured")
+    }
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3"
+  >
+    <option value="normal">Standard Catalog Title</option>
+    <option value="featured">Featured Hero Title</option>
+  </select>
+</div>
+
+<div>
+  <label className="block text-sm font-bold text-white/60">
+    Hero Order
+  </label>
+
+  <input
+    type="number"
+    min={1}
+    max={20}
+    value={form.heroPriority ?? ""}
+    onChange={(event) =>
+      updateField(
+        "heroPriority",
+        event.target.value === "" ? "" : Number(event.target.value)
+      )
+    }
+    disabled={!form.featured}
+    placeholder="Example: 1"
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 disabled:cursor-not-allowed disabled:opacity-40"
+  />
+
+  <p className="mt-2 text-xs text-white/35">
+    Lower numbers appear first. Priority 1 is the first hero title.
+  </p>
+</div>
+
+<div className="md:col-span-2">
+  <label className="block text-sm font-bold text-white/60">
+    Hero Badge
+  </label>
+
+  <select
+    value={form.heroBadge || ""}
+    onChange={(event) => updateField("heroBadge", event.target.value)}
+    disabled={!form.featured}
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 disabled:cursor-not-allowed disabled:opacity-40"
+  >
+    <option value="">Automatic</option>
+    <option value="Spotlight">Spotlight</option>
+    <option value="Editor's Choice">Editor&apos;s Choice</option>
+    <option value="Trending Now">Trending Now</option>
+    <option value="New This Week">New This Week</option>
+    <option value="Premiering Soon">Premiering Soon</option>
+    <option value="SourceTV Original">SourceTV Original</option>
+    <option value="Exclusive">Exclusive</option>
+    <option value="Award Winner">Award Winner</option>
+    <option value="Official Selection">Official Selection</option>
+    <option value="Critics' Pick">Critics&apos; Pick</option>
+    <option value="Fan Favorite">Fan Favorite</option>
+  </select>
+</div>
+
+<div>
+  <label className="block text-sm font-bold text-white/60">
+    Hero Start
+  </label>
+
+  <input
+    type="datetime-local"
+    value={
+      form.heroStartDate
+        ? new Date(form.heroStartDate).toISOString().slice(0, 16)
+        : ""
+    }
+    onChange={(event) =>
+      updateField(
+        "heroStartDate",
+        event.target.value
+          ? new Date(event.target.value).toISOString()
+          : ""
+      )
+    }
+    disabled={!form.featured}
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 disabled:cursor-not-allowed disabled:opacity-40"
+  />
+
+  <p className="mt-2 text-xs text-white/35">
+    Optional. Leave empty to show immediately.
+  </p>
+</div>
+
+<div>
+  <label className="block text-sm font-bold text-white/60">
+    Hero End
+  </label>
+
+  <input
+    type="datetime-local"
+    value={
+      form.heroEndDate
+        ? new Date(form.heroEndDate).toISOString().slice(0, 16)
+        : ""
+    }
+    onChange={(event) =>
+      updateField(
+        "heroEndDate",
+        event.target.value
+          ? new Date(event.target.value).toISOString()
+          : ""
+      )
+    }
+    disabled={!form.featured}
+    className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 disabled:cursor-not-allowed disabled:opacity-40"
+  />
+
+  <p className="mt-2 text-xs text-white/35">
+    Optional. Leave empty to keep it in the hero indefinitely.
+  </p>
+</div>
+
 <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
   <h2 className="mb-6 text-xl font-black text-white">
     Partner Communications

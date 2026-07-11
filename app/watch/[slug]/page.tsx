@@ -27,12 +27,16 @@ export default async function WatchPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ preview?: string }>;
+searchParams: Promise<{
+  preview?: string;
+  play?: string;
+}>;
 }) {
   const { slug } = await params;
-  const { preview } = await searchParams;
+ const { preview, play } = await searchParams;
 
-  const isAdminPreview = preview === "admin";
+const isAdminPreview = preview === "admin";
+const shouldAutoPlay = play === "true";
   const now = new Date();
 
   const content = await prisma.projectSubmission.findMany({
@@ -169,13 +173,14 @@ export default async function WatchPage({
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
               {playerUrl && playerUrl.startsWith("http") ? (
-                <FullscreenPlayButton
-                  url={playerUrl}
-                  poster={item.thumbnailUrl}
-                  title={item.title}
-                  slug={item.id}
-                  type={item.type || ""}
-                />
+             <FullscreenPlayButton
+  url={playerUrl}
+  poster={item.thumbnailUrl}
+  title={item.title}
+  slug={item.id}
+  type={item.type || ""}
+  autoOpen={shouldAutoPlay}
+/>
               ) : (
                 <button className="cursor-not-allowed rounded-full bg-white/20 px-12 py-5 text-lg font-black text-white/50">
                   No Video

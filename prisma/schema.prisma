@@ -157,6 +157,11 @@ model ProjectSubmission {
   featuredRank Int?
   editorPick   Boolean @default(false)
 
+  heroBadge     String?
+heroPriority  Int?
+heroStartDate DateTime?
+heroEndDate   DateTime?
+
   recognitionLevel String?
 
   scheduledAt DateTime?

@@ -186,6 +186,34 @@ export async function PATCH(
           : Number(body.featuredRank);
     }
 
+    if (body.heroBadge !== undefined) {
+  data.heroBadge =
+    body.heroBadge === "" || body.heroBadge === null
+      ? null
+      : String(body.heroBadge);
+}
+
+if (body.heroPriority !== undefined) {
+  data.heroPriority =
+    body.heroPriority === "" || body.heroPriority === null
+      ? null
+      : Number(body.heroPriority);
+}
+
+if (body.heroStartDate !== undefined) {
+  data.heroStartDate =
+    body.heroStartDate && body.heroStartDate !== ""
+      ? new Date(body.heroStartDate)
+      : null;
+}
+
+if (body.heroEndDate !== undefined) {
+  data.heroEndDate =
+    body.heroEndDate && body.heroEndDate !== ""
+      ? new Date(body.heroEndDate)
+      : null;
+}
+
     if (body.scheduledAt !== undefined) {
       data.scheduledAt =
         body.scheduledAt && body.scheduledAt !== ""

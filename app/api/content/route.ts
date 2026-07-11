@@ -21,6 +21,8 @@ function cleanContentItem(item: any) {
 export async function GET(request: Request) {
   try {
     const now = new Date();
+    const currentTime = now.getTime();
+
     const { searchParams } = new URL(request.url);
 
     const mode = searchParams.get("mode") || "all";
@@ -28,7 +30,9 @@ export async function GET(request: Request) {
     const genre = searchParams.get("genre");
     const creatorName = searchParams.get("creatorName");
     const excludeId = searchParams.get("excludeId");
-    const limit = Number(searchParams.get("limit") || 50);
+
+    const requestedLimit = Number(searchParams.get("limit") || 50);
+    const limit = Number.isNaN(requestedLimit) ? 50 : requestedLimit;
 
     const content = await prisma.projectSubmission.findMany({
       where: {
@@ -49,6 +53,9 @@ export async function GET(request: Request) {
           featured: "desc",
         },
         {
+          heroPriority: "asc",
+        },
+        {
           featuredRank: "asc",
         },
         {
@@ -67,17 +74,82 @@ export async function GET(request: Request) {
     let result = cleanContent;
 
     if (mode === "trending") {
-      result = [...cleanContent].sort((a, b) => b.views - a.views);
+      result = [...cleanContent].sort(
+        (a, b) => (b.views || 0) - (a.views || 0)
+      );
     }
 
     if (mode === "featured") {
-      result = cleanContent.filter((item) => item.featured);
+      result = cleanContent
+        .filter((item) => {
+          if (!item.featured) return false;
+
+          const startsAt = item.heroStartDate
+            ? new Date(item.heroStartDate).getTime()
+            : null;
+
+          const endsAt = item.heroEndDate
+            ? new Date(item.heroEndDate).getTime()
+            : null;
+
+          const hasValidStart =
+            startsAt === null || !Number.isNaN(startsAt);
+
+          const hasValidEnd =
+            endsAt === null || !Number.isNaN(endsAt);
+
+          if (!hasValidStart || !hasValidEnd) {
+            return false;
+          }
+
+          const hasStarted =
+            startsAt === null || startsAt <= currentTime;
+
+          const hasNotEnded =
+            endsAt === null || endsAt >= currentTime;
+
+          return hasStarted && hasNotEnded;
+        })
+        .sort((a, b) => {
+          const aPriority =
+            typeof a.heroPriority === "number"
+              ? a.heroPriority
+              : typeof a.featuredRank === "number"
+                ? a.featuredRank
+                : 999;
+
+          const bPriority =
+            typeof b.heroPriority === "number"
+              ? b.heroPriority
+              : typeof b.featuredRank === "number"
+                ? b.featuredRank
+                : 999;
+
+          if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+          }
+
+          const aDate = new Date(
+            a.publishedAt || a.createdAt
+          ).getTime();
+
+          const bDate = new Date(
+            b.publishedAt || b.createdAt
+          ).getTime();
+
+          return bDate - aDate;
+        });
     }
 
     if (mode === "new") {
       result = [...cleanContent].sort((a, b) => {
-        const aDate = new Date(a.publishedAt || a.createdAt).getTime();
-        const bDate = new Date(b.publishedAt || b.createdAt).getTime();
+        const aDate = new Date(
+          a.publishedAt || a.createdAt
+        ).getTime();
+
+        const bDate = new Date(
+          b.publishedAt || b.createdAt
+        ).getTime();
 
         return bDate - aDate;
       });
@@ -89,56 +161,90 @@ export async function GET(request: Request) {
 
     if (mode === "genre" && genre) {
       result = cleanContent.filter(
-        (item) => item.genre?.toLowerCase() === genre.toLowerCase()
+        (item) =>
+          item.genre?.toLowerCase() === genre.toLowerCase()
       );
     }
 
     if (mode === "type" && type) {
       result = cleanContent.filter(
-        (item) => item.type?.toLowerCase() === type.toLowerCase()
+        (item) =>
+          item.type?.toLowerCase() === type.toLowerCase()
       );
     }
 
     if (mode === "creator" && creatorName) {
       result = cleanContent.filter(
         (item) =>
-          item.creatorName?.toLowerCase() === creatorName.toLowerCase()
+          item.creatorName?.toLowerCase() ===
+          creatorName.toLowerCase()
       );
     }
 
     if (mode === "because_you_watched") {
       result = cleanContent.filter((item) => {
         const typeMatch =
-          type && item.type?.toLowerCase() === type.toLowerCase();
+          type &&
+          item.type?.toLowerCase() === type.toLowerCase();
 
         const genreMatch =
-          genre && item.genre?.toLowerCase() === genre.toLowerCase();
+          genre &&
+          item.genre?.toLowerCase() === genre.toLowerCase();
 
         const creatorMatch =
           creatorName &&
-          item.creatorName?.toLowerCase() === creatorName.toLowerCase();
+          item.creatorName?.toLowerCase() ===
+            creatorName.toLowerCase();
 
-        return Boolean(typeMatch || genreMatch || creatorMatch);
+        return Boolean(
+          typeMatch || genreMatch || creatorMatch
+        );
       });
 
       result = result.sort((a, b) => {
         let aScore = 0;
         let bScore = 0;
 
-        if (genre && a.genre?.toLowerCase() === genre.toLowerCase()) aScore += 4;
-        if (type && a.type?.toLowerCase() === type.toLowerCase()) aScore += 2;
+        if (
+          genre &&
+          a.genre?.toLowerCase() === genre.toLowerCase()
+        ) {
+          aScore += 4;
+        }
+
+        if (
+          type &&
+          a.type?.toLowerCase() === type.toLowerCase()
+        ) {
+          aScore += 2;
+        }
+
         if (
           creatorName &&
-          a.creatorName?.toLowerCase() === creatorName.toLowerCase()
+          a.creatorName?.toLowerCase() ===
+            creatorName.toLowerCase()
         ) {
           aScore += 3;
         }
 
-        if (genre && b.genre?.toLowerCase() === genre.toLowerCase()) bScore += 4;
-        if (type && b.type?.toLowerCase() === type.toLowerCase()) bScore += 2;
+        if (
+          genre &&
+          b.genre?.toLowerCase() === genre.toLowerCase()
+        ) {
+          bScore += 4;
+        }
+
+        if (
+          type &&
+          b.type?.toLowerCase() === type.toLowerCase()
+        ) {
+          bScore += 2;
+        }
+
         if (
           creatorName &&
-          b.creatorName?.toLowerCase() === creatorName.toLowerCase()
+          b.creatorName?.toLowerCase() ===
+            creatorName.toLowerCase()
         ) {
           bScore += 3;
         }
@@ -150,7 +256,9 @@ export async function GET(request: Request) {
     if (mode === "hidden_gems") {
       result = cleanContent
         .filter((item) => !item.featured)
-        .sort((a, b) => a.views - b.views);
+        .sort(
+          (a, b) => (a.views || 0) - (b.views || 0)
+        );
     }
 
     if (mode === "recommended") {
@@ -169,7 +277,7 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json(result.slice(0, Number.isNaN(limit) ? 50 : limit));
+    return NextResponse.json(result.slice(0, limit));
   } catch (error: any) {
     return NextResponse.json(
       {
