@@ -456,7 +456,6 @@ function FilteredResultsRail({
             thumbnailUrl={item.thumbnailUrl}
             backdropUrl={item.backdropUrl}
             trailerUrl={item.trailerUrl}
-            views={item.views}
             scheduledAt={item.scheduledAt}
             status={item.status}
           />
