@@ -1,8 +1,8 @@
 import { getCurrentUser } from "@/app/lib/auth";
 import { redirect } from "next/navigation";
-import ProfilesClient from "./ProfilesClient";
+import ProfileSelector from "../components/ProfileSelector";
 
-export default async function ProfilesPage() {
+export default async function SelectProfilePage() {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -10,7 +10,7 @@ export default async function ProfilesPage() {
   }
 
   return (
-    <ProfilesClient
+    <ProfileSelector
       account={{
         id: user.id,
         name: user.name,
