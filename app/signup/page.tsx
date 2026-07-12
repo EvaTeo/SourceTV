@@ -33,8 +33,8 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-md">
+<main className="min-h-screen bg-black px-6 pb-16 pt-28 text-white md:pt-32">
+        <div className="mx-auto max-w-md">
         <Link href="/" className="text-2xl font-black">
           Source<span className="text-sky-400">TV</span>
         </Link>

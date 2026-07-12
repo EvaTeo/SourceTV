@@ -75,19 +75,9 @@ export default function ContentRail({
       <div
         className={`mb-0 flex items-center justify-between gap-4 ${CONTENT_EDGE_PADDING}`}
       >
-        <button
-          type="button"
-          className="group/title flex items-center gap-2 text-left"
-          aria-label={`Explore ${title}`}
-        >
-          <h2 className="text-[15px] font-bold tracking-tight text-white transition group-hover/title:text-sky-100 md:text-[1.32rem]">
-            {title}
-          </h2>
-
-          <span className="translate-x-[-4px] text-sm font-black text-sky-300/0 transition-all duration-300 group-hover/rail:translate-x-0 group-hover/rail:text-sky-300">
-            Explore All →
-          </span>
-        </button>
+       <h2 className="text-[15px] font-bold tracking-tight text-white md:text-[1.32rem]">
+  {title}
+</h2>
 
         <div className="hidden gap-2 opacity-0 transition duration-300 group-hover/rail:opacity-100 md:flex">
           <button

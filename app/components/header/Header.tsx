@@ -153,12 +153,6 @@ export default function Header() {
                 Login
               </Link>
 
-              <Link
-                href="/partner/apply"
-                className="rounded-full border border-sky-300/45 bg-sky-400/18 px-5 py-2.5 text-sm font-black text-sky-100 shadow-[0_0_28px_rgba(56,189,248,0.25)] backdrop-blur-xl transition hover:border-sky-200 hover:bg-sky-400/28 hover:text-white"
-              >
-                Become a Partner
-              </Link>
             </>
           )}
 

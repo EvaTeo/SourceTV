@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   useEffect,
@@ -10,7 +11,6 @@ import {
 import LogoutButton from "../LogoutButton";
 import ProfileMenuAvatar from "./ProfileMenuAvatar";
 import {
-  AccountIcon,
   BillingIcon,
   ChevronIcon,
   ManageProfilesIcon,
@@ -23,17 +23,21 @@ import {
   type StoredProfile,
 } from "./profileMenuStorage";
 
-const OPEN_DELAY = 120;
+const OPEN_DELAY = 110;
 const CLOSE_DELAY = 220;
 
 export default function ProfileMenu() {
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [open, setOpen] = useState(false);
+
   const [profile, setProfile] =
     useState<StoredProfile | null>(null);
 
@@ -206,59 +210,60 @@ export default function ProfileMenu() {
         onFocus={openMenuSoon}
         className={`group flex items-center gap-1.5 rounded-full border p-1 pr-2 transition duration-300 ${
           open
-            ? "border-sky-300/40 bg-sky-300/[0.09] shadow-[0_0_24px_rgba(56,189,248,0.16)]"
+            ? "border-sky-300/35 bg-sky-300/[0.08]"
             : "border-white/10 bg-black/38 hover:border-white/25 hover:bg-white/[0.07]"
         }`}
         aria-label="Open profile menu"
         aria-expanded={open}
       >
         <div
-          className={`h-8 w-8 shrink-0 transition-all duration-300 ${
-            open ? "scale-[1.05]" : "scale-100"
+          className={`h-8 w-8 shrink-0 transition duration-300 ${
+            open ? "scale-[1.04]" : "scale-100"
           }`}
         >
           <ProfileMenuAvatar profile={safeProfile} />
         </div>
 
-        <span className="text-white/55 transition group-hover:text-white">
+        <span className="text-white/50 transition group-hover:text-white">
           <ChevronIcon open={open} />
         </span>
       </button>
 
       <div
-        onMouseEnter={openMenuSoon}
-        onMouseLeave={closeMenuSoon}
-        className={`absolute right-0 top-full mt-3 w-[310px] origin-top-right overflow-hidden rounded-[1.45rem] border border-white/10 bg-black/88 p-2 shadow-[0_30px_100px_rgba(0,0,0,0.82)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`absolute right-0 top-full mt-3 w-[250px] origin-top-right overflow-hidden rounded-[1.2rem] border border-white/10 bg-black/92 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.78)] backdrop-blur-3xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           open
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-            : "pointer-events-none -translate-y-2 scale-[0.965] opacity-0"
+            : "pointer-events-none -translate-y-2 scale-[0.97] opacity-0"
         }`}
       >
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/65 to-transparent shadow-[0_0_16px_rgba(56,189,248,0.72)]" />
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/55 to-transparent" />
 
-        <div className="relative rounded-[1.1rem] border border-white/[0.06] bg-white/[0.035] p-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 shrink-0">
-              <ProfileMenuAvatar profile={safeProfile} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-white">
-                {safeProfile.name}
-              </p>
-
-              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-sky-300/70">
-                Active Profile
-              </p>
-            </div>
+        <Link
+          href="/account"
+          onClick={() => setOpen(false)}
+          className="group flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/[0.06]"
+        >
+          <div className="h-10 w-10 shrink-0">
+            <ProfileMenuAvatar profile={safeProfile} />
           </div>
-        </div>
 
-        <div className="mt-2 space-y-0.5">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-white">
+              {safeProfile.name}
+            </p>
+
+            <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/30 transition group-hover:text-sky-300/70">
+              Account
+            </p>
+          </div>
+        </Link>
+
+        <div className="h-px bg-white/[0.07]" />
+
+        <div className="py-1.5">
           <ProfileMenuLink
             href="/profiles/select"
             label="Switch Profile"
-            description="Choose who’s watching"
             icon={<SwitchProfileIcon />}
             onClick={() => setOpen(false)}
           />
@@ -266,27 +271,17 @@ export default function ProfileMenu() {
           <ProfileMenuLink
             href="/profiles"
             label="Manage Profiles"
-            description="Edit names, photos, and profiles"
             icon={<ManageProfilesIcon />}
             onClick={() => setOpen(false)}
           />
         </div>
 
-        <div className="my-2 h-px bg-white/[0.07]" />
+        <div className="h-px bg-white/[0.07]" />
 
-        <div className="space-y-0.5">
-          <ProfileMenuLink
-            href="/account"
-            label="Account"
-            description="Manage your SourceTV account"
-            icon={<AccountIcon />}
-            onClick={() => setOpen(false)}
-          />
-
+        <div className="py-1.5">
           <ProfileMenuLink
             href="/account/settings"
             label="Settings"
-            description="Playback and viewing preferences"
             icon={<SettingsIcon />}
             onClick={() => setOpen(false)}
           />
@@ -294,17 +289,16 @@ export default function ProfileMenu() {
           <ProfileMenuLink
             href="/account/billing"
             label="Subscription"
-            description="Plans and billing"
             icon={<BillingIcon />}
             onClick={() => setOpen(false)}
           />
         </div>
 
-        <div className="my-2 h-px bg-white/[0.07]" />
+        <div className="h-px bg-white/[0.07]" />
 
         <div
           onClick={() => setOpen(false)}
-          className="rounded-xl px-1 py-1 [&_button]:w-full [&_button]:justify-start [&_button]:rounded-xl [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-3 [&_button]:py-3 [&_button]:text-left [&_button]:text-sm [&_button]:font-bold [&_button]:text-red-200/65 [&_button]:shadow-none [&_button]:transition [&_button]:hover:bg-red-300/[0.08] [&_button]:hover:text-red-100"
+          className="px-1 py-1.5 [&_button]:w-full [&_button]:justify-start [&_button]:rounded-xl [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-3 [&_button]:py-2.5 [&_button]:text-left [&_button]:text-sm [&_button]:font-bold [&_button]:text-red-200/60 [&_button]:shadow-none [&_button]:transition [&_button]:hover:bg-red-300/[0.08] [&_button]:hover:text-red-100"
         >
           <LogoutButton />
         </div>
