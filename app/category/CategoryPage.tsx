@@ -1,6 +1,8 @@
 import { prisma } from "@/app/lib/prisma";
+import CategoryCatalogGrid, {
+  type CategoryCatalogItem,
+} from "./CategoryCatalogGrid";
 import CategoryHero from "./CategoryHero";
-import CategoryRows from "./CategoryRows";
 
 type CategoryPageProps = {
   title: string;
@@ -17,53 +19,114 @@ export default async function CategoryPage({
 }: CategoryPageProps) {
   const now = new Date();
 
-  const items = await prisma.projectSubmission.findMany({
-    where: {
-      status: "approved",
+  const databaseItems =
+    await prisma.projectSubmission.findMany({
+      where: {
+        status: "approved",
 
-      OR: [
-        { scheduledAt: null },
-        { scheduledAt: { lte: now } },
+        OR: [
+          {
+            scheduledAt: null,
+          },
+          {
+            scheduledAt: {
+              lte: now,
+            },
+          },
+        ],
+
+        ...(type && genre
+          ? {
+              AND: [
+                {
+                  OR: [
+                    {
+                      type,
+                    },
+                    {
+                      genre,
+                    },
+                  ],
+                },
+              ],
+            }
+          : type
+            ? {
+                type,
+              }
+            : genre
+              ? {
+                  genre,
+                }
+              : {}),
+      },
+
+      orderBy: [
+        {
+          featured: "desc",
+        },
+        {
+          featuredRank: "asc",
+        },
+        {
+          views: "desc",
+        },
+        {
+          createdAt: "desc",
+        },
       ],
 
-      ...(type && genre
-        ? {
-            AND: [
-              {
-                OR: [
-                  { type },
-                  { genre },
-                ],
-              },
-            ],
-          }
-        : type
-          ? { type }
-          : genre
-            ? { genre }
-            : {}),
-    },
+      take: 100,
+    });
 
-    orderBy: [
-      {
-        featured: "desc",
-      },
-      {
-        featuredRank: "asc",
-      },
-      {
-        views: "desc",
-      },
-      {
-        createdAt: "desc",
-      },
-    ],
+  const items: CategoryCatalogItem[] =
+    databaseItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description:
+        item.description || "",
+      type: item.type || "",
+      genre: item.genre || "",
+      year: item.year,
+      maturityRating:
+        item.maturityRating || "",
+      runtime: item.runtime || "",
+      creatorName:
+        item.creatorName || "",
+      thumbnailUrl:
+        item.thumbnailUrl || "",
+      backdropUrl:
+        item.backdropUrl || "",
+      titleLogoUrl:
+        item.titleLogoUrl || "",
+      mainVideoUrl:
+        item.mainVideoUrl || "",
+      videoUrl: item.videoUrl || "",
+      trailerUrl:
+        item.trailerUrl || "",
+      status: item.status || "",
+      scheduledAt: item.scheduledAt
+        ? item.scheduledAt.toISOString()
+        : null,
+      views: item.views || 0,
+      createdAt: item.createdAt
+        ? item.createdAt.toISOString()
+        : null,
+      editorPick:
+        item.editorPick === true,
+    }));
 
-    take: 80,
-  });
+  const featuredDatabaseItem =
+    databaseItems.find(
+      (item) => item.featured
+    );
 
   const heroItem =
-    items.find((item) => item.featured) ||
+    items.find(
+      (item) =>
+        item.id ===
+        featuredDatabaseItem?.id
+    ) ||
     items[0] ||
     null;
 
@@ -75,10 +138,9 @@ export default async function CategoryPage({
         item={heroItem}
       />
 
-      <CategoryRows
+      <CategoryCatalogGrid
         title={title}
         items={items}
-        heroId={heroItem?.id}
       />
     </main>
   );

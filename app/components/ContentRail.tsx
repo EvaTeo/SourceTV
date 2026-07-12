@@ -1,6 +1,11 @@
 "use client";
 
 import HoverPreviewCard from "@/app/components/HoverPreviewCard";
+import {
+  CONTENT_CARD_SIZE,
+  CONTENT_EDGE_PADDING,
+  CONTENT_RAIL_GAP,
+} from "@/app/components/contentLayout";
 import { useRef } from "react";
 
 type ContentItem = {
@@ -29,9 +34,12 @@ export default function ContentRail({
   title: string;
   items: ContentItem[];
 }) {
-  const railRef = useRef<HTMLDivElement | null>(null);
+  const railRef =
+    useRef<HTMLDivElement | null>(null);
 
-  if (!items.length) return null;
+  if (!items.length) {
+    return null;
+  }
 
   function scrollByAmount(amount: number) {
     railRef.current?.scrollBy({
@@ -40,21 +48,33 @@ export default function ContentRail({
     });
   }
 
-  function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+  function handleWheel(
+    event: React.WheelEvent<HTMLDivElement>
+  ) {
     const rail = railRef.current;
-    if (!rail) return;
 
-    const wantsHorizontal = e.shiftKey || Math.abs(e.deltaX) > 0;
+    if (!rail) {
+      return;
+    }
+
+    const wantsHorizontal =
+      event.shiftKey ||
+      Math.abs(event.deltaX) > 0;
 
     if (wantsHorizontal) {
-      e.preventDefault();
-      rail.scrollLeft += e.shiftKey ? e.deltaY : e.deltaX;
+      event.preventDefault();
+
+      rail.scrollLeft += event.shiftKey
+        ? event.deltaY
+        : event.deltaX;
     }
   }
 
   return (
     <section className="group/rail relative overflow-visible py-1">
-      <div className="mb-0 flex items-center justify-between gap-4 px-5 md:px-12">
+      <div
+        className={`mb-0 flex items-center justify-between gap-4 ${CONTENT_EDGE_PADDING}`}
+      >
         <button
           type="button"
           className="group/title flex items-center gap-2 text-left"
@@ -71,7 +91,10 @@ export default function ContentRail({
 
         <div className="hidden gap-2 opacity-0 transition duration-300 group-hover/rail:opacity-100 md:flex">
           <button
-            onClick={() => scrollByAmount(-900)}
+            type="button"
+            onClick={() =>
+              scrollByAmount(-900)
+            }
             className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-lg font-light text-white/75 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
             aria-label={`Scroll ${title} left`}
           >
@@ -79,7 +102,10 @@ export default function ContentRail({
           </button>
 
           <button
-            onClick={() => scrollByAmount(900)}
+            type="button"
+            onClick={() =>
+              scrollByAmount(900)
+            }
             className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-lg font-light text-white/75 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-100"
             aria-label={`Scroll ${title} right`}
           >
@@ -89,19 +115,23 @@ export default function ContentRail({
       </div>
 
       <div className="pointer-events-none absolute bottom-0 left-0 top-8 z-20 hidden w-16 bg-gradient-to-r from-black via-black/60 to-transparent opacity-0 transition duration-300 group-hover/rail:opacity-100 md:block" />
+
       <div className="pointer-events-none absolute bottom-0 right-0 top-8 z-20 hidden w-20 bg-gradient-to-l from-black via-black/60 to-transparent opacity-0 transition duration-300 group-hover/rail:opacity-100 md:block" />
 
       <div
         ref={railRef}
         onWheel={handleWheel}
-        className="flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-visible px-5 pb-5 pt-3 scroll-smooth overscroll-x-contain [scrollbar-width:none] md:gap-4 md:px-12 md:pb-6 md:pt-4 [&::-webkit-scrollbar]:hidden"
+        className={`flex touch-pan-x snap-x snap-mandatory overflow-x-auto overflow-y-visible pb-5 pt-3 scroll-smooth overscroll-x-contain [scrollbar-width:none] md:pb-6 md:pt-4 [&::-webkit-scrollbar]:hidden ${CONTENT_EDGE_PADDING} ${CONTENT_RAIL_GAP}`}
       >
         {items.map((item, index) => (
           <div
             key={`${title}-${item.id}`}
-            className="w-[34vw] min-w-[124px] max-w-[150px] shrink-0 snap-start transition duration-300 group-hover/rail:opacity-80 hover:!opacity-100 md:w-[192px] md:min-w-0 md:max-w-none"
+            className={`shrink-0 snap-start transition duration-300 group-hover/rail:opacity-80 hover:!opacity-100 ${CONTENT_CARD_SIZE}`}
           >
-            <HoverPreviewCard item={item} index={index} />
+            <HoverPreviewCard
+              item={item}
+              index={index}
+            />
           </div>
         ))}
       </div>
