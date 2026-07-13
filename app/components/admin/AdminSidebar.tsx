@@ -23,14 +23,20 @@ const navGroups: NavGroup[] = [
       { href: "/admin/revenue", label: "Revenue", icon: "revenue" },
     ],
   },
+  
   {
-    title: "Content",
-    items: [
-      { href: "/admin/content", label: "Library", icon: "content" },
-      { href: "/admin/review", label: "Review Queue", icon: "review" },
-      { href: "/admin/upload", label: "Upload", icon: "upload" },
-    ],
-  },
+  title: "Content",
+  items: [
+    { href: "/admin/content", label: "Library", icon: "content" },
+    {
+      href: "/admin/editorial",
+      label: "Editorial",
+      icon: "editorial",
+    },
+    { href: "/admin/review", label: "Review Queue", icon: "review" },
+    { href: "/admin/upload", label: "Upload", icon: "upload" },
+  ],
+},
   {
     title: "Partners",
     items: [
@@ -226,6 +232,15 @@ function SourceIcon({
             <path d="m10 9 5 3-5 3z" />
           </>
         )}
+
+        {name === "editorial" && (
+  <>
+    <path d="M4 5.5h16v4H4z" />
+    <path d="M4 12h10v6.5H4z" />
+    <path d="M16.5 12H20v6.5h-3.5z" />
+    <path d="M7 7.5h6" />
+  </>
+)}
 
         {name === "review" && (
           <>

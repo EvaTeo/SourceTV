@@ -42,9 +42,13 @@ type RecommendationMemoryItem = {
   watchedAt: number;
 };
 
-type CuratedCollection = {
+type EditorialCollection = {
   id: string;
   title: string;
+  slug: string;
+  description?: string | null;
+  placement: string;
+  sortOrder: number;
   items: ContentItem[];
 };
 
@@ -66,85 +70,6 @@ function normalize(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
 
-function includesAny(value: string, terms: string[]) {
-  const normalizedValue = normalize(value);
-
-  return terms.some((term) => normalizedValue.includes(normalize(term)));
-}
-
-function createSearchableText(item: ContentItem) {
-  return [
-    item.title,
-    item.description,
-    item.genre,
-    item.type,
-    item.creatorName,
-    item.maturityRating,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function parseRuntimeMinutes(runtime?: string | null) {
-  if (!runtime) return null;
-
-  const normalizedRuntime = runtime.trim().toLowerCase();
-
-  const hourMatch = normalizedRuntime.match(/(\d+)\s*h/);
-  const minuteMatch = normalizedRuntime.match(/(\d+)\s*m/);
-
-  if (hourMatch || minuteMatch) {
-    const hours = hourMatch ? Number(hourMatch[1]) : 0;
-    const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
-
-    return hours * 60 + minutes;
-  }
-
-  const numericMatch = normalizedRuntime.match(/\d+/);
-
-  if (!numericMatch) return null;
-
-  const numericRuntime = Number(numericMatch[0]);
-
-  if (!Number.isFinite(numericRuntime)) return null;
-
-  return numericRuntime;
-}
-
-function sortByViews(items: ContentItem[]) {
-  return [...items].sort((a, b) => (b.views || 0) - (a.views || 0));
-}
-
-function uniqueItems(items: ContentItem[]) {
-  const seen = new Set<string>();
-
-  return items.filter((item) => {
-    if (seen.has(item.id)) return false;
-
-    seen.add(item.id);
-    return true;
-  });
-}
-
-function limitCollection(items: ContentItem[], limit = 12) {
-  return uniqueItems(items).slice(0, limit);
-}
-
-function shuffleWithStableSeed(items: ContentItem[], seed: string) {
-  return [...items].sort((a, b) => {
-    const aValue = `${seed}-${a.id}`
-      .split("")
-      .reduce((total, character) => total + character.charCodeAt(0), 0);
-
-    const bValue = `${seed}-${b.id}`
-      .split("")
-      .reduce((total, character) => total + character.charCodeAt(0), 0);
-
-    return aValue - bValue;
-  });
-}
-
 async function fetchRail(url: string): Promise<ContentItem[]> {
   const response = await fetch(url, {
     cache: "no-store",
@@ -152,6 +77,20 @@ async function fetchRail(url: string): Promise<ContentItem[]> {
 
   if (!response.ok) {
     throw new Error(`Failed to load ${url}`);
+  }
+
+  const data = await response.json();
+
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchCollections(): Promise<EditorialCollection[]> {
+  const response = await fetch("/api/collections", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load editorial collections.");
   }
 
   const data = await response.json();
@@ -167,6 +106,7 @@ export default function BrowseClient() {
   const [recentlyAdded, setRecentlyAdded] = useState<ContentItem[]>([]);
   const [editorPicks, setEditorPicks] = useState<ContentItem[]>([]);
   const [featured, setFeatured] = useState<ContentItem[]>([]);
+  const [editorialCollections, setEditorialCollections] = useState<EditorialCollection[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
@@ -200,12 +140,14 @@ export default function BrowseClient() {
           trendingContent,
           newContent,
           editorPickContent,
+          editorialCollectionContent,
         ] = await Promise.all([
           fetchRail("/api/content?mode=all&limit=100"),
           fetchRail("/api/content?mode=featured&limit=6"),
           fetchRail("/api/content?mode=trending&limit=12"),
           fetchRail("/api/content?mode=new&limit=12"),
           fetchRail("/api/content?mode=editor_picks&limit=12"),
+          fetchCollections(),
         ]);
 
         setContent(allContent);
@@ -213,6 +155,7 @@ export default function BrowseClient() {
         setTrending(trendingContent);
         setRecentlyAdded(newContent);
         setEditorPicks(editorPickContent);
+        setEditorialCollections(editorialCollectionContent);
       } catch (error) {
         console.error("BROWSE CONTENT LOAD ERROR:", error);
 
@@ -221,6 +164,7 @@ export default function BrowseClient() {
         setTrending([]);
         setRecentlyAdded([]);
         setEditorPicks([]);
+        setEditorialCollections([]);
       } finally {
         setLoading(false);
       }
@@ -387,169 +331,6 @@ export default function BrowseClient() {
     return `Because You Watched ${mostRecentWatch.title}`;
   }, [memory]);
 
-  const curatedCollections = useMemo<CuratedCollection[]>(() => {
-    if (content.length === 0) return [];
-
-    const hiddenGems = sortByViews(content)
-      .filter((item) => {
-        const views = item.views || 0;
-
-        return views > 0;
-      })
-      .slice(0, Math.max(8, Math.floor(content.length * 0.45)));
-
-    const shortWatch = content.filter((item) => {
-      const runtime = parseRuntimeMinutes(item.runtime);
-
-      return runtime !== null && runtime <= 95;
-    });
-
-    const basedOnTrueStories = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "based on a true story",
-        "true story",
-        "true events",
-        "real events",
-        "biographical",
-        "biography",
-        "biopic",
-        "documentary",
-      ]);
-    });
-
-    const feelGood = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "comedy",
-        "romance",
-        "family",
-        "feel good",
-        "feel-good",
-        "uplifting",
-        "heartwarming",
-        "friendship",
-        "inspiring",
-        "inspirational",
-      ]);
-    });
-
-    const lateNightThrillers = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "thriller",
-        "horror",
-        "crime",
-        "mystery",
-        "suspense",
-        "psychological",
-        "dark",
-      ]);
-    });
-
-    const sciFiWorlds = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "sci-fi",
-        "science fiction",
-        "space",
-        "future",
-        "futuristic",
-        "alien",
-        "technology",
-        "dystopian",
-        "fantasy",
-      ]);
-    });
-
-    const familyNight = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "family",
-        "animation",
-        "animated",
-        "kids",
-        "children",
-        "adventure",
-      ]);
-    });
-
-    const documentaries = content.filter((item) => {
-      const searchableText = createSearchableText(item);
-
-      return includesAny(searchableText, [
-        "documentary",
-        "docuseries",
-        "nonfiction",
-        "non-fiction",
-      ]);
-    });
-
-    const creatorSpotlight = content.filter((item) => {
-      return Boolean(item.creatorName?.trim());
-    });
-
-    const collectionCandidates: CuratedCollection[] = [
-      {
-        id: "hidden-gems",
-        title: "Hidden Gems",
-        items: limitCollection(
-          shuffleWithStableSeed(hiddenGems, "hidden-gems")
-        ),
-      },
-      {
-        id: "short-watch",
-        title: "90 Minutes or Less",
-        items: limitCollection(shortWatch),
-      },
-      {
-        id: "true-stories",
-        title: "Based on True Stories",
-        items: limitCollection(basedOnTrueStories),
-      },
-      {
-        id: "feel-good",
-        title: "Feel-Good Favorites",
-        items: limitCollection(feelGood),
-      },
-      {
-        id: "late-night",
-        title: "Late Night Thrillers",
-        items: limitCollection(lateNightThrillers),
-      },
-      {
-        id: "sci-fi-worlds",
-        title: "Sci-Fi Worlds",
-        items: limitCollection(sciFiWorlds),
-      },
-      {
-        id: "family-night",
-        title: "Family Movie Night",
-        items: limitCollection(familyNight),
-      },
-      {
-        id: "documentaries",
-        title: "Stories From the Real World",
-        items: limitCollection(documentaries),
-      },
-      {
-        id: "creator-spotlight",
-        title: "Creator Spotlight",
-        items: limitCollection(
-          shuffleWithStableSeed(creatorSpotlight, "creator-spotlight")
-        ),
-      },
-    ];
-
-    return collectionCandidates.filter(
-      (collection) => collection.items.length >= 3
-    );
-  }, [content]);
 
   const filteredTitle = useMemo(() => {
     if (urlType) {
@@ -606,19 +387,20 @@ export default function BrowseClient() {
     <main className="relative min-h-screen overflow-x-hidden bg-transparent text-white">
       <FeaturedCarousel items={heroItems} />
 
-<section className="relative z-30 -mt-36 overflow-visible px-0 pb-28 pt-0 md:-mt-[19rem] md:px-0 md:pb-32">
-<div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_bottom,transparent_0%,transparent_66%,rgba(0,0,0,0.08)_76%,rgba(0,0,0,0.30)_86%,rgba(0,0,0,0.72)_94%,#000_100%)]" />
-  <div className="relative z-10 space-y-3 md:space-y-4">
-            {urlType || urlGenre ? (
+      <section className="relative z-30 -mt-36 overflow-visible px-0 pb-28 pt-0 md:-mt-[19rem] md:px-0 md:pb-32">
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_bottom,transparent_0%,transparent_66%,rgba(0,0,0,0.08)_76%,rgba(0,0,0,0.30)_86%,rgba(0,0,0,0.72)_94%,#000_100%)]" />
+
+        <div className="relative z-10 space-y-3 md:space-y-4">
+          {urlType || urlGenre ? (
             <FilteredResultsRail
               title={filteredTitle}
               items={filteredContent}
             />
           ) : (
             <>
-<div className="pt-14 md:pt-24">
-  <ContinueWatching />
-</div>
+              <div className="pt-14 md:pt-24">
+                <ContinueWatching />
+              </div>
 
               {topTen.length > 0 && (
                 <TopTenRail items={topTen} />
@@ -661,7 +443,7 @@ export default function BrowseClient() {
                 />
               )}
 
-              {curatedCollections.map((collection) => (
+              {editorialCollections.map((collection) => (
                 <ContentRail
                   key={collection.id}
                   title={collection.title}
