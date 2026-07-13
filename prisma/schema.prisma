@@ -8,18 +8,18 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      String   @default("user")
-  password  String
+  id       String  @id @default(cuid())
+  email    String  @unique
+  name     String?
+  role     String  @default("user")
+  password String
 
-  subscriptionTier      String   @default("free")
-  subscriptionStatus    String   @default("inactive")
-  subscriptionPriceId   String?
-  subscriptionEndsAt    DateTime?
-  stripeCustomerId      String?  @unique
-  stripeSubscriptionId  String?  @unique
+  subscriptionTier     String    @default("free")
+  subscriptionStatus   String    @default("inactive")
+  subscriptionPriceId  String?
+  subscriptionEndsAt   DateTime?
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
 
   profiles            Profile[]
   partnerApplications PartnerApplication[]
@@ -158,9 +158,9 @@ model ProjectSubmission {
   editorPick   Boolean @default(false)
 
   heroBadge     String?
-heroPriority  Int?
-heroStartDate DateTime?
-heroEndDate   DateTime?
+  heroPriority  Int?
+  heroStartDate DateTime?
+  heroEndDate   DateTime?
 
   recognitionLevel String?
 
@@ -171,15 +171,51 @@ heroEndDate   DateTime?
 
   views Int @default(0)
 
-  watchlist         Watchlist[]
-  continueWatching  ContinueWatching[]
-  partnerMessages   PartnerMessage[]
-  rightsContracts   RightsContract[]
-  adImpressions     AdImpression[]
-  reactions         ContentReaction[]
+  watchlist            Watchlist[]
+  continueWatching     ContinueWatching[]
+  partnerMessages      PartnerMessage[]
+  rightsContracts      RightsContract[]
+  adImpressions        AdImpression[]
+  reactions            ContentReaction[]
+  editorialCollections EditorialCollectionItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model EditorialCollection {
+  id String @id @default(cuid())
+
+  title String
+  slug  String @unique
+
+  description String?
+
+  placement String @default("browse")
+  status    String @default("active")
+  sortOrder Int    @default(0)
+
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  items EditorialCollectionItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EditorialCollectionItem {
+  id String @id @default(cuid())
+
+  collectionId String
+  collection   EditorialCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  @@unique([collectionId, projectId])
 }
 
 model PartnerMessage {
@@ -243,8 +279,8 @@ model PartnerApplication {
   adminNotes String?
 
   reviewedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model RightsContract {
@@ -319,9 +355,9 @@ model AdCampaign {
   startDate DateTime?
   endDate   DateTime?
 
-  budgetCents    Int @default(0)
-  spentCents     Int @default(0)
-  cpmCents       Int @default(1200)
+  budgetCents    Int  @default(0)
+  spentCents     Int  @default(0)
+  cpmCents       Int  @default(1200)
   maxImpressions Int?
 
   impressions AdImpression[]

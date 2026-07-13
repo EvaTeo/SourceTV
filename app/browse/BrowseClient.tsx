@@ -20,24 +20,17 @@ type ContentItem = {
   thumbnailUrl?: string | null;
   backdropUrl?: string | null;
   titleLogoUrl?: string | null;
-  cardArtUrl?: string | null;
   description: string;
   status: string;
-  workflowStage?: string | null;
   views?: number;
+  year?: number | null;
   maturityRating?: string | null;
   runtime?: string | null;
   creatorName?: string | null;
   scheduledAt?: string | null;
-
-  featured?: boolean;
-  featuredRank?: number | null;
+  createdAt?: string | null;
+  publishedAt?: string | null;
   editorPick?: boolean;
-
-  heroBadge?: string | null;
-  heroPriority?: number | null;
-  heroStartDate?: string | null;
-  heroEndDate?: string | null;
 };
 
 type RecommendationMemoryItem = {
@@ -47,6 +40,12 @@ type RecommendationMemoryItem = {
   genre?: string | null;
   creatorName?: string | null;
   watchedAt: number;
+};
+
+type CuratedCollection = {
+  id: string;
+  title: string;
+  items: ContentItem[];
 };
 
 function getActiveProfile() {
@@ -67,50 +66,110 @@ function normalize(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
 
-async function fetchRail(url: string) {
-  const res = await fetch(url, {
+function includesAny(value: string, terms: string[]) {
+  const normalizedValue = normalize(value);
+
+  return terms.some((term) => normalizedValue.includes(normalize(term)));
+}
+
+function createSearchableText(item: ContentItem) {
+  return [
+    item.title,
+    item.description,
+    item.genre,
+    item.type,
+    item.creatorName,
+    item.maturityRating,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function parseRuntimeMinutes(runtime?: string | null) {
+  if (!runtime) return null;
+
+  const normalizedRuntime = runtime.trim().toLowerCase();
+
+  const hourMatch = normalizedRuntime.match(/(\d+)\s*h/);
+  const minuteMatch = normalizedRuntime.match(/(\d+)\s*m/);
+
+  if (hourMatch || minuteMatch) {
+    const hours = hourMatch ? Number(hourMatch[1]) : 0;
+    const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+
+    return hours * 60 + minutes;
+  }
+
+  const numericMatch = normalizedRuntime.match(/\d+/);
+
+  if (!numericMatch) return null;
+
+  const numericRuntime = Number(numericMatch[0]);
+
+  if (!Number.isFinite(numericRuntime)) return null;
+
+  return numericRuntime;
+}
+
+function sortByViews(items: ContentItem[]) {
+  return [...items].sort((a, b) => (b.views || 0) - (a.views || 0));
+}
+
+function uniqueItems(items: ContentItem[]) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function limitCollection(items: ContentItem[], limit = 12) {
+  return uniqueItems(items).slice(0, limit);
+}
+
+function shuffleWithStableSeed(items: ContentItem[], seed: string) {
+  return [...items].sort((a, b) => {
+    const aValue = `${seed}-${a.id}`
+      .split("")
+      .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+    const bValue = `${seed}-${b.id}`
+      .split("")
+      .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+    return aValue - bValue;
+  });
+}
+
+async function fetchRail(url: string): Promise<ContentItem[]> {
+  const response = await fetch(url, {
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    const responseText = await res.text();
-
-    console.error("SourceTV content API failed", {
-      url,
-      status: res.status,
-      statusText: res.statusText,
-      response: responseText,
-    });
-
-    throw new Error(
-      `Failed to load ${url}: ${res.status} ${res.statusText}${
-        responseText ? ` — ${responseText}` : ""
-      }`
-    );
+  if (!response.ok) {
+    throw new Error(`Failed to load ${url}`);
   }
 
-  const data = await res.json();
+  const data = await response.json();
 
-  return Array.isArray(data) ? data : data.items || [];
+  return Array.isArray(data) ? data : [];
 }
 
 export default function BrowseClient() {
   const searchParams = useSearchParams();
 
   const [content, setContent] = useState<ContentItem[]>([]);
-  const [featured, setFeatured] = useState<ContentItem[]>([]);
   const [trending, setTrending] = useState<ContentItem[]>([]);
-  const [recentlyAdded, setRecentlyAdded] = useState<
-    ContentItem[]
-  >([]);
-  const [editorPicks, setEditorPicks] = useState<
-    ContentItem[]
-  >([]);
+  const [recentlyAdded, setRecentlyAdded] = useState<ContentItem[]>([]);
+  const [editorPicks, setEditorPicks] = useState<ContentItem[]>([]);
+  const [featured, setFeatured] = useState<ContentItem[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [memory, setMemory] = useState<
-    RecommendationMemoryItem[]
-  >([]);
+  const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
   const [profileName, setProfileName] = useState("Your");
 
   const urlType = searchParams.get("type") || "";
@@ -121,17 +180,14 @@ export default function BrowseClient() {
 
     setProfileName(activeProfile.name || "Your");
 
-    const memoryKey =
-      `sourcetv_recommendation_memory_${activeProfile.id}`;
+    const memoryKey = `sourcetv_recommendation_memory_${activeProfile.id}`;
 
     try {
       const savedMemory = JSON.parse(
         localStorage.getItem(memoryKey) || "[]"
       );
 
-      setMemory(
-        Array.isArray(savedMemory) ? savedMemory : []
-      );
+      setMemory(Array.isArray(savedMemory) ? savedMemory : []);
     } catch {
       setMemory([]);
     }
@@ -145,15 +201,11 @@ export default function BrowseClient() {
           newContent,
           editorPickContent,
         ] = await Promise.all([
-          fetchRail("/api/content?mode=all&limit=80"),
+          fetchRail("/api/content?mode=all&limit=100"),
           fetchRail("/api/content?mode=featured&limit=6"),
-          fetchRail(
-            "/api/content?mode=trending&limit=12"
-          ),
+          fetchRail("/api/content?mode=trending&limit=12"),
           fetchRail("/api/content?mode=new&limit=12"),
-          fetchRail(
-            "/api/content?mode=editor_picks&limit=12"
-          ),
+          fetchRail("/api/content?mode=editor_picks&limit=12"),
         ]);
 
         setContent(allContent);
@@ -162,10 +214,7 @@ export default function BrowseClient() {
         setRecentlyAdded(newContent);
         setEditorPicks(editorPickContent);
       } catch (error) {
-        console.error(
-          "BROWSE CONTENT LOAD ERROR:",
-          error
-        );
+        console.error("BROWSE CONTENT LOAD ERROR:", error);
 
         setContent([]);
         setFeatured([]);
@@ -197,13 +246,11 @@ export default function BrowseClient() {
       const itemGenre = normalize(item.genre);
 
       const matchesType = cleanType
-        ? itemType.includes(cleanType) ||
-          cleanType.includes(itemType)
+        ? itemType.includes(cleanType) || cleanType.includes(itemType)
         : true;
 
       const matchesGenre = cleanGenre
-        ? itemGenre.includes(cleanGenre) ||
-          cleanGenre.includes(itemGenre)
+        ? itemGenre.includes(cleanGenre) || cleanGenre.includes(itemGenre)
         : true;
 
       return matchesType && matchesGenre;
@@ -221,9 +268,7 @@ export default function BrowseClient() {
   const personalized = useMemo(() => {
     if (!memory.length) return [];
 
-    const watchedSlugs = new Set(
-      memory.map((item) => item.slug)
-    );
+    const watchedSlugs = new Set(memory.map((item) => item.slug));
 
     const genreScore = new Map<string, number>();
     const typeScore = new Map<string, number>();
@@ -234,23 +279,22 @@ export default function BrowseClient() {
 
       if (item.genre) {
         genreScore.set(
-          item.genre,
-          (genreScore.get(item.genre) || 0) + weight
+          normalize(item.genre),
+          (genreScore.get(normalize(item.genre)) || 0) + weight
         );
       }
 
       if (item.type) {
         typeScore.set(
-          item.type,
-          (typeScore.get(item.type) || 0) + weight
+          normalize(item.type),
+          (typeScore.get(normalize(item.type)) || 0) + weight
         );
       }
 
       if (item.creatorName) {
         creatorScore.set(
-          item.creatorName,
-          (creatorScore.get(item.creatorName) || 0) +
-            weight
+          normalize(item.creatorName),
+          (creatorScore.get(normalize(item.creatorName)) || 0) + weight
         );
       }
     });
@@ -258,12 +302,20 @@ export default function BrowseClient() {
     return [...content]
       .filter((item) => !watchedSlugs.has(item.id))
       .map((item) => {
+        const genrePoints =
+          genreScore.get(normalize(item.genre)) || 0;
+
+        const typePoints =
+          typeScore.get(normalize(item.type)) || 0;
+
+        const creatorPoints = item.creatorName
+          ? creatorScore.get(normalize(item.creatorName)) || 0
+          : 0;
+
         const score =
-          (genreScore.get(item.genre) || 0) * 3 +
-          (typeScore.get(item.type) || 0) * 2 +
-          (item.creatorName
-            ? creatorScore.get(item.creatorName) || 0
-            : 0) +
+          genrePoints * 3 +
+          typePoints * 2 +
+          creatorPoints +
           (item.views || 0) * 0.01;
 
         return {
@@ -276,6 +328,228 @@ export default function BrowseClient() {
       .map((entry) => entry.item)
       .slice(0, 12);
   }, [content, memory]);
+
+  const becauseYouWatched = useMemo(() => {
+    if (!memory.length) return [];
+
+    const mostRecentWatch = memory[0];
+
+    if (!mostRecentWatch) return [];
+
+    return content
+      .filter((item) => item.id !== mostRecentWatch.slug)
+      .map((item) => {
+        let score = 0;
+
+        if (
+          mostRecentWatch.genre &&
+          normalize(item.genre) === normalize(mostRecentWatch.genre)
+        ) {
+          score += 6;
+        }
+
+        if (
+          mostRecentWatch.type &&
+          normalize(item.type) === normalize(mostRecentWatch.type)
+        ) {
+          score += 3;
+        }
+
+        if (
+          mostRecentWatch.creatorName &&
+          item.creatorName &&
+          normalize(item.creatorName) ===
+            normalize(mostRecentWatch.creatorName)
+        ) {
+          score += 5;
+        }
+
+        score += (item.views || 0) * 0.001;
+
+        return {
+          item,
+          score,
+        };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.item)
+      .slice(0, 12);
+  }, [content, memory]);
+
+  const becauseYouWatchedTitle = useMemo(() => {
+    const mostRecentWatch = memory[0];
+
+    if (!mostRecentWatch?.title) {
+      return "Because You Watched";
+    }
+
+    return `Because You Watched ${mostRecentWatch.title}`;
+  }, [memory]);
+
+  const curatedCollections = useMemo<CuratedCollection[]>(() => {
+    if (content.length === 0) return [];
+
+    const hiddenGems = sortByViews(content)
+      .filter((item) => {
+        const views = item.views || 0;
+
+        return views > 0;
+      })
+      .slice(0, Math.max(8, Math.floor(content.length * 0.45)));
+
+    const shortWatch = content.filter((item) => {
+      const runtime = parseRuntimeMinutes(item.runtime);
+
+      return runtime !== null && runtime <= 95;
+    });
+
+    const basedOnTrueStories = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "based on a true story",
+        "true story",
+        "true events",
+        "real events",
+        "biographical",
+        "biography",
+        "biopic",
+        "documentary",
+      ]);
+    });
+
+    const feelGood = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "comedy",
+        "romance",
+        "family",
+        "feel good",
+        "feel-good",
+        "uplifting",
+        "heartwarming",
+        "friendship",
+        "inspiring",
+        "inspirational",
+      ]);
+    });
+
+    const lateNightThrillers = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "thriller",
+        "horror",
+        "crime",
+        "mystery",
+        "suspense",
+        "psychological",
+        "dark",
+      ]);
+    });
+
+    const sciFiWorlds = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "sci-fi",
+        "science fiction",
+        "space",
+        "future",
+        "futuristic",
+        "alien",
+        "technology",
+        "dystopian",
+        "fantasy",
+      ]);
+    });
+
+    const familyNight = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "family",
+        "animation",
+        "animated",
+        "kids",
+        "children",
+        "adventure",
+      ]);
+    });
+
+    const documentaries = content.filter((item) => {
+      const searchableText = createSearchableText(item);
+
+      return includesAny(searchableText, [
+        "documentary",
+        "docuseries",
+        "nonfiction",
+        "non-fiction",
+      ]);
+    });
+
+    const creatorSpotlight = content.filter((item) => {
+      return Boolean(item.creatorName?.trim());
+    });
+
+    const collectionCandidates: CuratedCollection[] = [
+      {
+        id: "hidden-gems",
+        title: "Hidden Gems",
+        items: limitCollection(
+          shuffleWithStableSeed(hiddenGems, "hidden-gems")
+        ),
+      },
+      {
+        id: "short-watch",
+        title: "90 Minutes or Less",
+        items: limitCollection(shortWatch),
+      },
+      {
+        id: "true-stories",
+        title: "Based on True Stories",
+        items: limitCollection(basedOnTrueStories),
+      },
+      {
+        id: "feel-good",
+        title: "Feel-Good Favorites",
+        items: limitCollection(feelGood),
+      },
+      {
+        id: "late-night",
+        title: "Late Night Thrillers",
+        items: limitCollection(lateNightThrillers),
+      },
+      {
+        id: "sci-fi-worlds",
+        title: "Sci-Fi Worlds",
+        items: limitCollection(sciFiWorlds),
+      },
+      {
+        id: "family-night",
+        title: "Family Movie Night",
+        items: limitCollection(familyNight),
+      },
+      {
+        id: "documentaries",
+        title: "Stories From the Real World",
+        items: limitCollection(documentaries),
+      },
+      {
+        id: "creator-spotlight",
+        title: "Creator Spotlight",
+        items: limitCollection(
+          shuffleWithStableSeed(creatorSpotlight, "creator-spotlight")
+        ),
+      },
+    ];
+
+    return collectionCandidates.filter(
+      (collection) => collection.items.length >= 3
+    );
+  }, [content]);
 
   const filteredTitle = useMemo(() => {
     if (urlType) {
@@ -297,16 +571,12 @@ export default function BrowseClient() {
             <div className="relative z-10 flex h-full items-end p-8 md:p-14">
               <div className="w-full max-w-3xl">
                 <div className="h-3 w-36 rounded-full bg-white/10" />
-
                 <div className="mt-5 h-14 w-4/5 rounded-full bg-white/10 md:h-24" />
-
                 <div className="mt-6 h-5 w-full max-w-xl rounded-full bg-white/10" />
-
                 <div className="mt-3 h-5 w-4/5 max-w-lg rounded-full bg-white/10" />
 
                 <div className="mt-8 flex gap-3">
                   <div className="h-12 w-36 rounded-full bg-white/10" />
-
                   <div className="h-12 w-32 rounded-full bg-white/10" />
                 </div>
               </div>
@@ -317,16 +587,14 @@ export default function BrowseClient() {
             <div className="mb-5 h-8 w-52 rounded-full bg-white/10" />
 
             <div className="flex gap-5 overflow-hidden pb-8">
-              {Array.from({ length: 6 }).map(
-                (_, index) => (
-                  <div
-                    key={index}
-                    className="w-[42vw] max-w-[170px] shrink-0 md:w-[220px] md:max-w-none"
-                  >
-                    <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]" />
-                  </div>
-                )
-              )}
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="w-[42vw] max-w-[170px] shrink-0 md:w-[220px] md:max-w-none"
+                >
+                  <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -338,18 +606,19 @@ export default function BrowseClient() {
     <main className="relative min-h-screen overflow-x-hidden bg-transparent text-white">
       <FeaturedCarousel items={heroItems} />
 
-      <section className="relative z-30 -mt-36 overflow-visible px-0 pb-28 pt-0 md:-mt-[18rem] md:px-0 md:pb-32">
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 top-28 z-0 bg-[linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.72)_9rem,rgba(0,0,0,0.94)_18rem,#000_26rem,#000_100%)]" />
-
-        <div className="relative z-10 space-y-1 md:space-y-2">
-          {urlType || urlGenre ? (
+<section className="relative z-30 -mt-36 overflow-visible px-0 pb-28 pt-0 md:-mt-[19rem] md:px-0 md:pb-32">
+<div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_bottom,transparent_0%,transparent_66%,rgba(0,0,0,0.08)_76%,rgba(0,0,0,0.30)_86%,rgba(0,0,0,0.72)_94%,#000_100%)]" />
+  <div className="relative z-10 space-y-3 md:space-y-4">
+            {urlType || urlGenre ? (
             <FilteredResultsRail
               title={filteredTitle}
               items={filteredContent}
             />
           ) : (
             <>
-              <ContinueWatching />
+<div className="pt-14 md:pt-24">
+  <ContinueWatching />
+</div>
 
               {topTen.length > 0 && (
                 <TopTenRail items={topTen} />
@@ -369,23 +638,36 @@ export default function BrowseClient() {
                 />
               )}
 
-              {content.length > 0 && (
-                <PremiereRail items={content} />
+              {becauseYouWatched.length > 0 && (
+                <ContentRail
+                  title={becauseYouWatchedTitle}
+                  items={becauseYouWatched}
+                />
               )}
+
+              <PremiereRail items={content} />
 
               {recentlyAdded.length > 0 && (
                 <ContentRail
-                  title="Recently Added"
+                  title="New Releases"
                   items={recentlyAdded}
                 />
               )}
 
               {editorPicks.length > 0 && (
                 <ContentRail
-                  title="Editor’s Picks"
+                  title="Staff Picks"
                   items={editorPicks}
                 />
               )}
+
+              {curatedCollections.map((collection) => (
+                <ContentRail
+                  key={collection.id}
+                  title={collection.title}
+                  items={collection.items}
+                />
+              ))}
 
               {content.length > 0 && (
                 <ContentRail
@@ -413,7 +695,7 @@ function FilteredResultsRail({
       <section className="relative z-20 px-4 pt-10 md:px-12 md:pt-20">
         <div className="mb-8">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
-            Home
+            SourceTV
           </p>
 
           <h1 className="mt-2 text-4xl font-black md:text-6xl">
@@ -422,7 +704,7 @@ function FilteredResultsRail({
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-white/50">
-          No titles found.
+          No titles found in this category.
         </div>
       </section>
     );
@@ -433,7 +715,7 @@ function FilteredResultsRail({
       <div className="mb-8 flex items-end justify-between gap-5">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
-            Home
+            SourceTV
           </p>
 
           <h1 className="mt-2 text-4xl font-black md:text-6xl">

@@ -249,9 +249,7 @@ export default function FeaturedCarousel({
 
             <div className="absolute inset-0 bg-gradient-to-r from-black/68 via-black/28 to-transparent" />
 
-            <div className="absolute inset-x-0 bottom-0 h-[78vh] bg-gradient-to-t from-black via-black/52 to-transparent" />
-
-            <div className="absolute inset-x-0 bottom-0 h-[38vh] bg-gradient-to-t from-black via-black/88 to-transparent" />
+<div className="pointer-events-none absolute inset-x-0 bottom-0 h-[30vh] bg-[linear-gradient(to_top,#000_0%,rgba(0,0,0,0.68)_16%,rgba(0,0,0,0.26)_44%,rgba(0,0,0,0.06)_72%,transparent_100%)]" />
 
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_42%,rgba(56,189,248,0.11),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(56,189,248,0.055),transparent_34%)]" />
           </div>
@@ -259,8 +257,8 @@ export default function FeaturedCarousel({
       })}
 
       <div className="relative z-10 flex min-h-[72vh] items-end px-4 pb-60 pt-28 md:min-h-[92vh] md:px-12 md:pb-[18rem]">
-        <div className="w-full -translate-y-16 md:-translate-y-24">
-          <div key={featured.id} className="max-w-4xl">
+<div className="w-full -translate-y-20 md:-translate-y-32">
+            <div key={featured.id} className="max-w-4xl">
             <div className="hero-reveal hero-delay-0 mb-5 flex items-center gap-3">
               <div className="h-px w-10 bg-sky-300/70" />
 
@@ -305,8 +303,8 @@ export default function FeaturedCarousel({
             </p>
           </div>
 
-          <div className="hero-reveal hero-delay-4 mt-6 flex w-full items-center justify-between gap-4 md:mt-7">
-            <div className="flex flex-wrap gap-3">
+<div className="hero-reveal hero-delay-4 mt-7 flex w-full items-center justify-between gap-4 md:mt-9">
+              <div className="flex flex-wrap gap-3">
               <FullscreenPlayButton
                 url={playerUrl}
                 poster={

@@ -1,8 +1,8 @@
-import PageTransition from "@/app/components/PageTransition";
+import Footer from "@/app/components/Footer";
 import Header from "@/app/components/Header";
 import MobileBottomNav from "@/app/components/MobileBottomNav";
+import PageTransition from "@/app/components/PageTransition";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -18,7 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "SourceTV",
-  description: "Independent films, series, documentaries and creators.",
+  description:
+    "The next generation of entertainment. Stream films, series, animation, documentaries, and more.",
 };
 
 export default function RootLayout({
@@ -32,45 +33,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body
-        className={`${geistSans.className} min-h-screen bg-black text-white antialiased`}
+        className={`${geistSans.className} min-h-screen bg-[#05070d] text-white antialiased`}
       >
         <Header />
 
         <PageTransition>{children}</PageTransition>
 
-        <footer className="border-t border-white/10 bg-black px-6 py-10 text-center text-sm text-white/40">
-          <div className="mx-auto flex max-w-5xl flex-wrap justify-center gap-6">
-            <Link href="/terms" className="transition hover:text-sky-300">
-              Terms
-            </Link>
-
-            <Link href="/privacy" className="transition hover:text-sky-300">
-              Privacy
-            </Link>
-
-            <Link href="/dmca" className="transition hover:text-sky-300">
-              DMCA
-            </Link>
-
-            <Link
-              href="/report-content"
-              className="transition hover:text-sky-300"
-            >
-              Report Content
-            </Link>
-
-            <Link
-              href="/partner/apply"
-              className="transition hover:text-sky-300"
-            >
-              Partner Program
-            </Link>
-          </div>
-
-          <p className="mt-6 text-white/30">
-            © 2026 SourceTV. All rights reserved.
-          </p>
-        </footer>
+        <Footer />
 
         <MobileBottomNav />
       </body>
