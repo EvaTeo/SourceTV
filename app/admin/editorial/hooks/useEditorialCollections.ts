@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { emptyCollectionForm } from "../constants";
 import type {
   CollectionForm,
   EditorialCollection,
-  MoveDirection,
   Project,
 } from "../types";
 import { collectionToForm } from "../utils";
@@ -17,9 +21,9 @@ export default function useEditorialCollections() {
 
   const [projects, setProjects] = useState<Project[]>([]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(
-    null
-  );
+  const [selectedId, setSelectedId] = useState<
+    string | null
+  >(null);
 
   const [form, setForm] = useState<CollectionForm>(
     emptyCollectionForm
@@ -29,9 +33,13 @@ export default function useEditorialCollections() {
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const [collectionSearch, setCollectionSearch] = useState("");
+  const [collectionSearch, setCollectionSearch] =
+    useState("");
+
   const [titleSearch, setTitleSearch] = useState("");
-  const [showTitlePicker, setShowTitlePicker] = useState(false);
+
+  const [showTitlePicker, setShowTitlePicker] =
+    useState(false);
 
   const selectedCollection = useMemo(() => {
     return (
@@ -42,7 +50,9 @@ export default function useEditorialCollections() {
   }, [collections, selectedId]);
 
   const filteredCollections = useMemo(() => {
-    const cleanSearch = collectionSearch.trim().toLowerCase();
+    const cleanSearch = collectionSearch
+      .trim()
+      .toLowerCase();
 
     if (!cleanSearch) {
       return collections;
@@ -58,22 +68,28 @@ export default function useEditorialCollections() {
       ]
         .filter(Boolean)
         .some((value) =>
-          String(value).toLowerCase().includes(cleanSearch)
+          String(value)
+            .toLowerCase()
+            .includes(cleanSearch)
         );
     });
   }, [collections, collectionSearch]);
 
   const availableProjects = useMemo(() => {
-    const cleanSearch = titleSearch.trim().toLowerCase();
+    const cleanSearch = titleSearch
+      .trim()
+      .toLowerCase();
 
     const assignedProjectIds = new Set(
-      selectedCollection?.items.map((item) => item.projectId) ||
-        []
+      selectedCollection?.items.map(
+        (item) => item.projectId
+      ) || []
     );
 
     return projects
       .filter(
-        (project) => !assignedProjectIds.has(project.id)
+        (project) =>
+          !assignedProjectIds.has(project.id)
       )
       .filter((project) => {
         if (!cleanSearch) {
@@ -96,91 +112,116 @@ export default function useEditorialCollections() {
   }, [projects, selectedCollection, titleSearch]);
 
   const loadCollections = useCallback(
-  async (preferredId?: string | null) => {
-    const response = await fetch("/api/admin/collections", {
-      cache: "no-store",
-    });
+    async (preferredId?: string | null) => {
+      const response = await fetch(
+        "/api/admin/collections",
+        {
+          cache: "no-store",
+        }
+      );
+
+      const responseText = await response.text();
+
+      let data: unknown;
+
+      try {
+        data = responseText
+          ? JSON.parse(responseText)
+          : [];
+      } catch {
+        console.error(
+          "COLLECTIONS API RETURNED NON-JSON:",
+          response.status,
+          responseText
+        );
+
+        throw new Error(
+          `Collections API returned an invalid response (${response.status}).`
+        );
+      }
+
+      if (!response.ok) {
+        const errorData = data as {
+          error?: string;
+        };
+
+        throw new Error(
+          errorData?.error ||
+            `Failed to load collections (${response.status}).`
+        );
+      }
+
+      const nextCollections: EditorialCollection[] =
+        Array.isArray(data) ? data : [];
+
+      setCollections(nextCollections);
+
+      const selectedStillExists =
+        nextCollections.some(
+          (collection) =>
+            collection.id === selectedId
+        );
+
+      const nextSelectedId =
+        preferredId ||
+        (selectedStillExists
+          ? selectedId
+          : null) ||
+        nextCollections[0]?.id ||
+        null;
+
+      setSelectedId(nextSelectedId);
+
+      return nextCollections;
+    },
+    [selectedId]
+  );
+
+  const loadProjects = useCallback(async () => {
+    const response = await fetch(
+      "/api/admin/content",
+      {
+        cache: "no-store",
+      }
+    );
 
     const responseText = await response.text();
 
-    let data: any;
+    let data: unknown;
 
     try {
-      data = responseText ? JSON.parse(responseText) : [];
+      data = responseText
+        ? JSON.parse(responseText)
+        : [];
     } catch {
       console.error(
-        "COLLECTIONS API RETURNED NON-JSON:",
+        "ADMIN CONTENT API RETURNED NON-JSON:",
         response.status,
         responseText
       );
 
       throw new Error(
-        `Collections API returned an invalid response (${response.status}). Check that app/api/admin/collections/route.ts exists and inspect the terminal for the server error.`
+        `Content API returned an invalid response (${response.status}).`
       );
     }
 
     if (!response.ok) {
+      const errorData = data as {
+        error?: string;
+        message?: string;
+      };
+
       throw new Error(
-        data?.error || `Failed to load collections (${response.status}).`
+        errorData?.error ||
+          errorData?.message ||
+          `Failed to load content library (${response.status}).`
       );
     }
 
-    const nextCollections: EditorialCollection[] = Array.isArray(data)
-      ? data
-      : [];
-
-    setCollections(nextCollections);
-
-    const selectedStillExists = nextCollections.some(
-      (collection) => collection.id === selectedId
+    setProjects(
+      Array.isArray(data) ? data : []
     );
-
-    const nextSelectedId =
-      preferredId ||
-      (selectedStillExists ? selectedId : null) ||
-      nextCollections[0]?.id ||
-      null;
-
-    setSelectedId(nextSelectedId);
-
-    return nextCollections;
-  },
-  [selectedId]
-);
-
- const loadProjects = useCallback(async () => {
-  const response = await fetch("/api/admin/content", {
-    cache: "no-store",
-  });
-
-  const responseText = await response.text();
-
-  let data: any;
-
-  try {
-    data = responseText ? JSON.parse(responseText) : [];
-  } catch {
-    console.error(
-      "ADMIN CONTENT API RETURNED NON-JSON:",
-      response.status,
-      responseText
-    );
-
-    throw new Error(
-      `Content API returned an invalid response (${response.status}).`
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error ||
-        data?.message ||
-        `Failed to load content library (${response.status}).`
-    );
-  }
-
-  setProjects(Array.isArray(data) ? data : []);
-}, []);
+  }, []);
 
   useEffect(() => {
     async function loadPage() {
@@ -192,7 +233,11 @@ export default function useEditorialCollections() {
           loadProjects(),
         ]);
       } catch (error) {
-        console.error("LOAD EDITORIAL PAGE ERROR:", error);
+        console.error(
+          "LOAD EDITORIAL PAGE ERROR:",
+          error
+        );
+
         window.alert(
           error instanceof Error
             ? error.message
@@ -203,8 +248,8 @@ export default function useEditorialCollections() {
       }
     }
 
-    loadPage();
-  }, []);
+    void loadPage();
+  }, [loadCollections, loadProjects]);
 
   useEffect(() => {
     if (creating) {
@@ -216,7 +261,9 @@ export default function useEditorialCollections() {
       return;
     }
 
-    setForm(collectionToForm(selectedCollection));
+    setForm(
+      collectionToForm(selectedCollection)
+    );
   }, [creating, selectedCollection]);
 
   function selectCollection(id: string) {
@@ -234,17 +281,21 @@ export default function useEditorialCollections() {
 
     setForm({
       ...emptyCollectionForm,
-      sortOrder: collections.length,
+      sortOrder: collections.length + 1,
     });
   }
 
   function cancelCreating() {
     setCreating(false);
-    setSelectedId(collections[0]?.id || null);
+    setSelectedId(
+      collections[0]?.id || null
+    );
     setShowTitlePicker(false);
   }
 
-  function updateForm<K extends keyof CollectionForm>(
+  function updateForm<
+    K extends keyof CollectionForm
+  >(
     key: K,
     value: CollectionForm[K]
   ) {
@@ -257,10 +308,12 @@ export default function useEditorialCollections() {
   function buildCollectionPayload() {
     return {
       title: form.title.trim(),
-      description: form.description.trim() || null,
+      description:
+        form.description.trim() || null,
       placement: form.placement,
       status: form.status,
-      sortOrder: Number(form.sortOrder) || 0,
+      sortOrder:
+        Number(form.sortOrder) || 0,
       startsAt: form.startsAt || null,
       endsAt: form.endsAt || null,
     };
@@ -268,7 +321,9 @@ export default function useEditorialCollections() {
 
   async function createCollection() {
     if (!form.title.trim()) {
-      window.alert("Enter a collection title.");
+      window.alert(
+        "Enter a collection title."
+      );
       return;
     }
 
@@ -280,9 +335,12 @@ export default function useEditorialCollections() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(buildCollectionPayload()),
+          body: JSON.stringify(
+            buildCollectionPayload()
+          ),
         }
       );
 
@@ -290,14 +348,18 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to create collection."
+          data?.error ||
+            "Failed to create collection."
         );
       }
 
       setCreating(false);
       await loadCollections(data.id);
     } catch (error) {
-      console.error("CREATE COLLECTION ERROR:", error);
+      console.error(
+        "CREATE COLLECTION ERROR:",
+        error
+      );
 
       window.alert(
         error instanceof Error
@@ -315,7 +377,9 @@ export default function useEditorialCollections() {
     }
 
     if (!form.title.trim()) {
-      window.alert("Enter a collection title.");
+      window.alert(
+        "Enter a collection title."
+      );
       return;
     }
 
@@ -327,9 +391,12 @@ export default function useEditorialCollections() {
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(buildCollectionPayload()),
+          body: JSON.stringify(
+            buildCollectionPayload()
+          ),
         }
       );
 
@@ -337,13 +404,19 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to save collection."
+          data?.error ||
+            "Failed to save collection."
         );
       }
 
-      await loadCollections(selectedCollection.id);
+      await loadCollections(
+        selectedCollection.id
+      );
     } catch (error) {
-      console.error("SAVE COLLECTION ERROR:", error);
+      console.error(
+        "SAVE COLLECTION ERROR:",
+        error
+      );
 
       window.alert(
         error instanceof Error
@@ -382,14 +455,18 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to delete collection."
+          data?.error ||
+            "Failed to delete collection."
         );
       }
 
       setSelectedId(null);
       await loadCollections(null);
     } catch (error) {
-      console.error("DELETE COLLECTION ERROR:", error);
+      console.error(
+        "DELETE COLLECTION ERROR:",
+        error
+      );
 
       window.alert(
         error instanceof Error
@@ -401,7 +478,9 @@ export default function useEditorialCollections() {
     }
   }
 
-  async function addProject(projectId: string) {
+  async function addProject(
+    projectId: string
+  ) {
     if (!selectedCollection) {
       return;
     }
@@ -414,7 +493,8 @@ export default function useEditorialCollections() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             projectId,
@@ -426,13 +506,19 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to add title."
+          data?.error ||
+            "Failed to add title."
         );
       }
 
-      await loadCollections(selectedCollection.id);
+      await loadCollections(
+        selectedCollection.id
+      );
     } catch (error) {
-      console.error("ADD COLLECTION TITLE ERROR:", error);
+      console.error(
+        "ADD COLLECTION TITLE ERROR:",
+        error
+      );
 
       window.alert(
         error instanceof Error
@@ -444,7 +530,9 @@ export default function useEditorialCollections() {
     }
   }
 
-  async function removeItem(itemId: string) {
+  async function removeItem(
+    itemId: string
+  ) {
     if (!selectedCollection) {
       return;
     }
@@ -463,11 +551,14 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to remove title."
+          data?.error ||
+            "Failed to remove title."
         );
       }
 
-      await loadCollections(selectedCollection.id);
+      await loadCollections(
+        selectedCollection.id
+      );
     } catch (error) {
       console.error(
         "REMOVE COLLECTION TITLE ERROR:",
@@ -484,45 +575,32 @@ export default function useEditorialCollections() {
     }
   }
 
-  async function moveItem(
-    itemId: string,
-    direction: MoveDirection
+  async function reorderItems(
+    reorderedItems: EditorialCollection["items"]
   ) {
     if (!selectedCollection) {
       return;
     }
 
-    const currentItems = [...selectedCollection.items];
+    const previousCollections = collections;
 
-    const currentIndex = currentItems.findIndex(
-      (item) => item.id === itemId
+    const normalizedItems = reorderedItems.map(
+      (item, index) => ({
+        ...item,
+        sortOrder: index,
+      })
     );
 
-    if (currentIndex === -1) {
-      return;
-    }
-
-    const nextIndex =
-      direction === "up"
-        ? currentIndex - 1
-        : currentIndex + 1;
-
-    if (
-      nextIndex < 0 ||
-      nextIndex >= currentItems.length
-    ) {
-      return;
-    }
-
-    const reorderedItems = [...currentItems];
-
-    [
-      reorderedItems[currentIndex],
-      reorderedItems[nextIndex],
-    ] = [
-      reorderedItems[nextIndex],
-      reorderedItems[currentIndex],
-    ];
+    setCollections((current) =>
+      current.map((collection) =>
+        collection.id === selectedCollection.id
+          ? {
+              ...collection,
+              items: normalizedItems,
+            }
+          : collection
+      )
+    );
 
     try {
       setSaving(true);
@@ -532,12 +610,14 @@ export default function useEditorialCollections() {
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
-            orderedItemIds: reorderedItems.map(
-              (item) => item.id
-            ),
+            orderedItemIds:
+              normalizedItems.map(
+                (item) => item.id
+              ),
           }),
         }
       );
@@ -546,16 +626,21 @@ export default function useEditorialCollections() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to reorder titles."
+          data?.error ||
+            "Failed to reorder titles."
         );
       }
 
-      await loadCollections(selectedCollection.id);
+      await loadCollections(
+        selectedCollection.id
+      );
     } catch (error) {
       console.error(
         "REORDER COLLECTION TITLES ERROR:",
         error
       );
+
+      setCollections(previousCollections);
 
       window.alert(
         error instanceof Error
@@ -567,8 +652,82 @@ export default function useEditorialCollections() {
     }
   }
 
+  async function reorderCollections(
+    reordered: EditorialCollection[]
+  ) {
+    const previous = collections;
+
+    const normalized = reordered.map(
+      (collection, index) => ({
+        ...collection,
+        sortOrder: index + 1,
+      })
+    );
+
+    setCollections(normalized);
+
+    try {
+      setSaving(true);
+
+      const responses = await Promise.all(
+        normalized.map(
+          (collection) =>
+            fetch(
+              `/api/admin/collections/${collection.id}`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  sortOrder:
+                    collection.sortOrder,
+                }),
+              }
+            )
+        )
+      );
+
+      const failedResponse =
+        responses.find(
+          (response) => !response.ok
+        );
+
+      if (failedResponse) {
+        const data = await failedResponse
+          .json()
+          .catch(() => null);
+
+        throw new Error(
+          data?.error ||
+            "Failed to save collection order."
+        );
+      }
+
+      await loadCollections(selectedId);
+    } catch (error) {
+      console.error(
+        "COLLECTION REORDER ERROR:",
+        error
+      );
+
+      setCollections(previous);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Could not reorder collections."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function toggleTitlePicker() {
-    setShowTitlePicker((current) => !current);
+    setShowTitlePicker(
+      (current) => !current
+    );
   }
 
   return {
@@ -604,8 +763,10 @@ export default function useEditorialCollections() {
 
     addProject,
     removeItem,
-    moveItem,
+    reorderItems,
+    reorderCollections,
 
-    refreshCollections: loadCollections,
+    refreshCollections:
+      loadCollections,
   };
 }

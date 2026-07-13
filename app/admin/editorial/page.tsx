@@ -5,10 +5,17 @@ import { useState } from "react";
 import CollectionEditor from "./components/CollectionEditor";
 import CollectionSidebar from "./components/CollectionSidebar";
 import HeroManager from "./components/HeroManager";
+import HomepagePreview from "./components/HomepagePreview";
+import ProgrammingCalendar from "./components/ProgrammingCalendar";
 import ProgrammingOverview from "./components/ProgrammingOverview";
 import useEditorialCollections from "./hooks/useEditorialCollections";
 
-type EditorialTab = "overview" | "collections" | "hero";
+type EditorialTab =
+  | "overview"
+  | "collections"
+  | "hero"
+  | "preview"
+  | "calendar";
 
 export default function EditorialPage() {
   const editorial = useEditorialCollections();
@@ -34,42 +41,41 @@ export default function EditorialPage() {
         }
       />
 
-      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
-        <button
-          type="button"
+      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+        <TabButton
+          active={activeTab === "overview"}
           onClick={() => setActiveTab("overview")}
-          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-            activeTab === "overview"
-              ? "bg-white/[0.08] text-sky-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-              : "text-white/45 hover:bg-white/[0.04] hover:text-white"
-          }`}
         >
           Overview
-        </button>
+        </TabButton>
 
-        <button
-          type="button"
+        <TabButton
+          active={activeTab === "collections"}
           onClick={() => setActiveTab("collections")}
-          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-            activeTab === "collections"
-              ? "bg-white/[0.08] text-sky-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-              : "text-white/45 hover:bg-white/[0.04] hover:text-white"
-          }`}
         >
           Collections
-        </button>
+        </TabButton>
 
-        <button
-          type="button"
+        <TabButton
+          active={activeTab === "hero"}
           onClick={() => setActiveTab("hero")}
-          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-            activeTab === "hero"
-              ? "bg-white/[0.08] text-sky-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-              : "text-white/45 hover:bg-white/[0.04] hover:text-white"
-          }`}
         >
           Hero
-        </button>
+        </TabButton>
+
+        <TabButton
+          active={activeTab === "preview"}
+          onClick={() => setActiveTab("preview")}
+        >
+          Homepage Preview
+        </TabButton>
+
+        <TabButton
+          active={activeTab === "calendar"}
+          onClick={() => setActiveTab("calendar")}
+        >
+          Calendar
+        </TabButton>
       </div>
 
       {activeTab === "overview" ? (
@@ -88,10 +94,14 @@ export default function EditorialPage() {
               }
               creating={editorial.creating}
               search={editorial.collectionSearch}
+              reordering={editorial.saving}
               onSearchChange={
                 editorial.setCollectionSearch
               }
               onSelect={editorial.selectCollection}
+              onReorder={
+                editorial.reorderCollections
+              }
             />
 
             <CollectionEditor
@@ -122,13 +132,41 @@ export default function EditorialPage() {
               }
               onAddProject={editorial.addProject}
               onRemoveItem={editorial.removeItem}
-              onMoveItem={editorial.moveItem}
+              onReorderItems={editorial.reorderItems}
             />
           </div>
         )
-      ) : (
+      ) : activeTab === "hero" ? (
         <HeroManager />
+      ) : activeTab === "preview" ? (
+        <HomepagePreview />
+      ) : (
+        <ProgrammingCalendar />
       )}
     </main>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+        active
+          ? "bg-white/[0.08] text-sky-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          : "text-white/45 hover:bg-white/[0.04] hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

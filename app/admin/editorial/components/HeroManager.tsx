@@ -1,26 +1,17 @@
 "use client";
 
-import SearchInput from "@/app/components/admin/SearchInput";
 import { useEffect, useMemo, useState } from "react";
+import HeroAddModal from "./hero/HeroAddModal";
+import HeroList from "./hero/HeroList";
+import HeroToolbar from "./hero/HeroToolbar";
+import type { HeroProject } from "./hero/HeroCard";
 
-type HeroProject = {
-  id: string;
-  title: string;
-  description?: string | null;
-  type?: string | null;
-  genre?: string | null;
-  thumbnailUrl?: string | null;
-  backdropUrl?: string | null;
+type ContentProject = HeroProject & {
   titleLogoUrl?: string | null;
   trailerUrl?: string | null;
   status?: string | null;
   workflowStage?: string | null;
   featured?: boolean;
-  featuredRank?: number | null;
-  heroBadge?: string | null;
-  heroPriority?: number | null;
-  heroStartDate?: string | null;
-  heroEndDate?: string | null;
 };
 
 type HeroDraft = {
@@ -55,56 +46,75 @@ function createDraft(project: HeroProject): HeroDraft {
   };
 }
 
+async function readResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        "The requested update could not be completed."
+    );
+  }
+
+  return data;
+}
+
 export default function HeroManager() {
-  const [projects, setProjects] = useState<HeroProject[]>([]);
+  const [projects, setProjects] = useState<ContentProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, HeroDraft>>({});
+  const [drafts, setDrafts] = useState<
+    Record<string, HeroDraft>
+  >({});
 
-  async function loadProjects() {
+  async function loadProjects(showLoading = true) {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
 
       const response = await fetch("/api/admin/content", {
         cache: "no-store",
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            "Failed to load hero titles."
-        );
-      }
-
-      const nextProjects = Array.isArray(data) ? data : [];
+      const data = await readResponse(response);
+      const nextProjects: ContentProject[] = Array.isArray(data)
+        ? data
+        : [];
 
       setProjects(nextProjects);
 
-      const nextDrafts: Record<string, HeroDraft> = {};
+      setDrafts((current) => {
+        const nextDrafts: Record<string, HeroDraft> = {};
 
-      nextProjects.forEach((project: HeroProject) => {
-        nextDrafts[project.id] = createDraft(project);
+        nextProjects.forEach((project) => {
+          nextDrafts[project.id] =
+            current[project.id] || createDraft(project);
+        });
+
+        return nextDrafts;
       });
-
-      setDrafts(nextDrafts);
     } catch (error) {
       console.error("HERO MANAGER LOAD ERROR:", error);
+
       window.alert(
         error instanceof Error
           ? error.message
           : "Could not load hero titles."
       );
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    loadProjects();
+    void loadProjects();
   }, []);
 
   const featuredProjects = useMemo(() => {
@@ -179,17 +189,8 @@ export default function HeroManager() {
         }
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            "Failed to update hero title."
-        );
-      }
-
-      await loadProjects();
+      await readResponse(response);
+      await loadProjects(false);
     } catch (error) {
       console.error("HERO MANAGER UPDATE ERROR:", error);
 
@@ -224,6 +225,12 @@ export default function HeroManager() {
   }
 
   async function removeFromHero(project: HeroProject) {
+    const confirmed = window.confirm(
+      `Remove "${project.title}" from the hero lineup?`
+    );
+
+    if (!confirmed) return;
+
     await updateProject(project.id, {
       featured: false,
       featuredRank: null,
@@ -237,89 +244,117 @@ export default function HeroManager() {
   async function saveHeroSettings(project: HeroProject) {
     const draft = drafts[project.id] || createDraft(project);
 
+    const priority =
+      draft.heroPriority.trim() === ""
+        ? project.heroPriority ??
+          project.featuredRank ??
+          null
+        : Number(draft.heroPriority);
+
+    if (
+      priority !== null &&
+      (!Number.isFinite(priority) || priority < 1)
+    ) {
+      window.alert("Hero priority must be 1 or higher.");
+      return;
+    }
+
+    if (
+      draft.heroStartDate &&
+      draft.heroEndDate &&
+      draft.heroStartDate > draft.heroEndDate
+    ) {
+      window.alert("The hero end date must be after its start date.");
+      return;
+    }
+
     await updateProject(project.id, {
-      heroBadge: draft.heroBadge || null,
-      heroPriority:
-        draft.heroPriority === ""
-          ? null
-          : Number(draft.heroPriority),
-      featuredRank:
-        draft.heroPriority === ""
-          ? project.featuredRank
-          : Number(draft.heroPriority),
+      heroBadge: draft.heroBadge.trim() || null,
+      heroPriority: priority,
+      featuredRank: priority,
       heroStartDate: draft.heroStartDate || null,
       heroEndDate: draft.heroEndDate || null,
     });
   }
 
-  async function moveHero(
-    project: HeroProject,
-    direction: "up" | "down"
-  ) {
-    const currentIndex = featuredProjects.findIndex(
-      (item) => item.id === project.id
+  async function reorderHeroes(reordered: HeroProject[]) {
+    const previousProjects = projects;
+
+    const priorityById = new Map(
+      reordered.map((project, index) => [
+        project.id,
+        index + 1,
+      ])
     );
 
-    if (currentIndex === -1) return;
+    setProjects((current) =>
+      current.map((project) => {
+        const priority = priorityById.get(project.id);
 
-    const nextIndex =
-      direction === "up"
-        ? currentIndex - 1
-        : currentIndex + 1;
+        if (priority === undefined) {
+          return project;
+        }
 
-    if (
-      nextIndex < 0 ||
-      nextIndex >= featuredProjects.length
-    ) {
-      return;
-    }
+        return {
+          ...project,
+          heroPriority: priority,
+          featuredRank: priority,
+        };
+      })
+    );
 
-    const currentProject = featuredProjects[currentIndex];
-    const nextProject = featuredProjects[nextIndex];
+    setDrafts((current) => {
+      const next = { ...current };
 
-    const currentPriority =
-      currentProject.heroPriority ??
-      currentProject.featuredRank ??
-      currentIndex + 1;
+      reordered.forEach((project, index) => {
+        next[project.id] = {
+          ...(next[project.id] || createDraft(project)),
+          heroPriority: String(index + 1),
+        };
+      });
 
-    const nextPriority =
-      nextProject.heroPriority ??
-      nextProject.featuredRank ??
-      nextIndex + 1;
+      return next;
+    });
 
     try {
-      setSavingId(project.id);
+      setReordering(true);
 
-      await Promise.all([
-        fetch(`/api/admin/content/${currentProject.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            heroPriority: nextPriority,
-            featuredRank: nextPriority,
-          }),
-        }),
-        fetch(`/api/admin/content/${nextProject.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            heroPriority: currentPriority,
-            featuredRank: currentPriority,
-          }),
-        }),
-      ]);
+      const responses = await Promise.all(
+        reordered.map((project, index) =>
+          fetch(`/api/admin/content/${project.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              heroPriority: index + 1,
+              featuredRank: index + 1,
+            }),
+          })
+        )
+      );
 
-      await loadProjects();
+      await Promise.all(responses.map(readResponse));
+      await loadProjects(false);
     } catch (error) {
       console.error("HERO REORDER ERROR:", error);
-      window.alert("Could not reorder hero titles.");
+
+      setProjects(previousProjects);
+      await loadProjects(false);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Could not save the new hero order."
+      );
     } finally {
-      setSavingId(null);
+      setReordering(false);
     }
+  }
+
+  function closeAddModal() {
+    setAddModalOpen(false);
+    setSearch("");
   }
 
   if (loading) {
@@ -331,307 +366,66 @@ export default function HeroManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 md:p-6">
-        <div className="border-b border-white/[0.08] pb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">
-            Homepage Programming
-          </p>
+        <HeroToolbar
+          totalHeroes={featuredProjects.length}
+          onAddHero={() => setAddModalOpen(true)}
+        />
 
-          <h2 className="mt-2 text-2xl font-semibold text-white">
-            Hero Management
-          </h2>
+        <div className="mt-6">
+          {reordering && (
+            <div className="mb-4 rounded-xl border border-sky-300/15 bg-sky-300/[0.06] px-4 py-3 text-sm text-sky-200">
+              Saving hero order...
+            </div>
+          )}
 
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/40">
-            Choose featured titles, control their order, assign
-            badges, and schedule when each hero appears.
-          </p>
-        </div>
-
-        <div className="mt-6 space-y-4">
           {featuredProjects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">
-              <h3 className="text-lg font-semibold text-white">
+            <div className="rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl text-white/45">
+                +
+              </div>
+
+              <h3 className="mt-5 text-lg font-semibold text-white">
                 No hero titles selected
               </h3>
 
               <p className="mt-2 text-sm text-white/40">
-                Add a title from the content library below.
+                Add your first title to begin programming the
+                SourceTV homepage.
               </p>
+
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                className="mt-6 rounded-xl bg-sky-300 px-5 py-3 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200"
+              >
+                Add First Hero
+              </button>
             </div>
           ) : (
-            featuredProjects.map((project, index) => {
-              const draft =
-                drafts[project.id] || createDraft(project);
-
-              const imageUrl =
-                project.backdropUrl ||
-                project.thumbnailUrl ||
-                "";
-
-              const saving = savingId === project.id;
-
-              return (
-                <article
-                  key={project.id}
-                  className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025]"
-                >
-                  <div className="grid gap-5 p-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-                    <div className="aspect-video overflow-hidden rounded-xl bg-white/[0.04]">
-                      {imageUrl && (
-                        <img
-                          src={imageUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-300">
-                            Position {index + 1}
-                          </p>
-
-                          <h3 className="mt-2 text-lg font-semibold text-white">
-                            {project.title}
-                          </h3>
-
-                          <p className="mt-1 text-sm text-white/35">
-                            {[project.type, project.genre]
-                              .filter(Boolean)
-                              .join(" • ") || "SourceTV title"}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={saving || index === 0}
-                            onClick={() =>
-                              moveHero(project, "up")
-                            }
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:opacity-20"
-                            aria-label={`Move ${project.title} up`}
-                          >
-                            ↑
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={
-                              saving ||
-                              index ===
-                                featuredProjects.length - 1
-                            }
-                            onClick={() =>
-                              moveHero(project, "down")
-                            }
-                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:opacity-20"
-                            aria-label={`Move ${project.title} down`}
-                          >
-                            ↓
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() =>
-                              removeFromHero(project)
-                            }
-                            className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/15 disabled:opacity-40"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-white/35">
-                            Hero Badge
-                          </span>
-
-                          <input
-                            value={draft.heroBadge}
-                            disabled={saving}
-                            onChange={(event) =>
-                              updateDraft(
-                                project.id,
-                                "heroBadge",
-                                event.target.value
-                              )
-                            }
-                            className={inputClassName}
-                            placeholder="Trending Now"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-white/35">
-                            Priority
-                          </span>
-
-                          <input
-                            type="number"
-                            min={1}
-                            value={draft.heroPriority}
-                            disabled={saving}
-                            onChange={(event) =>
-                              updateDraft(
-                                project.id,
-                                "heroPriority",
-                                event.target.value
-                              )
-                            }
-                            className={inputClassName}
-                            placeholder="1"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-white/35">
-                            Start Date
-                          </span>
-
-                          <input
-                            type="date"
-                            value={draft.heroStartDate}
-                            disabled={saving}
-                            onChange={(event) =>
-                              updateDraft(
-                                project.id,
-                                "heroStartDate",
-                                event.target.value
-                              )
-                            }
-                            className={inputClassName}
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-white/35">
-                            End Date
-                          </span>
-
-                          <input
-                            type="date"
-                            value={draft.heroEndDate}
-                            disabled={saving}
-                            onChange={(event) =>
-                              updateDraft(
-                                project.id,
-                                "heroEndDate",
-                                event.target.value
-                              )
-                            }
-                            className={inputClassName}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="mt-5 flex justify-end">
-                        <button
-                          type="button"
-                          disabled={saving}
-                          onClick={() =>
-                            saveHeroSettings(project)
-                          }
-                          className="rounded-xl bg-sky-300 px-4 py-2.5 text-sm font-semibold text-[#05070d] transition hover:bg-sky-200 disabled:opacity-40"
-                        >
-                          {saving
-                            ? "Saving..."
-                            : "Save Hero Settings"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })
+            <HeroList
+              heroes={featuredProjects}
+              drafts={drafts}
+              savingId={savingId}
+              onDraftChange={updateDraft}
+              onSave={saveHeroSettings}
+              onRemove={removeFromHero}
+              onReorder={reorderHeroes}
+            />
           )}
         </div>
       </section>
 
-      <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 md:p-6">
-        <div>
-          <h3 className="text-lg font-semibold text-white">
-            Add Hero Title
-          </h3>
-
-          <p className="mt-1 text-sm text-white/40">
-            Choose an approved title from the SourceTV content
-            library.
-          </p>
-        </div>
-
-        <div className="mt-5">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search the content library..."
-          />
-        </div>
-
-        <div className="mt-5 max-h-[520px] space-y-3 overflow-y-auto pr-1">
-          {availableProjects.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-white/40">
-              No available titles match this search.
-            </div>
-          ) : (
-            availableProjects.map((project) => {
-              const imageUrl =
-                project.thumbnailUrl ||
-                project.backdropUrl ||
-                "";
-
-              const saving = savingId === project.id;
-
-              return (
-                <div
-                  key={project.id}
-                  className="flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3"
-                >
-                  <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-white/[0.05]">
-                    {imageUrl && (
-                      <img
-                        src={imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">
-                      {project.title}
-                    </p>
-
-                    <p className="mt-1 text-xs text-white/35">
-                      {[project.type, project.genre]
-                        .filter(Boolean)
-                        .join(" • ") || "SourceTV title"}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => addToHero(project)}
-                    className="rounded-xl border border-sky-300/25 bg-sky-300/10 px-4 py-2.5 text-sm font-semibold text-sky-200 transition hover:border-sky-300/45 hover:bg-sky-300/15 disabled:opacity-40"
-                  >
-                    {saving ? "Adding..." : "Add to Hero"}
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-    </div>
+      <HeroAddModal
+        open={addModalOpen}
+        projects={availableProjects}
+        search={search}
+        savingId={savingId}
+        onSearchChange={setSearch}
+        onAdd={addToHero}
+        onClose={closeAddModal}
+      />
+    </>
   );
 }
-
-const inputClassName =
-  "w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-black/35 disabled:cursor-not-allowed disabled:opacity-50";

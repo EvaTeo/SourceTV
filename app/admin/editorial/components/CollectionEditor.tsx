@@ -3,12 +3,39 @@
 import type {
   CollectionForm as CollectionFormType,
   EditorialCollection,
-  MoveDirection,
   Project,
 } from "../types";
 import CollectionForm from "./CollectionForm";
 import CollectionTitles from "./CollectionTitles";
 import EmptyState from "./EmptyState";
+
+type CollectionEditorProps = {
+  collection: EditorialCollection | null;
+  form: CollectionFormType;
+  creating: boolean;
+  saving: boolean;
+  availableProjects: Project[];
+  showTitlePicker: boolean;
+  titleSearch: string;
+
+  onFormChange: <K extends keyof CollectionFormType>(
+    key: K,
+    value: CollectionFormType[K]
+  ) => void;
+
+  onCreate: () => void;
+  onSave: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
+  onStartNew: () => void;
+  onToggleTitlePicker: () => void;
+  onTitleSearchChange: (value: string) => void;
+  onAddProject: (projectId: string) => void;
+  onRemoveItem: (itemId: string) => void;
+  onReorderItems: (
+    items: EditorialCollection["items"]
+  ) => void | Promise<void>;
+};
 
 export default function CollectionEditor({
   collection,
@@ -28,37 +55,8 @@ export default function CollectionEditor({
   onTitleSearchChange,
   onAddProject,
   onRemoveItem,
-  onMoveItem,
-}: {
-  collection: EditorialCollection | null;
-  form: CollectionFormType;
-  creating: boolean;
-  saving: boolean;
-  availableProjects: Project[];
-  showTitlePicker: boolean;
-  titleSearch: string;
-
-  onFormChange: <
-    K extends keyof CollectionFormType
-  >(
-    key: K,
-    value: CollectionFormType[K]
-  ) => void;
-
-  onCreate: () => void;
-  onSave: () => void;
-  onDelete: () => void;
-  onCancel: () => void;
-  onStartNew: () => void;
-  onToggleTitlePicker: () => void;
-  onTitleSearchChange: (value: string) => void;
-  onAddProject: (projectId: string) => void;
-  onRemoveItem: (itemId: string) => void;
-  onMoveItem: (
-    itemId: string,
-    direction: MoveDirection
-  ) => void;
-}) {
+  onReorderItems,
+}: CollectionEditorProps) {
   if (!creating && !collection) {
     return (
       <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.025] p-5 md:p-6">
@@ -168,7 +166,7 @@ export default function CollectionEditor({
           onSearchChange={onTitleSearchChange}
           onAdd={onAddProject}
           onRemove={onRemoveItem}
-          onMove={onMoveItem}
+          onReorder={onReorderItems}
         />
       )}
     </section>
