@@ -5,21 +5,22 @@ import { useState } from "react";
 import CollectionEditor from "./components/CollectionEditor";
 import CollectionSidebar from "./components/CollectionSidebar";
 import HeroManager from "./components/HeroManager";
+import ProgrammingOverview from "./components/ProgrammingOverview";
 import useEditorialCollections from "./hooks/useEditorialCollections";
 
-type EditorialTab = "collections" | "hero";
+type EditorialTab = "overview" | "collections" | "hero";
 
 export default function EditorialPage() {
   const editorial = useEditorialCollections();
   const [activeTab, setActiveTab] =
-    useState<EditorialTab>("collections");
+    useState<EditorialTab>("overview");
 
   return (
     <main className="space-y-6">
       <AdminPageHeader
         eyebrow="SourceTV Editorial"
         title="Editorial"
-        description="Manage curated rows, hero programming, seasonal scheduling, and how content is presented across SourceTV."
+        description="Manage homepage programming, curated rows, hero rotation, seasonal scheduling, and how content is presented across SourceTV."
         actions={
           activeTab === "collections" ? (
             <button
@@ -34,6 +35,18 @@ export default function EditorialPage() {
       />
 
       <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab("overview")}
+          className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+            activeTab === "overview"
+              ? "bg-white/[0.08] text-sky-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+              : "text-white/45 hover:bg-white/[0.04] hover:text-white"
+          }`}
+        >
+          Overview
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("collections")}
@@ -59,7 +72,9 @@ export default function EditorialPage() {
         </button>
       </div>
 
-      {activeTab === "collections" ? (
+      {activeTab === "overview" ? (
+        <ProgrammingOverview />
+      ) : activeTab === "collections" ? (
         editorial.loading ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-10 text-white/45">
             Loading editorial tools...
