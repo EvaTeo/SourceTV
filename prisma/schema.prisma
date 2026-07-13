@@ -388,3 +388,47 @@ model AdImpression {
 
   createdAt DateTime @default(now())
 }
+
+model PlatformSettings {
+  id String @id @default(cuid())
+
+  platformName String @default("SourceTV")
+  tagline String @default("The Next Generation of Entertainment")
+
+  supportEmail String @default("support@sourcetv.com")
+  contactEmail String @default("contact@sourcetv.com")
+
+  allowRegistrations Boolean @default(true)
+  requireEmailVerification Boolean @default(false)
+  maxProfiles Int @default(5)
+
+  heroAutoplay Boolean @default(true)
+  autoplayMuted Boolean @default(true)
+  homepageRows Int @default(12)
+
+  premiumEnabled Boolean @default(false)
+  monthlyPrice Float @default(8.99)
+  annualPrice Float @default(89.99)
+  freeTrialDays Int @default(7)
+
+  adsEnabled Boolean @default(true)
+  preRollAds Boolean @default(true)
+  midRollAds Boolean @default(false)
+  bannerAds Boolean @default(true)
+
+  partnerApplications Boolean @default(true)
+  defaultRevenueShare Int @default(50)
+
+  notificationsEnabled Boolean @default(true)
+
+  moderationEnabled Boolean @default(true)
+
+  maintenanceMode Boolean @default(false)
+
+  aiRecommendations Boolean @default(true)
+  aiEditorial Boolean @default(false)
+  aiModeration Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
