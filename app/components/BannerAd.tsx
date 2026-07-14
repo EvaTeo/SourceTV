@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type BannerAdCampaign = {
   id: string;
@@ -11,6 +16,16 @@ type BannerAdCampaign = {
   clickUrl?: string | null;
 };
 
+type AdvertisingSettings = {
+  adsEnabled: boolean;
+  bannerAds: boolean;
+};
+
+const defaultAdvertisingSettings: AdvertisingSettings = {
+  adsEnabled: true,
+  bannerAds: true,
+};
+
 export default function BannerAd({
   projectId,
   className = "",
@@ -19,8 +34,24 @@ export default function BannerAd({
   className?: string;
 }) {
   const trackedRef = useRef(false);
-  const [ad, setAd] = useState<BannerAdCampaign | null>(null);
-  const [hidden, setHidden] = useState(false);
+
+  const [ad, setAd] =
+    useState<BannerAdCampaign | null>(null);
+
+  const [hidden, setHidden] =
+    useState(false);
+
+  const [settingsLoaded, setSettingsLoaded] =
+    useState(false);
+
+  const [advertisingSettings, setAdvertisingSettings] =
+    useState<AdvertisingSettings>(
+      defaultAdvertisingSettings
+    );
+
+  const adsAllowed =
+    advertisingSettings.adsEnabled &&
+    advertisingSettings.bannerAds;
 
   const trackAd = useCallback(
     async ({
@@ -30,9 +61,13 @@ export default function BannerAd({
       clicked?: boolean;
       completed?: boolean;
     }) => {
-      if (!ad) return;
+      if (!ad || !adsAllowed) {
+        return;
+      }
 
-      if (!clicked && trackedRef.current) return;
+      if (!clicked && trackedRef.current) {
+        return;
+      }
 
       if (!clicked) {
         trackedRef.current = true;
@@ -42,12 +77,14 @@ export default function BannerAd({
         await fetch("/api/ads/impression", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             campaignId: ad.id,
             projectId: projectId || "",
-            placement: ad.placement || "banner",
+            placement:
+              ad.placement || "banner",
             completed,
             skipped: false,
             clicked,
@@ -55,52 +92,165 @@ export default function BannerAd({
           }),
         });
       } catch (error) {
-        console.error("TRACK BANNER AD ERROR:", error);
+        console.error(
+          "TRACK BANNER AD ERROR:",
+          error
+        );
       }
     },
-    [ad, projectId]
+    [ad, adsAllowed, projectId]
   );
 
-  const handleClick = useCallback(async () => {
-    if (!ad?.clickUrl) return;
+  const handleClick =
+    useCallback(async () => {
+      if (
+        !adsAllowed ||
+        !ad?.clickUrl
+      ) {
+        return;
+      }
 
-    await trackAd({
-      clicked: true,
-    });
+      await trackAd({
+        clicked: true,
+      });
 
-    window.open(ad.clickUrl, "_blank", "noopener,noreferrer");
-  }, [ad, trackAd]);
+      window.open(
+        ad.clickUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }, [ad, adsAllowed, trackAd]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAdvertisingSettings() {
+      try {
+        const response = await fetch(
+          "/api/settings",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: unknown =
+          await response.json();
+
+        if (
+          cancelled ||
+          !data ||
+          typeof data !== "object"
+        ) {
+          return;
+        }
+
+        const result = data as {
+          adsEnabled?: unknown;
+          bannerAds?: unknown;
+        };
+
+        setAdvertisingSettings({
+          adsEnabled:
+            typeof result.adsEnabled ===
+            "boolean"
+              ? result.adsEnabled
+              : defaultAdvertisingSettings.adsEnabled,
+
+          bannerAds:
+            typeof result.bannerAds ===
+            "boolean"
+              ? result.bannerAds
+              : defaultAdvertisingSettings.bannerAds,
+        });
+      } catch (error) {
+        console.error(
+          "LOAD BANNER SETTINGS ERROR:",
+          error
+        );
+      } finally {
+        if (!cancelled) {
+          setSettingsLoaded(true);
+        }
+      }
+    }
+
+    void loadAdvertisingSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadBannerAd() {
+      if (
+        !settingsLoaded ||
+        !adsAllowed
+      ) {
+        setAd(null);
+        return;
+      }
+
       try {
-        const params = new URLSearchParams({
-          placement: "banner",
-        });
+        const params =
+          new URLSearchParams({
+            placement: "banner",
+          });
 
         if (projectId) {
-          params.set("projectId", projectId);
+          params.set(
+            "projectId",
+            projectId
+          );
         }
 
-        const res = await fetch(`/api/ads/active?${params.toString()}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/ads/active?${params.toString()}`,
+          {
+            cache: "no-store",
+          }
+        );
 
-        const data = (await res.json()) as BannerAdCampaign | null;
+        if (!response.ok) {
+          if (!cancelled) {
+            setAd(null);
+          }
 
-        if (cancelled) return;
+          return;
+        }
 
-        if (!data?.id || (!data.imageUrl && !data.videoUrl)) {
+        const data =
+          (await response.json()) as
+            | BannerAdCampaign
+            | null;
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          !data?.id ||
+          (!data.imageUrl &&
+            !data.videoUrl)
+        ) {
           setAd(null);
           return;
         }
 
         trackedRef.current = false;
+        setHidden(false);
         setAd(data);
       } catch (error) {
-        console.error("LOAD BANNER AD ERROR:", error);
+        console.error(
+          "LOAD BANNER AD ERROR:",
+          error
+        );
 
         if (!cancelled) {
           setAd(null);
@@ -108,28 +258,46 @@ export default function BannerAd({
       }
     }
 
-    loadBannerAd();
+    void loadBannerAd();
 
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [
+    adsAllowed,
+    projectId,
+    settingsLoaded,
+  ]);
 
   useEffect(() => {
-    if (!ad || trackedRef.current) return;
+    if (
+      !ad ||
+      !adsAllowed ||
+      trackedRef.current
+    ) {
+      return;
+    }
 
-    const timer = window.setTimeout(() => {
-      trackAd({
-        completed: true,
-      });
-    }, 900);
+    const timer = window.setTimeout(
+      () => {
+        void trackAd({
+          completed: true,
+        });
+      },
+      900
+    );
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [ad, trackAd]);
+  }, [ad, adsAllowed, trackAd]);
 
-  if (!ad || hidden) {
+  if (
+    !settingsLoaded ||
+    !adsAllowed ||
+    !ad ||
+    hidden
+  ) {
     return null;
   }
 
@@ -143,8 +311,11 @@ export default function BannerAd({
         <div className="relative flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
           <button
             type="button"
-            onClick={handleClick}
-            className="group flex min-w-0 flex-1 items-center gap-4 text-left"
+            onClick={() => {
+              void handleClick();
+            }}
+            disabled={!ad.clickUrl}
+            className="group flex min-w-0 flex-1 items-center gap-4 text-left disabled:cursor-default"
           >
             <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-2xl bg-black md:h-24 md:w-44">
               {ad.imageUrl ? (
@@ -178,7 +349,8 @@ export default function BannerAd({
               </h3>
 
               <p className="mt-1 line-clamp-2 text-xs font-medium text-white/55 md:text-sm">
-                Discover more from this SourceTV partner.
+                Discover more from this
+                SourceTV partner.
               </p>
             </div>
           </button>
@@ -187,7 +359,9 @@ export default function BannerAd({
             {ad.clickUrl && (
               <button
                 type="button"
-                onClick={handleClick}
+                onClick={() => {
+                  void handleClick();
+                }}
                 className="rounded-full bg-white px-5 py-2.5 text-xs font-black text-black transition hover:bg-sky-200"
               >
                 Learn More
@@ -196,7 +370,9 @@ export default function BannerAd({
 
             <button
               type="button"
-              onClick={() => setHidden(true)}
+              onClick={() =>
+                setHidden(true)
+              }
               className="rounded-full border border-white/10 bg-black/35 px-4 py-2.5 text-xs font-black text-white/55 transition hover:border-white/25 hover:text-white"
               aria-label="Hide banner ad"
             >

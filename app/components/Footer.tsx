@@ -1,4 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+type PublicSettings = {
+  platformName: string;
+  tagline: string;
+};
+
+const defaultSettings: PublicSettings = {
+  platformName: "SourceTV",
+  tagline:
+    "The Next Generation of Entertainment",
+};
 
 const footerSections = [
   {
@@ -33,52 +51,147 @@ const footerSections = [
 ];
 
 export default function Footer() {
+  const [settings, setSettings] =
+    useState<PublicSettings>(
+      defaultSettings
+    );
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch(
+          "/api/settings",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: unknown =
+          await response.json();
+
+        if (
+          !data ||
+          typeof data !== "object"
+        ) {
+          return;
+        }
+
+        const result = data as {
+          platformName?: unknown;
+          tagline?: unknown;
+        };
+
+        setSettings({
+          platformName:
+            typeof result.platformName ===
+              "string" &&
+            result.platformName.trim()
+              ? result.platformName.trim()
+              : defaultSettings.platformName,
+
+          tagline:
+            typeof result.tagline ===
+              "string" &&
+            result.tagline.trim()
+              ? result.tagline.trim()
+              : defaultSettings.tagline,
+        });
+      } catch (error) {
+        console.error(
+          "Footer settings load error:",
+          error
+        );
+      }
+    }
+
+    void loadSettings();
+  }, []);
+
+  const logoParts = useMemo(() => {
+    const platformName =
+      settings.platformName.trim() ||
+      defaultSettings.platformName;
+
+    if (
+      platformName
+        .toLowerCase()
+        .endsWith("tv")
+    ) {
+      return {
+        main: platformName.slice(0, -2),
+        accent: platformName.slice(-2),
+      };
+    }
+
+    return {
+      main: platformName,
+      accent: "",
+    };
+  }, [settings.platformName]);
+
   return (
     <footer className="relative border-t border-white/[0.07] bg-transparent">
       <div className="mx-auto max-w-[1440px] px-6 pb-28 pt-12 sm:px-8 sm:pb-24 lg:px-12 lg:pb-14 lg:pt-14">
         <div className="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-start lg:gap-20">
           <div className="grid grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3 sm:gap-x-16 lg:max-w-3xl">
-            {footerSections.map((section) => (
-              <div key={section.title}>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.17em] text-white/35">
-                  {section.title}
-                </h2>
+            {footerSections.map(
+              (section) => (
+                <div key={section.title}>
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.17em] text-white/35">
+                    {section.title}
+                  </h2>
 
-                <ul className="mt-5 space-y-3.5">
-                  {section.links.map((link) => (
-                    <li key={`${section.title}-${link.label}`}>
-                      <Link
-                        href={link.href}
-                        className="text-sm text-white/50 transition duration-200 hover:text-sky-300"
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                  <ul className="mt-5 space-y-3.5">
+                    {section.links.map(
+                      (link) => (
+                        <li
+                          key={`${section.title}-${link.label}`}
+                        >
+                          <Link
+                            href={link.href}
+                            className="text-sm text-white/50 transition duration-200 hover:text-sky-300"
+                          >
+                            {link.label}
+                          </Link>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )
+            )}
           </div>
 
           <div className="flex flex-col items-start lg:items-end lg:pt-1">
             <Link
               href="/"
-              aria-label="SourceTV home"
+              aria-label={`${settings.platformName} home`}
               className="inline-flex items-baseline text-lg font-semibold tracking-[-0.04em] text-white/85 transition hover:text-white"
             >
-              Source
-              <span className="text-sky-400">TV</span>
+              {logoParts.main}
+
+              {logoParts.accent && (
+                <span className="text-sky-400">
+                  {logoParts.accent}
+                </span>
+              )}
             </Link>
 
-<p className="mt-2 max-w-[220px] text-left text-xs leading-5 text-white/35 lg:text-right">
-              The next generation of entertainment.
+            <p className="mt-2 max-w-[220px] text-left text-xs leading-5 text-white/35 lg:text-right">
+              {settings.tagline}
             </p>
-
           </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-white/[0.06] pt-6 text-xs text-white/25 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 SourceTV. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()}{" "}
+            {settings.platformName}. All rights reserved.
+          </p>
 
           <div className="flex items-center gap-4">
             <span>United States</span>

@@ -36,6 +36,16 @@ type ContentItem = {
 
 const HERO_DURATION = 9000;
 
+type HomepageSettings = {
+  heroAutoplay: boolean;
+  autoplayMuted: boolean;
+};
+
+const defaultHomepageSettings: HomepageSettings = {
+  heroAutoplay: true,
+  autoplayMuted: true,
+};
+
 function VolumeIcon({ muted }: { muted: boolean }) {
   return (
     <svg
@@ -117,8 +127,45 @@ export default function FeaturedCarousel({
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [muted, setMuted] = useState(true);
+  const [settings, setSettings] =
+    useState(defaultHomepageSettings);
+
+  const [muted, setMuted] =
+    useState(defaultHomepageSettings.autoplayMuted);
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSettings() {
+      try {
+        const res = await fetch("/api/settings", {
+          cache: "no-store",
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        setSettings({
+          heroAutoplay: data.heroAutoplay ?? true,
+          autoplayMuted: data.autoplayMuted ?? true,
+        });
+
+        setMuted(data.autoplayMuted ?? true);
+      } catch {}
+
+    }
+
+    loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   useEffect(() => {
     const saved = localStorage.getItem("sourcetv_trailer_muted");
@@ -235,7 +282,10 @@ export default function FeaturedCarousel({
               />
             )}
 
-            {previewSource && active && mounted && (
+            {settings.heroAutoplay &&
+              previewSource &&
+              active &&
+              mounted && (
               <div className="absolute inset-[-28px] opacity-100 transition-opacity duration-[1200ms]">
                 <TrailerPreviewVideo
                   url={previewSource}

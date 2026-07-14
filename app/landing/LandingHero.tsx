@@ -15,11 +15,17 @@ function PlayIcon() {
   );
 }
 
+type LandingHeroProps = {
+  posters: LandingPosterItem[];
+  platformName: string;
+  tagline: string;
+};
+
 export default function LandingHero({
   posters,
-}: {
-  posters: LandingPosterItem[];
-}) {
+  platformName,
+  tagline,
+}: LandingHeroProps) {
   return (
     <section className="relative min-h-screen overflow-hidden px-5 pb-24 pt-28 text-white md:px-12 md:pb-28 md:pt-32">
       <LandingPosterWall posters={posters} />
@@ -27,11 +33,11 @@ export default function LandingHero({
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-10rem)] max-w-[1500px] items-center">
         <div className="max-w-[900px]">
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-sky-300 md:text-xs">
-            Watch Free
+            {platformName}
           </p>
 
           <h1 className="mt-5 max-w-5xl text-[3.15rem] font-black leading-[0.86] tracking-[-0.055em] drop-shadow-[0_16px_48px_rgba(0,0,0,0.75)] md:text-[6.4rem]">
-            The Next Generation of Entertainment.
+            {tagline}
           </h1>
 
           <p className="mt-7 max-w-2xl text-base leading-8 text-white/74 md:text-xl md:leading-9">

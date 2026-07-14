@@ -37,6 +37,17 @@ type ApiContentItem = {
   views?: number | null;
 };
 
+type LandingSettings = {
+  platformName: string;
+  tagline: string;
+};
+
+const defaultSettings: LandingSettings = {
+  platformName: "SourceTV",
+  tagline:
+    "The Next Generation of Entertainment",
+};
+
 const fallbackContent: LandingContentItem[] = [
   {
     id: "fallback-1",
@@ -158,27 +169,54 @@ function normalizeContent(
     description: item.description || "",
     type: item.type || "",
     genre: item.genre || "",
-
     videoUrl: item.videoUrl || "",
     mainVideoUrl:
       item.mainVideoUrl || "",
     trailerUrl: item.trailerUrl || "",
-
     thumbnailUrl:
       item.thumbnailUrl || "",
     backdropUrl:
       item.backdropUrl || "",
-
     status: item.status || "",
     maturityRating:
       item.maturityRating || "",
     runtime: item.runtime || "",
     creatorName:
       item.creatorName || "",
-
     scheduledAt:
       item.scheduledAt || null,
     views: item.views ?? undefined,
+  };
+}
+
+function normalizeSettings(
+  data: unknown
+): LandingSettings {
+  if (
+    !data ||
+    typeof data !== "object"
+  ) {
+    return defaultSettings;
+  }
+
+  const settings = data as {
+    platformName?: unknown;
+    tagline?: unknown;
+  };
+
+  return {
+    platformName:
+      typeof settings.platformName ===
+        "string" &&
+      settings.platformName.trim()
+        ? settings.platformName.trim()
+        : defaultSettings.platformName,
+
+    tagline:
+      typeof settings.tagline === "string" &&
+      settings.tagline.trim()
+        ? settings.tagline.trim()
+        : defaultSettings.tagline,
   };
 }
 
@@ -186,6 +224,11 @@ export default function HomePage() {
   const [content, setContent] = useState<
     LandingContentItem[]
   >([]);
+
+  const [settings, setSettings] =
+    useState<LandingSettings>(
+      defaultSettings
+    );
 
   useEffect(() => {
     async function loadContent() {
@@ -232,7 +275,38 @@ export default function HomePage() {
       }
     }
 
-    loadContent();
+    void loadContent();
+  }, []);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch(
+          "/api/settings",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: unknown =
+          await response.json();
+
+        setSettings(
+          normalizeSettings(data)
+        );
+      } catch (error) {
+        console.error(
+          "Landing settings load error:",
+          error
+        );
+      }
+    }
+
+    void loadSettings();
   }, []);
 
   const displayContent =
@@ -268,13 +342,21 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-black text-white">
-      <LandingHero posters={posters} />
+      <LandingHero
+        posters={posters}
+        platformName={
+          settings.platformName
+        }
+        tagline={settings.tagline}
+      />
 
-      <LandingTrending items={trending} />
+      <LandingTrending
+        items={trending}
+      />
 
       <LandingPlans />
 
-<ExperienceSection />
+      <ExperienceSection />
     </main>
   );
 }

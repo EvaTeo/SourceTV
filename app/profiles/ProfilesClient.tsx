@@ -6,25 +6,28 @@ import {
   useMemo,
   useState,
 } from "react";
+import ProfileAvatar from "./components/ProfileAvatar";
 import ProfileCard from "./components/ProfileCard";
 import ProfileEditor from "./components/ProfileEditor";
-import ProfileAvatar from "./components/ProfileAvatar";
 import {
   createNewProfile,
   getActiveProfile,
   loadProfiles,
-  MAX_PROFILES,
   saveProfiles,
   setActiveProfile,
   type ProfileAccount,
   type SourceProfile,
 } from "./lib/profileStorage";
 
+type ProfilesClientProps = {
+  account: ProfileAccount;
+  maxProfiles: number;
+};
+
 export default function ProfilesClient({
   account,
-}: {
-  account: ProfileAccount;
-}) {
+  maxProfiles,
+}: ProfilesClientProps) {
   const [profiles, setProfiles] = useState<
     SourceProfile[]
   >([]);
@@ -40,53 +43,121 @@ export default function ProfilesClient({
 
   const [ready, setReady] = useState(false);
 
+  const profileLimit = Math.max(
+    1,
+    Math.floor(maxProfiles)
+  );
+
   useEffect(() => {
     const loadedProfiles = loadProfiles(account);
     const active = getActiveProfile(account.id);
 
-    setProfiles(loadedProfiles);
-    setActiveProfileId(active?.id || null);
+    const limitedProfiles =
+      loadedProfiles.slice(0, profileLimit);
+
+    if (
+      limitedProfiles.length !==
+      loadedProfiles.length
+    ) {
+      saveProfiles(
+        account.id,
+        limitedProfiles
+      );
+    }
+
+    setProfiles(limitedProfiles);
+
+    const activeStillExists =
+      active &&
+      limitedProfiles.some(
+        (profile) =>
+          profile.id === active.id
+      );
+
+    if (activeStillExists && active) {
+      setActiveProfileId(active.id);
+    } else {
+      const firstProfile =
+        limitedProfiles[0] || null;
+
+      if (firstProfile) {
+        setActiveProfile(
+          account.id,
+          firstProfile
+        );
+
+        setActiveProfileId(
+          firstProfile.id
+        );
+      } else {
+        setActiveProfileId(null);
+      }
+    }
+
     setReady(true);
-  }, [account]);
+  }, [account, profileLimit]);
 
   const activeProfile = useMemo(
     () =>
       profiles.find(
-        (profile) => profile.id === activeProfileId
+        (profile) =>
+          profile.id === activeProfileId
       ) || null,
     [activeProfileId, profiles]
   );
 
   const canAddProfile =
-    profiles.length < MAX_PROFILES;
+    profiles.length < profileLimit;
 
   function persistProfiles(
     nextProfiles: SourceProfile[]
   ) {
-    setProfiles(nextProfiles);
-    saveProfiles(account.id, nextProfiles);
+    const limitedProfiles =
+      nextProfiles.slice(0, profileLimit);
 
-    const active = nextProfiles.find(
-      (profile) => profile.id === activeProfileId
+    setProfiles(limitedProfiles);
+
+    saveProfiles(
+      account.id,
+      limitedProfiles
     );
 
+    const active =
+      limitedProfiles.find(
+        (profile) =>
+          profile.id === activeProfileId
+      );
+
     if (active) {
-      setActiveProfile(account.id, active);
+      setActiveProfile(
+        account.id,
+        active
+      );
     }
   }
 
-  function chooseProfile(profile: SourceProfile) {
-    setActiveProfile(account.id, profile);
+  function chooseProfile(
+    profile: SourceProfile
+  ) {
+    setActiveProfile(
+      account.id,
+      profile
+    );
+
     setActiveProfileId(profile.id);
 
-    document.body.classList.add("profile-exit");
+    document.body.classList.add(
+      "profile-exit"
+    );
 
     window.setTimeout(() => {
       window.location.href = "/browse";
     }, 520);
   }
 
-  function openEditor(profile: SourceProfile) {
+  function openEditor(
+    profile: SourceProfile
+  ) {
     setCreatingProfile(false);
     setEditingProfile(profile);
   }
@@ -97,7 +168,9 @@ export default function ProfilesClient({
     }
 
     setCreatingProfile(true);
-    setEditingProfile(createNewProfile());
+    setEditingProfile(
+      createNewProfile()
+    );
   }
 
   function closeEditor() {
@@ -105,24 +178,35 @@ export default function ProfilesClient({
     setCreatingProfile(false);
   }
 
-  function saveProfile(profile: SourceProfile) {
+  function saveProfile(
+    profile: SourceProfile
+  ) {
     if (creatingProfile) {
-      persistProfiles(
-        [...profiles, profile].slice(
-          0,
-          MAX_PROFILES
-        )
-      );
+      if (!canAddProfile) {
+        alert(
+          `This account can have up to ${profileLimit} profiles.`
+        );
+
+        closeEditor();
+        return;
+      }
+
+      persistProfiles([
+        ...profiles,
+        profile,
+      ]);
 
       closeEditor();
       return;
     }
 
     persistProfiles(
-      profiles.map((currentProfile) =>
-        currentProfile.id === profile.id
-          ? profile
-          : currentProfile
+      profiles.map(
+        (currentProfile) =>
+          currentProfile.id ===
+          profile.id
+            ? profile
+            : currentProfile
       )
     );
 
@@ -130,27 +214,44 @@ export default function ProfilesClient({
   }
 
   function deleteProfile() {
-    if (!editingProfile || creatingProfile) {
+    if (
+      !editingProfile ||
+      creatingProfile
+    ) {
       return;
     }
 
     if (profiles.length <= 1) {
-      alert("You need at least one profile.");
+      alert(
+        "You need at least one profile."
+      );
       return;
     }
 
-    const nextProfiles = profiles.filter(
-      (profile) =>
-        profile.id !== editingProfile.id
-    );
+    const nextProfiles =
+      profiles.filter(
+        (profile) =>
+          profile.id !==
+          editingProfile.id
+      );
 
     persistProfiles(nextProfiles);
 
-    if (activeProfileId === editingProfile.id) {
-      const nextActive = nextProfiles[0];
+    if (
+      activeProfileId ===
+      editingProfile.id
+    ) {
+      const nextActive =
+        nextProfiles[0];
 
-      setActiveProfile(account.id, nextActive);
-      setActiveProfileId(nextActive.id);
+      setActiveProfile(
+        account.id,
+        nextActive
+      );
+
+      setActiveProfileId(
+        nextActive.id
+      );
     }
 
     closeEditor();
@@ -193,7 +294,9 @@ export default function ProfilesClient({
           className="text-3xl font-black tracking-tight"
         >
           Source
-          <span className="text-sky-400">TV</span>
+          <span className="text-sky-400">
+            TV
+          </span>
         </Link>
 
         <p className="mt-8 text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:mt-10 md:text-xs">
@@ -205,30 +308,37 @@ export default function ProfilesClient({
         </h1>
 
         <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/48 md:text-base md:leading-7">
-          Pick a profile to continue your SourceTV
-          experience.
+          Pick a profile to continue your
+          SourceTV experience.
         </p>
 
         <div className="mt-9 grid w-full max-w-5xl grid-cols-2 gap-6 md:mt-14 md:grid-cols-5 md:gap-8">
-          {profiles.map((profile, index) => (
-            <ProfileCard
-              key={profile.id}
-              profile={profile}
-              active={
-                activeProfileId === profile.id
-              }
-              index={index}
-              onSelect={() =>
-                chooseProfile(profile)
-              }
-              onEdit={() => openEditor(profile)}
-            />
-          ))}
+          {profiles.map(
+            (profile, index) => (
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                active={
+                  activeProfileId ===
+                  profile.id
+                }
+                index={index}
+                onSelect={() =>
+                  chooseProfile(profile)
+                }
+                onEdit={() =>
+                  openEditor(profile)
+                }
+              />
+            )
+          )}
 
           <div
             className="group text-center opacity-0 animate-[profileCardIn_560ms_ease_forwards]"
             style={{
-              animationDelay: `${profiles.length * 90}ms`,
+              animationDelay: `${
+                profiles.length * 90
+              }ms`,
             }}
           >
             <button
@@ -251,8 +361,8 @@ export default function ProfilesClient({
 
               <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/28">
                 {canAddProfile
-                  ? `${profiles.length}/${MAX_PROFILES}`
-                  : "Max"}
+                  ? `${profiles.length}/${profileLimit}`
+                  : `Maximum ${profileLimit}`}
               </p>
             </button>
           </div>
@@ -261,7 +371,9 @@ export default function ProfilesClient({
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={continueWithActiveProfile}
+            onClick={
+              continueWithActiveProfile
+            }
             className="rounded-md bg-white px-8 py-3 text-sm font-black text-black shadow-[0_14px_32px_rgba(0,0,0,0.35)] transition hover:scale-[1.025] hover:bg-sky-200"
           >
             Continue
@@ -294,8 +406,12 @@ export default function ProfilesClient({
         <ProfileEditor
           profile={editingProfile}
           creating={creatingProfile}
-          profileCount={profiles.length}
-          canDelete={profiles.length > 1}
+          profileCount={
+            profiles.length
+          }
+          canDelete={
+            profiles.length > 1
+          }
           onClose={closeEditor}
           onSave={saveProfile}
           onDelete={deleteProfile}
@@ -312,7 +428,8 @@ export default function ProfilesClient({
 
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translateY(0)
+              scale(1);
           }
         }
 

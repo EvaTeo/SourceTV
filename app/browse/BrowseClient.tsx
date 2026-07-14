@@ -7,6 +7,7 @@ import FeaturedCarousel from "@/app/components/FeaturedCarousel";
 import PremiereRail from "@/app/components/PremiereRail";
 import TopTenRail from "@/app/components/TopTenRail";
 import { useSearchParams } from "next/navigation";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type ContentItem = {
@@ -111,6 +112,10 @@ export default function BrowseClient() {
   const [loading, setLoading] = useState(true);
   const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
   const [profileName, setProfileName] = useState("Your");
+  const [homepageRows, setHomepageRows] = useState(12);
+
+  const [aiRecommendations, setAiRecommendations] =
+  useState(true);
 
   const urlType = searchParams.get("type") || "";
   const urlGenre = searchParams.get("genre") || "";
@@ -171,6 +176,73 @@ export default function BrowseClient() {
     }
 
     fetchContent();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadHomepageSettings() {
+      try {
+        const response = await fetch("/api/settings", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: unknown = await response.json();
+
+        if (
+          cancelled ||
+          !data ||
+          typeof data !== "object"
+        ) {
+          return;
+        }
+
+        const result = data as {
+  homepageRows?: unknown;
+  aiRecommendations?: unknown;
+};
+
+        if (
+          typeof result.homepageRows === "number" &&
+          Number.isFinite(result.homepageRows)
+        ) {
+          setHomepageRows(
+            Math.max(
+              1,
+              Math.min(
+                30,
+                Math.round(result.homepageRows)
+              )
+            )
+          );
+
+        }
+
+        if (
+  typeof result.aiRecommendations === "boolean"
+) {
+  setAiRecommendations(
+    result.aiRecommendations
+  );
+}
+
+      } catch (error) {
+        console.error(
+          "HOMEPAGE SETTINGS LOAD ERROR:",
+          error
+        );
+      }
+    }
+
+    void loadHomepageSettings();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const heroItems = useMemo(() => {
@@ -344,6 +416,138 @@ export default function BrowseClient() {
     return "";
   }, [urlType, urlGenre]);
 
+  const homeRows = useMemo(() => {
+    const rows: Array<{
+      key: string;
+      node: ReactNode;
+    }> = [];
+
+    rows.push({
+      key: "continue-watching",
+      node: (
+        <div className="pt-14 md:pt-24">
+          <ContinueWatching />
+        </div>
+      ),
+    });
+
+    if (topTen.length > 0) {
+      rows.push({
+        key: "top-ten",
+        node: <TopTenRail items={topTen} />,
+      });
+    }
+
+    if (todayTrending.length > 0) {
+      rows.push({
+        key: "trending",
+        node: (
+          <ContentRail
+            title="Today’s Trending"
+            items={todayTrending}
+          />
+        ),
+      });
+    }
+
+if (
+  aiRecommendations &&
+  personalized.length > 0
+) {
+        rows.push({
+        key: "personalized",
+        node: (
+          <ContentRail
+            title={`Recommended for ${profileName}`}
+            items={personalized}
+          />
+        ),
+      });
+    }
+
+if (
+  aiRecommendations &&
+  becauseYouWatched.length > 0
+) {
+        rows.push({
+        key: "because-you-watched",
+        node: (
+          <ContentRail
+            title={becauseYouWatchedTitle}
+            items={becauseYouWatched}
+          />
+        ),
+      });
+    }
+
+    rows.push({
+      key: "premieres",
+      node: <PremiereRail items={content} />,
+    });
+
+    if (recentlyAdded.length > 0) {
+      rows.push({
+        key: "new-releases",
+        node: (
+          <ContentRail
+            title="New Releases"
+            items={recentlyAdded}
+          />
+        ),
+      });
+    }
+
+    if (editorPicks.length > 0) {
+      rows.push({
+        key: "staff-picks",
+        node: (
+          <ContentRail
+            title="Staff Picks"
+            items={editorPicks}
+          />
+        ),
+      });
+    }
+
+    editorialCollections.forEach((collection) => {
+      rows.push({
+        key: `collection-${collection.id}`,
+        node: (
+          <ContentRail
+            title={collection.title}
+            items={collection.items}
+          />
+        ),
+      });
+    });
+
+    if (content.length > 0) {
+      rows.push({
+        key: "explore",
+        node: (
+          <ContentRail
+            title="Explore SourceTV"
+            items={content}
+          />
+        ),
+      });
+    }
+
+    return rows.slice(0, homepageRows);
+  }, [
+    becauseYouWatched,
+    becauseYouWatchedTitle,
+    content,
+    editorialCollections,
+    editorPicks,
+    homepageRows,
+    personalized,
+    profileName,
+    recentlyAdded,
+    todayTrending,
+    topTen,
+  ]);
+
   if (loading) {
     return (
       <main className="min-h-screen overflow-hidden bg-black px-4 pb-24 pt-24 text-white md:px-10">
@@ -398,65 +602,11 @@ export default function BrowseClient() {
             />
           ) : (
             <>
-              <div className="pt-14 md:pt-24">
-                <ContinueWatching />
-              </div>
-
-              {topTen.length > 0 && (
-                <TopTenRail items={topTen} />
-              )}
-
-              {todayTrending.length > 0 && (
-                <ContentRail
-                  title="Today’s Trending"
-                  items={todayTrending}
-                />
-              )}
-
-              {personalized.length > 0 && (
-                <ContentRail
-                  title={`Recommended for ${profileName}`}
-                  items={personalized}
-                />
-              )}
-
-              {becauseYouWatched.length > 0 && (
-                <ContentRail
-                  title={becauseYouWatchedTitle}
-                  items={becauseYouWatched}
-                />
-              )}
-
-              <PremiereRail items={content} />
-
-              {recentlyAdded.length > 0 && (
-                <ContentRail
-                  title="New Releases"
-                  items={recentlyAdded}
-                />
-              )}
-
-              {editorPicks.length > 0 && (
-                <ContentRail
-                  title="Staff Picks"
-                  items={editorPicks}
-                />
-              )}
-
-              {editorialCollections.map((collection) => (
-                <ContentRail
-                  key={collection.id}
-                  title={collection.title}
-                  items={collection.items}
-                />
+              {homeRows.map((row) => (
+                <div key={row.key}>
+                  {row.node}
+                </div>
               ))}
-
-              {content.length > 0 && (
-                <ContentRail
-                  title="Explore SourceTV"
-                  items={content}
-                />
-              )}
             </>
           )}
         </div>

@@ -1,54 +1,124 @@
 import { prisma } from "@/app/lib/prisma";
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+type SignupBody = {
+  name?: unknown;
+  email?: unknown;
+  password?: unknown;
+};
+
+export async function POST(request: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const settings =
+      await prisma.platformSettings.findFirst();
+
+    if (
+      settings &&
+      !settings.allowRegistrations
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "New account registrations are currently unavailable.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const body: SignupBody =
+      await request.json();
+
+    const name =
+      typeof body.name === "string"
+        ? body.name.trim()
+        : "";
+
+    const email =
+      typeof body.email === "string"
+        ? body.email
+            .trim()
+            .toLowerCase()
+        : "";
+
+    const password =
+      typeof body.password === "string"
+        ? body.password
+        : "";
 
     if (!name || !email || !password) {
       return NextResponse.json(
-        { error: "Name, email, and password are required" },
+        {
+          error:
+            "Name, email, and password are required.",
+        },
         { status: 400 }
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    if (password.length < 8) {
+      return NextResponse.json(
+        {
+          error:
+            "Password must be at least 8 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const existingUser =
+      await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Account already exists" },
+        {
+          error:
+            "An account with this email already exists.",
+        },
         { status: 409 }
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: "viewer",
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("SIGNUP ERROR:", error);
+    const user =
+      await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role: "viewer",
+        },
+      });
 
     return NextResponse.json(
-      { error: "Failed to create account" },
+      {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error(
+      "SIGNUP ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to create account.",
+      },
       { status: 500 }
     );
   }

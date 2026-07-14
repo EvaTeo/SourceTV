@@ -2,109 +2,201 @@ import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+type SubmitBody = {
+  title?: unknown;
+  description?: unknown;
+  type?: unknown;
+  genre?: unknown;
+  year?: unknown;
+  videoUrl?: unknown;
+  mainVideoUrl?: unknown;
+  trailerUrl?: unknown;
+  thumbnailUrl?: unknown;
+  backdropUrl?: unknown;
+  titleLogoUrl?: unknown;
+  maturityRating?: unknown;
+  runtime?: unknown;
+  creatorName?: unknown;
+  creatorCompany?: unknown;
+};
+
+function cleanString(value: unknown) {
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Not logged in." },
+        { status: 401 }
+      );
     }
 
-    if (user.role !== "partner" && user.role !== "admin") {
+    if (
+      user.role !== "partner" &&
+      user.role !== "admin"
+    ) {
       return NextResponse.json(
-        { error: "Only approved SourceTV partners can submit projects" },
+        {
+          error:
+            "Only approved SourceTV partners can submit projects.",
+        },
         { status: 403 }
       );
     }
 
-    const body = await req.json();
+    const settings =
+      await prisma.platformSettings.findFirst({
+        select: {
+          defaultRevenueShare: true,
+        },
+      });
 
-    const {
-      title,
-      description,
-      type,
-      genre,
-      year,
-      videoUrl,
-      mainVideoUrl,
-      trailerUrl,
-      thumbnailUrl,
-      backdropUrl,
-      titleLogoUrl,
-      maturityRating,
-      runtime,
-      creatorName,
-      creatorCompany,
-      revenueShare,
-    } = body;
+    const defaultRevenueShare =
+      settings?.defaultRevenueShare ?? 50;
+
+    const body: SubmitBody =
+      await request.json();
+
+    const title = cleanString(body.title);
+    const description = cleanString(
+      body.description
+    );
+
+    const mainVideoUrl =
+      cleanString(body.mainVideoUrl) ||
+      cleanString(body.videoUrl);
 
     if (!title || !description) {
       return NextResponse.json(
-        { error: "Title and description are required" },
+        {
+          error:
+            "Title and description are required.",
+        },
         { status: 400 }
       );
     }
 
-    if (!videoUrl && !mainVideoUrl) {
+    if (!mainVideoUrl) {
       return NextResponse.json(
-        { error: "A main video URL is required" },
+        {
+          error:
+            "A main video URL is required.",
+        },
         { status: 400 }
       );
     }
 
     const parsedYear =
-      year === "" || year === null || year === undefined
+      body.year === "" ||
+      body.year === null ||
+      body.year === undefined
         ? null
-        : Number(year);
+        : Number(body.year);
 
-    const parsedRevenueShare =
-      revenueShare === "" || revenueShare === null || revenueShare === undefined
-        ? 50
-        : Number(revenueShare);
+    const safeRevenueShare =
+      Number.isFinite(defaultRevenueShare) &&
+      defaultRevenueShare >= 0 &&
+      defaultRevenueShare <= 100
+        ? Math.round(defaultRevenueShare)
+        : 50;
 
-    const submission = await prisma.projectSubmission.create({
-      data: {
-        title: String(title).trim(),
-        description: String(description).trim(),
+    const submission =
+      await prisma.projectSubmission.create({
+        data: {
+          title,
+          description,
 
-        type: type || "Film",
-        genre: genre || "Drama",
-        year:
-          parsedYear && Number.isFinite(parsedYear) ? parsedYear : undefined,
+          type:
+            cleanString(body.type) ||
+            "Film",
 
-        videoUrl: mainVideoUrl || videoUrl,
-        mainVideoUrl: mainVideoUrl || videoUrl,
-        trailerUrl: trailerUrl || null,
-        thumbnailUrl: thumbnailUrl || null,
-        backdropUrl: backdropUrl || null,
-        titleLogoUrl: titleLogoUrl || null,
+          genre:
+            cleanString(body.genre) ||
+            "Drama",
 
-        maturityRating: maturityRating || "Not Rated",
-        runtime: runtime || null,
+          year:
+            parsedYear !== null &&
+            Number.isFinite(parsedYear)
+              ? Math.round(parsedYear)
+              : undefined,
 
-        creatorName:
-          creatorName?.trim() || user.name || "SourceTV Partner",
-        creatorEmail: user.email,
-        creatorCompany: creatorCompany || null,
+          videoUrl: mainVideoUrl,
+          mainVideoUrl,
 
-        revenueShare:
-          Number.isFinite(parsedRevenueShare) &&
-          parsedRevenueShare >= 0 &&
-          parsedRevenueShare <= 100
-            ? parsedRevenueShare
-            : 50,
+          trailerUrl:
+            cleanString(body.trailerUrl) ||
+            null,
 
-        workflowStage: "submission",
-        status: "pending",
-      },
-    });
+          thumbnailUrl:
+            cleanString(
+              body.thumbnailUrl
+            ) || null,
 
-    return NextResponse.json({ success: true, submission });
-  } catch (error) {
-    console.error("SUBMIT API ERROR:", error);
+          backdropUrl:
+            cleanString(
+              body.backdropUrl
+            ) || null,
+
+          titleLogoUrl:
+            cleanString(
+              body.titleLogoUrl
+            ) || null,
+
+          maturityRating:
+            cleanString(
+              body.maturityRating
+            ) || "Not Rated",
+
+          runtime:
+            cleanString(body.runtime) ||
+            null,
+
+          creatorName:
+            cleanString(
+              body.creatorName
+            ) ||
+            user.name ||
+            "SourceTV Partner",
+
+          creatorEmail: user.email,
+
+          creatorCompany:
+            cleanString(
+              body.creatorCompany
+            ) || null,
+
+          revenueShare:
+            safeRevenueShare,
+
+          workflowStage: "submission",
+          status: "pending",
+        },
+      });
 
     return NextResponse.json(
-      { error: "Failed to submit project" },
+      {
+        success: true,
+        submission,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error(
+      "SUBMIT API ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to submit project.",
+      },
       { status: 500 }
     );
   }

@@ -22,7 +22,6 @@ export default function SubmitPage() {
     runtime: "",
     creatorName: "",
     creatorCompany: "",
-    revenueShare: "50",
   });
 
   useEffect(() => {
@@ -113,7 +112,6 @@ export default function SubmitPage() {
         runtime: "",
         creatorName: form.creatorName,
         creatorCompany: form.creatorCompany,
-        revenueShare: "50",
       });
     } catch (error) {
       console.error("PROJECT SUBMISSION ERROR:", error);
@@ -322,13 +320,17 @@ export default function SubmitPage() {
               placeholder="Optional"
             />
 
-            <Field
-              label="Creator Revenue Share %"
-              type="number"
-              value={form.revenueShare}
-              onChange={(value) => updateField("revenueShare", value)}
-              placeholder="50"
-            />
+            <div className="rounded-2xl border border-sky-300/20 bg-sky-400/10 p-5">
+  <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-300">
+    Revenue Share
+  </p>
+
+  <p className="mt-3 text-sm leading-6 text-white/60">
+    Revenue share is automatically assigned according to
+    your SourceTV partner agreement and current platform
+    settings.
+  </p>
+</div>
           </div>
 
           <div className="mt-8 rounded-2xl border border-sky-300/20 bg-sky-400/10 p-4 text-sm leading-6 text-white/60">

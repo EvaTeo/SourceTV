@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import LogoutButton from "../LogoutButton";
@@ -13,6 +14,14 @@ import ViewerActions from "./ViewerActions";
 import ViewerNav from "./ViewerNav";
 import { partnerLinks } from "./headerLinks";
 
+type PublicSettings = {
+  platformName: string;
+};
+
+const defaultSettings: PublicSettings = {
+  platformName: "SourceTV",
+};
+
 export default function Header() {
   const pathname = usePathname();
 
@@ -21,6 +30,11 @@ export default function Header() {
 
   const [isPremium, setIsPremium] =
     useState(false);
+
+  const [settings, setSettings] =
+    useState<PublicSettings>(
+      defaultSettings
+    );
 
   const isLanding = pathname === "/";
 
@@ -41,12 +55,36 @@ export default function Header() {
     pathname.startsWith("/films") ||
     pathname.startsWith("/shows") ||
     pathname.startsWith("/animation") ||
-    pathname.startsWith("/documentaries") ||
+    pathname.startsWith(
+      "/documentaries"
+    ) ||
     pathname.startsWith("/genres");
 
   const logoHref = isLanding
     ? "/"
     : "/browse";
+
+  const logoParts = useMemo(() => {
+    const platformName =
+      settings.platformName.trim() ||
+      defaultSettings.platformName;
+
+    if (
+      platformName
+        .toLowerCase()
+        .endsWith("tv")
+    ) {
+      return {
+        main: platformName.slice(0, -2),
+        accent: platformName.slice(-2),
+      };
+    }
+
+    return {
+      main: platformName,
+      accent: "",
+    };
+  }, [settings.platformName]);
 
   function isPartnerLinkActive(
     href: string
@@ -63,6 +101,55 @@ export default function Header() {
   }, [pathname]);
 
   useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch(
+          "/api/settings",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: unknown =
+          await response.json();
+
+        if (
+          !data ||
+          typeof data !== "object"
+        ) {
+          return;
+        }
+
+        const result = data as {
+          platformName?: unknown;
+        };
+
+        if (
+          typeof result.platformName ===
+            "string" &&
+          result.platformName.trim()
+        ) {
+          setSettings({
+            platformName:
+              result.platformName.trim(),
+          });
+        }
+      } catch (error) {
+        console.error(
+          "Header settings load error:",
+          error
+        );
+      }
+    }
+
+    void loadSettings();
+  }, []);
+
+  useEffect(() => {
     async function loadSubscription() {
       try {
         const res = await fetch(
@@ -77,10 +164,16 @@ export default function Header() {
           return;
         }
 
-        const data = await res.json();
+        const data: unknown =
+          await res.json();
+
+        const subscription =
+          data as {
+            isPremium?: unknown;
+          };
 
         setIsPremium(
-          data?.isPremium === true
+          subscription?.isPremium === true
         );
       } catch {
         setIsPremium(false);
@@ -88,7 +181,7 @@ export default function Header() {
     }
 
     if (isViewer) {
-      loadSubscription();
+      void loadSubscription();
     }
   }, [isViewer]);
 
@@ -112,28 +205,34 @@ export default function Header() {
             href={logoHref}
             className="shrink-0 text-[1.55rem] font-black tracking-tight text-white"
           >
-            Source
-            <span className="text-sky-400">
-              TV
-            </span>
+            {logoParts.main}
+
+            {logoParts.accent && (
+              <span className="text-sky-400">
+                {logoParts.accent}
+              </span>
+            )}
           </Link>
 
           {isViewer && <ViewerNav />}
 
-          {isPartner && !isViewer && (
-            <nav className="hidden items-center gap-5 md:flex">
-              {partnerLinks.map((link) => (
-                <HeaderLink
-                  key={link.href}
-                  href={link.href}
-                  label={link.label}
-                  active={isPartnerLinkActive(
-                    link.href
-                  )}
-                />
-              ))}
-            </nav>
-          )}
+          {isPartner &&
+            !isViewer && (
+              <nav className="hidden items-center gap-5 md:flex">
+                {partnerLinks.map(
+                  (link) => (
+                    <HeaderLink
+                      key={link.href}
+                      href={link.href}
+                      label={link.label}
+                      active={isPartnerLinkActive(
+                        link.href
+                      )}
+                    />
+                  )
+                )}
+              </nav>
+            )}
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
@@ -152,7 +251,6 @@ export default function Header() {
               >
                 Login
               </Link>
-
             </>
           )}
 
@@ -162,9 +260,10 @@ export default function Header() {
             />
           )}
 
-          {isPartner && !isViewer && (
-            <LogoutButton />
-          )}
+          {isPartner &&
+            !isViewer && (
+              <LogoutButton />
+            )}
         </div>
 
         <button
@@ -198,7 +297,9 @@ export default function Header() {
         isViewer={isViewer}
         isPartner={isPartner}
         isPremium={isPremium}
-        close={() => setMobileOpen(false)}
+        close={() =>
+          setMobileOpen(false)
+        }
       />
     </header>
   );

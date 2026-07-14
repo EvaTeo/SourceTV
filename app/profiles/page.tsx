@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
 import { redirect } from "next/navigation";
 import ProfilesClient from "./ProfilesClient";
 
@@ -9,6 +10,13 @@ export default async function ProfilesPage() {
     redirect("/login");
   }
 
+  const settings =
+    await prisma.platformSettings.findFirst({
+      select: {
+        maxProfiles: true,
+      },
+    });
+
   return (
     <ProfilesClient
       account={{
@@ -16,6 +24,9 @@ export default async function ProfilesPage() {
         name: user.name,
         email: user.email,
       }}
+      maxProfiles={
+        settings?.maxProfiles ?? 5
+      }
     />
   );
 }
