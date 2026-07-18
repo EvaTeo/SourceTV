@@ -10,45 +10,19 @@ import {
 type PublicSettings = {
   platformName: string;
   tagline: string;
+  supportEmail: string;
+  contactEmail: string;
+  partnerApplications: boolean;
 };
 
 const defaultSettings: PublicSettings = {
   platformName: "SourceTV",
   tagline:
     "The Next Generation of Entertainment",
+  supportEmail: "support@sourcetv.com",
+  contactEmail: "contact@sourcetv.com",
+  partnerApplications: true,
 };
-
-const footerSections = [
-  {
-    title: "Account",
-    links: [
-      { label: "Account", href: "/account" },
-      { label: "Switch Profile", href: "/profiles" },
-      { label: "Manage Profiles", href: "/profiles" },
-      { label: "My List", href: "/watchlist" },
-      { label: "Settings", href: "/settings" },
-      { label: "Subscription", href: "/subscription" },
-    ],
-  },
-  {
-    title: "Creators & Partners",
-    links: [
-      { label: "Become a Partner", href: "/partner/apply" },
-      { label: "Partner Portal", href: "/partner" },
-      { label: "Submit Content", href: "/creator/submit" },
-      { label: "Partner Support", href: "/partner/inbox" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Terms of Use", href: "/terms" },
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "DMCA", href: "/dmca" },
-      { label: "Report Content", href: "/report-content" },
-    ],
-  },
-];
 
 export default function Footer() {
   const [settings, setSettings] =
@@ -83,6 +57,9 @@ export default function Footer() {
         const result = data as {
           platformName?: unknown;
           tagline?: unknown;
+          supportEmail?: unknown;
+          contactEmail?: unknown;
+          partnerApplications?: unknown;
         };
 
         setSettings({
@@ -99,6 +76,26 @@ export default function Footer() {
             result.tagline.trim()
               ? result.tagline.trim()
               : defaultSettings.tagline,
+
+          supportEmail:
+            typeof result.supportEmail ===
+              "string" &&
+            result.supportEmail.trim()
+              ? result.supportEmail.trim()
+              : defaultSettings.supportEmail,
+
+          contactEmail:
+            typeof result.contactEmail ===
+              "string" &&
+            result.contactEmail.trim()
+              ? result.contactEmail.trim()
+              : defaultSettings.contactEmail,
+
+          partnerApplications:
+            typeof result.partnerApplications ===
+            "boolean"
+              ? result.partnerApplications
+              : defaultSettings.partnerApplications,
         });
       } catch (error) {
         console.error(
@@ -133,11 +130,110 @@ export default function Footer() {
     };
   }, [settings.platformName]);
 
+  const footerSections = useMemo(() => {
+    const creatorLinks = [
+      ...(settings.partnerApplications
+        ? [
+            {
+              label: "Become a Partner",
+              href: "/partner/apply",
+            },
+          ]
+        : []),
+      {
+        label: "Partner Portal",
+        href: "/partner",
+      },
+      {
+        label: "Submit Content",
+        href: "/creator/submit",
+      },
+      {
+        label: "Partner Support",
+        href: "/partner/inbox",
+      },
+    ];
+
+    return [
+      {
+        title: "Account",
+        links: [
+          {
+            label: "Account",
+            href: "/account",
+          },
+          {
+            label: "Switch Profile",
+            href: "/profiles",
+          },
+          {
+            label: "Manage Profiles",
+            href: "/profiles",
+          },
+          {
+            label: "My List",
+            href: "/watchlist",
+          },
+          {
+            label: "Settings",
+            href: "/settings",
+          },
+          {
+            label: "Subscription",
+            href: "/subscription",
+          },
+        ],
+      },
+      {
+        title: "Creators & Partners",
+        links: creatorLinks,
+      },
+      {
+        title: "Help",
+        links: [
+          {
+            label: "Support",
+            href: `mailto:${settings.supportEmail}`,
+          },
+          {
+            label: "Contact",
+            href: `mailto:${settings.contactEmail}`,
+          },
+          {
+            label: "Report Content",
+            href: "/report-content",
+          },
+        ],
+      },
+      {
+        title: "Legal",
+        links: [
+          {
+            label: "Terms of Use",
+            href: "/terms",
+          },
+          {
+            label: "Privacy Policy",
+            href: "/privacy",
+          },
+          {
+            label: "DMCA",
+            href: "/dmca",
+          },
+        ],
+      },
+    ];
+  }, [
+    settings.contactEmail,
+    settings.partnerApplications,
+    settings.supportEmail,
+  ]);
+
   return (
     <footer className="relative border-t border-white/[0.07] bg-transparent">
       <div className="mx-auto max-w-[1440px] px-6 pb-28 pt-12 sm:px-8 sm:pb-24 lg:px-12 lg:pb-14 lg:pt-14">
         <div className="grid gap-12 lg:grid-cols-[1fr_auto] lg:items-start lg:gap-20">
-          <div className="grid grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3 sm:gap-x-16 lg:max-w-3xl">
+          <div className="grid grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-4 sm:gap-x-12 lg:max-w-4xl">
             {footerSections.map(
               (section) => (
                 <div key={section.title}>
@@ -181,21 +277,43 @@ export default function Footer() {
               )}
             </Link>
 
-            <p className="mt-2 max-w-[220px] text-left text-xs leading-5 text-white/35 lg:text-right">
+            <p className="mt-2 max-w-[240px] text-left text-xs leading-5 text-white/35 lg:text-right">
               {settings.tagline}
             </p>
+
+            <div className="mt-5 space-y-1 text-left text-xs text-white/30 lg:text-right">
+              <a
+                href={`mailto:${settings.supportEmail}`}
+                className="block transition hover:text-sky-300"
+              >
+                {settings.supportEmail}
+              </a>
+
+              {settings.contactEmail !==
+                settings.supportEmail && (
+                <a
+                  href={`mailto:${settings.contactEmail}`}
+                  className="block transition hover:text-sky-300"
+                >
+                  {settings.contactEmail}
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-white/[0.06] pt-6 text-xs text-white/25 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()}{" "}
-            {settings.platformName}. All rights reserved.
+            {settings.platformName}. All rights
+            reserved.
           </p>
 
           <div className="flex items-center gap-4">
             <span>United States</span>
+
             <span className="h-1 w-1 rounded-full bg-white/15" />
+
             <span>English</span>
           </div>
         </div>

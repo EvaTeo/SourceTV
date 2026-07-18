@@ -1,4 +1,3 @@
-import PartnerHeader from "@/app/components/PartnerHeader";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/app/lib/auth";
 import PartnerInboxClient from "./PartnerInboxClient";
@@ -14,9 +13,5 @@ export default async function PartnerInboxPage() {
     redirect("/partner/apply");
   }
 
-  return (
-    <>
-      <PartnerInboxClient />
-    </>
-  );
+  return <PartnerInboxClient />;
 }

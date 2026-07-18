@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Reply = {
@@ -28,7 +29,16 @@ type Message = {
   } | null;
 };
 
-const filters = ["all", "unread", "read"];
+type Filter = "all" | "unread" | "read";
+
+const filters: Array<{
+  label: string;
+  value: Filter;
+}> = [
+  { label: "All", value: "all" },
+  { label: "Unread", value: "unread" },
+  { label: "Read", value: "read" },
+];
 
 function formatDate(date: string) {
   return new Date(date).toLocaleString([], {
@@ -45,25 +55,45 @@ function formatShortDate(date: string) {
 }
 
 function stageLabel(stage?: string | null) {
-  if (!stage) return "General";
-  return stage.replaceAll("_", " ");
+  if (!stage) {
+    return "General";
+  }
+
+  const labels: Record<string, string> = {
+    submission: "Submission Received",
+    metadata_review: "Metadata Review",
+    content_review: "Content Review",
+    rights_review: "Rights Review",
+    approved: "Approved",
+    scheduled: "Scheduled",
+    published: "Published",
+    rejected: "Rejected",
+    archived: "Archived",
+  };
+
+  return labels[stage] || stage.replaceAll("_", " ");
 }
 
 function stageBadgeClass(stage?: string | null) {
-  if (stage === "published")
-    return "border-emerald-300/35 bg-emerald-300/10 text-emerald-200";
-  if (stage === "approved")
-    return "border-sky-300/35 bg-sky-300/10 text-sky-200";
-  if (stage === "scheduled")
-    return "border-violet-300/35 bg-violet-300/10 text-violet-200";
-  if (stage === "rejected")
-    return "border-red-400/35 bg-red-500/10 text-red-200";
-  if (stage === "rights_review")
-    return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
-  if (stage === "content_review")
-    return "border-blue-300/35 bg-blue-300/10 text-blue-200";
-  if (stage === "metadata_review")
-    return "border-cyan-300/35 bg-cyan-300/10 text-cyan-200";
+  if (stage === "published") {
+    return "border-emerald-300/20 bg-emerald-300/10 text-emerald-200";
+  }
+
+  if (stage === "approved") {
+    return "border-sky-300/20 bg-sky-300/10 text-sky-200";
+  }
+
+  if (stage === "scheduled") {
+    return "border-violet-300/20 bg-violet-300/10 text-violet-200";
+  }
+
+  if (stage === "rejected") {
+    return "border-red-300/20 bg-red-300/10 text-red-200";
+  }
+
+  if (stage === "rights_review") {
+    return "border-yellow-300/20 bg-yellow-300/10 text-yellow-100";
+  }
 
   return "border-white/10 bg-white/[0.04] text-white/55";
 }
@@ -72,7 +102,7 @@ export default function PartnerInboxClient() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [replyBodies, setReplyBodies] = useState<Record<string, string>>({});
   const [sendingReplyId, setSendingReplyId] = useState<string | null>(null);
 
@@ -80,22 +110,22 @@ export default function PartnerInboxClient() {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/partner/messages", {
+      const response = await fetch("/api/partner/messages", {
         cache: "no-store",
       });
 
-      if (res.status === 403 || res.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         window.location.href = "/login";
         return;
       }
 
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
-        setMessages(data);
-      } else {
-        setMessages([]);
+      if (!response.ok) {
+        throw new Error(`Failed to load messages: ${response.status}`);
       }
+
+      const data = await response.json();
+
+      setMessages(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("PARTNER MESSAGE LOAD ERROR:", error);
       setMessages([]);
@@ -105,12 +135,16 @@ export default function PartnerInboxClient() {
   }
 
   async function openMessage(message: Message) {
-    setSelectedMessage(selectedMessage === message.id ? null : message.id);
+    const opening = selectedMessage !== message.id;
 
-    if (message.isRead) return;
+    setSelectedMessage(opening ? message.id : null);
+
+    if (!opening || message.isRead) {
+      return;
+    }
 
     try {
-      await fetch("/api/partner/messages", {
+      const response = await fetch("/api/partner/messages", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -119,6 +153,10 @@ export default function PartnerInboxClient() {
           messageId: message.id,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to mark message as read");
+      }
 
       setMessages((current) =>
         current.map((item) =>
@@ -138,24 +176,29 @@ export default function PartnerInboxClient() {
   async function sendReply(messageId: string) {
     const body = replyBodies[messageId]?.trim();
 
-    if (!body) return;
+    if (!body) {
+      return;
+    }
 
     try {
       setSendingReplyId(messageId);
 
-      const res = await fetch(`/api/partner/messages/${messageId}/reply`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ body }),
-      });
+      const response = await fetch(
+        `/api/partner/messages/${messageId}/reply`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ body }),
+        }
+      );
 
-      if (!res.ok) {
+      if (!response.ok) {
         throw new Error("Failed to send reply");
       }
 
-      const newReply = await res.json();
+      const newReply = await response.json();
 
       setMessages((current) =>
         current.map((message) =>
@@ -181,18 +224,15 @@ export default function PartnerInboxClient() {
   }
 
   useEffect(() => {
-  loadMessages();
-}, []);
+    loadMessages();
+  }, []);
 
   const unreadCount = useMemo(
     () => messages.filter((message) => !message.isRead).length,
     [messages]
   );
 
-  const readCount = useMemo(
-    () => messages.filter((message) => message.isRead).length,
-    [messages]
-  );
+  const readCount = messages.length - unreadCount;
 
   const filteredMessages = useMemo(() => {
     if (activeFilter === "unread") {
@@ -204,353 +244,392 @@ export default function PartnerInboxClient() {
     }
 
     return messages;
-  }, [messages, activeFilter]);
+  }, [activeFilter, messages]);
 
-  const filterCounts = {
+  const filterCounts: Record<Filter, number> = {
     all: messages.length,
     unread: unreadCount,
     read: readCount,
   };
 
-  const latestMessage = messages[0];
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-32 pt-28 text-white md:px-10 md:pb-24">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(56,189,248,0.14),transparent_30%),radial-gradient(circle_at_85%_0%,rgba(14,165,233,0.08),transparent_26%),linear-gradient(to_bottom,#020617_0%,#000_46%)]" />
+    <div className="space-y-6">
+      <header className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-300">
+            SourceTV Partner Studio
+          </p>
 
-      <div className="relative z-10 mx-auto max-w-6xl">
-      
+          <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
+            Inbox
+          </h1>
 
-        <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.045] shadow-2xl backdrop-blur-xl">
-          <div className="border-b border-white/10 bg-white/[0.025] p-6 md:p-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-              SourceTV Partner Portal
-            </p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
+            Read messages from SourceTV review, rights, publishing, and partner
+            operations teams.
+          </p>
+        </div>
 
-            <div className="mt-4 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-              <div>
-                <h1 className="text-4xl font-black leading-[0.95] md:text-7xl">
-                  Partner Inbox
-                </h1>
+        <button
+          type="button"
+          onClick={loadMessages}
+          disabled={loading}
+          className="w-fit rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white/65 transition hover:border-sky-300/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Refreshing..." : "Refresh Inbox"}
+        </button>
+      </header>
 
-                <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-                  Official communications from SourceTV review, rights,
-                  publishing, and content operations teams.
-                </p>
-              </div>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <InboxStat
+          label="Total Messages"
+          value={messages.length}
+        />
 
-              <div className="flex flex-wrap gap-3">
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-4 text-center">
-                  <p className="text-2xl font-black text-white">{readCount}</p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                    Read
-                  </p>
-                </div>
+        <InboxStat
+          label="Unread"
+          value={unreadCount}
+          highlighted
+        />
 
-                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-center">
-                  <p className="text-2xl font-black text-sky-200">
-                    {unreadCount}
-                  </p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-sky-200/65">
-                    Unread
-                  </p>
-                </div>
+        <InboxStat
+          label="Read"
+          value={readCount}
+        />
+      </section>
 
-                <div className="rounded-2xl border border-white/10 bg-black/25 px-5 py-4 text-center">
-                  <p className="text-2xl font-black text-white">
-                    {messages.length}
-                  </p>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                    Total
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+      <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => {
+            const active = activeFilter === filter.value;
 
-          {latestMessage && (
-            <div className="grid gap-4 p-5 md:grid-cols-[1.3fr_0.7fr] md:p-6">
-              <div className="rounded-[1.4rem] border border-white/10 bg-black/25 p-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
-                  Latest Message
-                </p>
-
-                <h2 className="mt-3 line-clamp-2 text-xl font-black text-white">
-                  {latestMessage.subject}
-                </h2>
-
-                <p className="mt-2 text-xs font-bold text-white/45">
-                  {latestMessage.senderTeam} •{" "}
-                  {formatDate(latestMessage.createdAt)}
-                </p>
-              </div>
-
+            return (
               <button
-                onClick={loadMessages}
-                className="rounded-[1.4rem] border border-white/10 bg-white/[0.035] p-5 text-left transition hover:border-sky-300/35 hover:bg-sky-300/10"
+                key={filter.value}
+                type="button"
+                onClick={() => setActiveFilter(filter.value)}
+                className={`rounded-xl px-4 py-2.5 text-xs font-black transition ${
+                  active
+                    ? "bg-sky-300 text-black"
+                    : "border border-white/10 bg-black/20 text-white/50 hover:border-sky-300/25 hover:text-white"
+                }`}
               >
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                  Sync Inbox
-                </p>
-
-                <p className="mt-3 text-sm font-bold leading-6 text-white/55">
-                  Refresh partner communications from SourceTV operations.
-                </p>
+                {filter.label} ({filterCounts[filter.value]})
               </button>
-            </div>
-          )}
-        </section>
+            );
+          })}
+        </div>
+      </section>
 
-        <section className="mt-7 rounded-[1.5rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {filters.map((filter) => {
-              const active = activeFilter === filter;
+      <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-6">
+        <div className="border-b border-white/10 pb-5">
+          <h2 className="text-xl font-black">
+            Messages
+          </h2>
 
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
-                    active
-                      ? "border-sky-300 text-sky-300"
-                      : "border-transparent text-white/38 hover:text-white/72"
-                  }`}
-                >
-                  {filter} ({filterCounts[filter as keyof typeof filterCounts]})
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          <p className="mt-1 text-sm text-white/38">
+            {loading
+              ? "Loading communications..."
+              : `${filteredMessages.length} ${
+                  filteredMessages.length === 1 ? "message" : "messages"
+                }`}
+          </p>
+        </div>
 
-        <section className="mt-8">
+        <div className="mt-5">
           {loading ? (
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-              Loading partner messages...
-            </div>
+            <LoadingState />
           ) : messages.length === 0 ? (
             <EmptyInbox />
           ) : filteredMessages.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-              No messages found for this view.
-            </div>
+            <EmptyFilter />
           ) : (
-            <div className="grid gap-3">
-              {filteredMessages.map((message) => {
-                const expanded = selectedMessage === message.id;
-                const replies = message.replies || [];
-
-                return (
-                  <article
-                    key={message.id}
-                    className={`overflow-hidden rounded-[1.4rem] border shadow-[0_18px_55px_rgba(0,0,0,0.35)] transition-all duration-300 ${
-                      !message.isRead
-                        ? "border-sky-300/35 bg-sky-300/[0.055]"
-                        : "border-white/10 bg-white/[0.032]"
-                    } ${expanded ? "bg-white/[0.05]" : ""}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => openMessage(message)}
-                      className="w-full text-left"
-                    >
-                      <div className="grid gap-4 p-5 md:grid-cols-[auto_1fr_auto] md:items-center">
-                        <div className="flex items-center gap-4">
-                          {!message.isRead ? (
-                            <div className="h-3 w-3 rounded-full bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.95)]" />
-                          ) : (
-                            <div className="h-3 w-3 rounded-full bg-white/12" />
-                          )}
-
-                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-sm font-black text-sky-200">
-                            {message.senderTeam
-                              .split(" ")
-                              .map((word) => word[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </div>
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="truncate text-lg font-black text-white md:text-xl">
-                              {message.subject}
-                            </h2>
-
-                            {!message.isRead && (
-                              <span className="rounded-full bg-sky-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-black">
-                                New
-                              </span>
-                            )}
-
-                            {replies.length > 0 && (
-                              <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/60">
-                                {replies.length} Replies
-                              </span>
-                            )}
-
-                            {message.project?.workflowStage && (
-                              <span
-                                className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${stageBadgeClass(
-                                  message.project.workflowStage
-                                )}`}
-                              >
-                                {stageLabel(message.project.workflowStage)}
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="mt-1 text-xs font-bold text-white/42">
-                            {message.senderTeam} • {formatDate(message.createdAt)}
-                          </p>
-
-                          <p className="mt-3 line-clamp-1 text-sm leading-6 text-white/42">
-                            {replies.length > 0
-                              ? replies[replies.length - 1].body
-                              : message.body}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4 md:justify-end">
-                          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/28">
-                            {formatShortDate(message.createdAt)}
-                          </p>
-
-                          <div
-                            className={`flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white/45 transition ${
-                              expanded ? "rotate-180" : ""
-                            }`}
-                          >
-                            ↓
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-
-                    <div
-                      className={`grid transition-all duration-300 ${
-                        expanded
-                          ? "grid-rows-[1fr] opacity-100"
-                          : "grid-rows-[0fr] opacity-0"
-                      }`}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="border-t border-white/10 px-5 py-6 md:px-8">
-                          <div className="rounded-[1.4rem] border border-white/10 bg-black/30 p-5 md:p-6">
-                            <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-5 md:flex-row md:items-start">
-                              <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                                  Conversation
-                                </p>
-
-                                <h3 className="mt-2 text-2xl font-black text-white">
-                                  {message.subject}
-                                </h3>
-                              </div>
-
-                              <p className="shrink-0 text-xs font-bold text-white/38">
-                                {formatDate(message.createdAt)}
-                              </p>
-                            </div>
-
-                            <div className="mt-6 grid gap-4">
-                              <ThreadBubble
-                                role="admin"
-                                name={message.senderTeam}
-                                body={message.body}
-                                date={message.createdAt}
-                              />
-
-                              {replies.map((reply) => (
-                                <ThreadBubble
-                                  key={reply.id}
-                                  role={reply.senderRole}
-                                  name={
-                                    reply.senderName ||
-                                    reply.senderEmail ||
-                                    reply.senderRole
-                                  }
-                                  body={reply.body}
-                                  date={reply.createdAt}
-                                />
-                              ))}
-                            </div>
-
-                            {message.project && (
-                              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-                                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-                                  Related Project
-                                </p>
-
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <span className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black text-white/75">
-                                    {message.project.title}
-                                  </span>
-
-                                  <span
-                                    className={`rounded-full border px-3 py-2 text-xs font-black capitalize ${stageBadgeClass(
-                                      message.project.workflowStage
-                                    )}`}
-                                  >
-                                    {stageLabel(message.project.workflowStage)}
-                                  </span>
-
-                                  {message.project.recognitionLevel && (
-                                    <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-black text-sky-200">
-                                      {message.project.recognitionLevel}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="mt-6 rounded-[1.2rem] border border-sky-300/15 bg-sky-300/[0.045] p-4">
-                              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-sky-300">
-                                Reply to SourceTV
-                              </p>
-
-                              <textarea
-                                value={replyBodies[message.id] || ""}
-                                onChange={(event) =>
-                                  setReplyBodies((current) => ({
-                                    ...current,
-                                    [message.id]: event.target.value,
-                                  }))
-                                }
-                                placeholder="Write your response..."
-                                rows={4}
-                                className="mt-4 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm font-bold leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/45 focus:bg-black/65"
-                              />
-
-                              <div className="mt-4 flex justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => sendReply(message.id)}
-                                  disabled={
-                                    sendingReplyId === message.id ||
-                                    !replyBodies[message.id]?.trim()
-                                  }
-                                  className="rounded-full bg-sky-300 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  {sendingReplyId === message.id
-                                    ? "Sending..."
-                                    : "Send Reply"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="space-y-3">
+              {filteredMessages.map((message) => (
+                <MessageCard
+                  key={message.id}
+                  message={message}
+                  expanded={selectedMessage === message.id}
+                  replyBody={replyBodies[message.id] || ""}
+                  sending={sendingReplyId === message.id}
+                  onOpen={() => openMessage(message)}
+                  onReplyChange={(value) =>
+                    setReplyBodies((current) => ({
+                      ...current,
+                      [message.id]: value,
+                    }))
+                  }
+                  onSendReply={() => sendReply(message.id)}
+                />
+              ))}
             </div>
           )}
-        </section>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function InboxStat({
+  label,
+  value,
+  highlighted = false,
+}: {
+  label: string;
+  value: number;
+  highlighted?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        highlighted
+          ? "border-sky-300/20 bg-sky-300/[0.07]"
+          : "border-white/10 bg-white/[0.035]"
+      }`}
+    >
+      <p
+        className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+          highlighted ? "text-sky-200/65" : "text-white/35"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p
+        className={`mt-3 text-2xl font-black ${
+          highlighted ? "text-sky-200" : "text-white"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MessageCard({
+  message,
+  expanded,
+  replyBody,
+  sending,
+  onOpen,
+  onReplyChange,
+  onSendReply,
+}: {
+  message: Message;
+  expanded: boolean;
+  replyBody: string;
+  sending: boolean;
+  onOpen: () => void;
+  onReplyChange: (value: string) => void;
+  onSendReply: () => void;
+}) {
+  const replies = message.replies || [];
+  const preview =
+    replies.length > 0
+      ? replies[replies.length - 1].body
+      : message.body;
+
+  return (
+    <article
+      className={`overflow-hidden rounded-2xl border transition ${
+        !message.isRead
+          ? "border-sky-300/25 bg-sky-300/[0.045]"
+          : "border-white/10 bg-black/20"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full p-4 text-left transition hover:bg-white/[0.025]"
+      >
+        <div className="grid gap-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center">
+          <div className="flex items-center gap-3">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                message.isRead
+                  ? "bg-white/15"
+                  : "bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.8)]"
+              }`}
+            />
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-xs font-black text-sky-200">
+              {message.senderTeam
+                .split(" ")
+                .map((word) => word[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="truncate text-base font-black text-white">
+                {message.subject}
+              </h3>
+
+              {!message.isRead && (
+                <span className="rounded-full bg-sky-300 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-black">
+                  New
+                </span>
+              )}
+
+              {replies.length > 0 && (
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/45">
+                  {replies.length}{" "}
+                  {replies.length === 1 ? "Reply" : "Replies"}
+                </span>
+              )}
+
+              {message.project?.workflowStage && (
+                <span
+                  className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${stageBadgeClass(
+                    message.project.workflowStage
+                  )}`}
+                >
+                  {stageLabel(message.project.workflowStage)}
+                </span>
+              )}
+            </div>
+
+            <p className="mt-1 text-xs font-semibold text-white/35">
+              {message.senderTeam}
+            </p>
+
+            <p className="mt-2 line-clamp-1 text-sm leading-6 text-white/40">
+              {preview}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 md:justify-end">
+            <p className="text-xs font-semibold text-white/30">
+              {formatShortDate(message.createdAt)}
+            </p>
+
+            <span
+              className={`flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/25 text-sm text-white/40 transition ${
+                expanded ? "rotate-180" : ""
+              }`}
+            >
+              ↓
+            </span>
+          </div>
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ${
+          expanded
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-white/10 p-5 md:p-6">
+            <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                  Conversation
+                </p>
+
+                <h4 className="mt-2 text-xl font-black text-white">
+                  {message.subject}
+                </h4>
+              </div>
+
+              <p className="text-xs font-semibold text-white/35">
+                {formatDate(message.createdAt)}
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <ThreadBubble
+                role="admin"
+                name={message.senderTeam}
+                body={message.body}
+                date={message.createdAt}
+              />
+
+              {replies.map((reply) => (
+                <ThreadBubble
+                  key={reply.id}
+                  role={reply.senderRole}
+                  name={
+                    reply.senderName ||
+                    reply.senderEmail ||
+                    reply.senderRole
+                  }
+                  body={reply.body}
+                  date={reply.createdAt}
+                />
+              ))}
+            </div>
+
+            {message.project && (
+              <Link
+                href={`/partner/projects/${message.project.id}`}
+                className="group mt-5 flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 transition hover:border-sky-300/25 sm:flex-row sm:items-center"
+              >
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">
+                    Related Project
+                  </p>
+
+                  <p className="mt-2 font-black text-white">
+                    {message.project.title}
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${stageBadgeClass(
+                        message.project.workflowStage
+                      )}`}
+                    >
+                      {stageLabel(message.project.workflowStage)}
+                    </span>
+
+                    {message.project.recognitionLevel && (
+                      <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-sky-200">
+                        {message.project.recognitionLevel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <span className="text-xs font-black text-sky-200 transition group-hover:translate-x-1">
+                  Open Project →
+                </span>
+              </Link>
+            )}
+
+            <div className="mt-5 border-t border-white/10 pt-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
+                Reply to SourceTV
+              </p>
+
+              <textarea
+                value={replyBody}
+                onChange={(event) => onReplyChange(event.target.value)}
+                placeholder="Write your response..."
+                rows={4}
+                className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-sky-300/35"
+              />
+
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onSendReply}
+                  disabled={sending || !replyBody.trim()}
+                  className="rounded-xl bg-sky-300 px-5 py-3 text-xs font-black text-black transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {sending ? "Sending..." : "Send Reply"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </main>
+    </article>
   );
 }
 
@@ -569,72 +648,75 @@ function ThreadBubble({
 
   return (
     <div
-      className={`rounded-[1.2rem] border p-4 ${
+      className={`rounded-2xl border p-4 ${
         isPartner
-          ? "ml-0 border-sky-300/20 bg-sky-300/[0.075] md:ml-16"
-          : "mr-0 border-white/10 bg-white/[0.035] md:mr-16"
+          ? "ml-0 border-sky-300/20 bg-sky-300/[0.065] md:ml-14"
+          : "mr-0 border-white/10 bg-white/[0.025] md:mr-14"
       }`}
     >
-      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
+      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <p
-          className={`text-[10px] font-black uppercase tracking-[0.22em] ${
-            isPartner ? "text-sky-200" : "text-white/45"
+          className={`text-[9px] font-black uppercase tracking-[0.2em] ${
+            isPartner ? "text-sky-200" : "text-white/40"
           }`}
         >
-          {isPartner ? "Partner Reply" : name}
+          {isPartner ? "You" : name}
         </p>
 
-        <p className="text-[11px] font-bold text-white/35">{formatDate(date)}</p>
+        <p className="text-[11px] font-semibold text-white/30">
+          {formatDate(date)}
+        </p>
       </div>
 
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/68">
+      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-white/65">
         {body}
       </p>
     </div>
   );
 }
 
-function EmptyInbox() {
+function LoadingState() {
   return (
-    <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/[0.04] shadow-2xl backdrop-blur-xl">
-      <div className="border-b border-white/10 bg-white/[0.025] p-8 md:p-10">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-300/10 text-2xl">
-          ✉
-        </div>
-
-        <h2 className="mt-6 text-3xl font-black text-white">
-          Your SourceTV communications will appear here.
-        </h2>
-
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-white/55">
-          Messages from content reviewers, rights teams, publishing staff, and
-          partner operations will be delivered directly to this inbox.
-        </p>
-      </div>
-
-      <div className="grid gap-4 p-6 md:grid-cols-3">
-        <EmptyFeature
-          title="Review Notes"
-          body="Metadata, content, and rights feedback."
+    <div className="space-y-3">
+      {[1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className="h-28 animate-pulse rounded-2xl border border-white/10 bg-black/20"
         />
-        <EmptyFeature
-          title="Publishing Updates"
-          body="Scheduling, approval, and release status."
-        />
-        <EmptyFeature
-          title="Partner Support"
-          body="Direct updates from SourceTV teams."
-        />
-      </div>
+      ))}
     </div>
   );
 }
 
-function EmptyFeature({ title, body }: { title: string; body: string }) {
+function EmptyInbox() {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
-      <p className="text-sm font-black text-white">{title}</p>
-      <p className="mt-2 text-xs leading-6 text-white/45">{body}</p>
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-8">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/10 text-xl">
+        ✉
+      </div>
+
+      <h3 className="mt-5 text-xl font-black text-white">
+        Your inbox is empty
+      </h3>
+
+      <p className="mt-2 max-w-xl text-sm leading-6 text-white/40">
+        Messages from SourceTV review, rights, publishing, and partner
+        operations teams will appear here.
+      </p>
+    </div>
+  );
+}
+
+function EmptyFilter() {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-8 text-center">
+      <h3 className="text-lg font-black text-white">
+        No messages in this view
+      </h3>
+
+      <p className="mt-2 text-sm text-white/40">
+        Select another inbox filter to see more messages.
+      </p>
     </div>
   );
 }

@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import InboxStats from "./components/InboxStats";
 import ComposeMessageCard from "./components/ComposeMessageCard";
-import ThreadList from "./components/ThreadList";
-import ThreadView from "./components/ThreadView";
+import InboxStats from "@/app/components/inbox/InboxStats";
+import ThreadList from "@/app/components/inbox/ThreadList";
+import ThreadView from "@/app/components/inbox/ThreadView";
 
 type ProjectOption = {
   id: string;
@@ -324,11 +324,25 @@ export default function AdminInboxPage() {
       </section>
 
       <InboxStats
-        total={messages.length}
-        unread={unreadCount}
-        replies={unreadPartnerReplyCount}
-        partners={partnerCount}
-      />
+  stats={[
+    {
+      label: "Total Threads",
+      value: messages.length,
+    },
+    {
+      label: "Unread",
+      value: unreadCount,
+    },
+    {
+      label: "Partner Replies",
+      value: unreadPartnerReplyCount,
+    },
+    {
+      label: "Partners",
+      value: partnerCount,
+    },
+  ]}
+/>
 
       <section className="grid gap-6 xl:grid-cols-[420px_1fr]">
         <ComposeMessageCard
@@ -362,17 +376,52 @@ export default function AdminInboxPage() {
           ) : (
             <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
               <ThreadList
-                messages={messages}
-                selectedId={selectedMessageId}
-                onSelect={(id) => {
-                  const thread = messages.find((item) => item.id === id);
-                  if (thread) openThread(thread);
-                }}
-                formatDate={formatDate}
-              />
+  threads={messages.map((item) => ({
+    id: item.id,
+    title: item.subject,
+    participant:
+      item.partnerName ||
+      item.partnerEmail ||
+      "Unknown Partner",
+    preview: item.body,
+    date: formatDate(item.createdAt),
+    unread: !item.isRead,
+    replies: item.replies?.length ?? 0,
+  }))}
+  selectedId={selectedMessageId}
+  onSelect={(id) => {
+    const thread = messages.find((item) => item.id === id);
 
-              <ThreadView
-                message={selectedMessage}
+    if (thread) {
+      openThread(thread);
+    }
+  }}
+/>
+
+                          <ThreadView
+                conversation={
+                  selectedMessage
+                    ? [
+                        {
+                          id: selectedMessage.id,
+                          title: selectedMessage.senderTeam,
+                          body: selectedMessage.body,
+                          date: formatDate(selectedMessage.createdAt),
+                          isOwn: true,
+                        },
+                        ...(selectedMessage.replies ?? []).map((reply) => ({
+                          id: reply.id,
+                          title:
+                            reply.senderName ||
+                            reply.senderEmail ||
+                            reply.senderRole,
+                          body: reply.body,
+                          date: formatDate(reply.createdAt),
+                          isOwn: reply.senderRole !== "partner",
+                        })),
+                      ]
+                    : []
+                }
                 reply={replyBodies[selectedMessageId ?? ""] || ""}
                 setReply={(value) =>
                   setReplyBodies((current) => ({
@@ -386,7 +435,6 @@ export default function AdminInboxPage() {
                     sendThreadReply(selectedMessageId);
                   }
                 }}
-                formatDate={formatDate}
               />
             </div>
           )}

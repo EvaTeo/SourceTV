@@ -13,9 +13,5 @@ export default async function PartnerDashboardPage() {
     redirect("/partner/apply");
   }
 
-  return (
-    <>
-      <PartnerDashboardClient />
-    </>
-  );
+  return <PartnerDashboardClient />;
 }
