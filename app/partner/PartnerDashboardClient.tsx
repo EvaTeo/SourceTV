@@ -178,22 +178,17 @@ export default function PartnerDashboardClient() {
     <div className="space-y-6">
       <header className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-300">
-            SourceTV Partner Studio
-          </p>
+          <h1 className="text-4xl font-black tracking-tight">
+  Overview
+</h1>
 
-          <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-            Overview
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
-            Manage your submissions, review progress, contracts, and published
-            work.
-          </p>
+<p className="mt-2 text-sm text-white/45">
+  Welcome back. Manage your projects, contracts, publishing, and revenue from one place.
+</p>
         </div>
 
         <Link
-          href="/creator/submit"
+href="/partner/submit"
           className="w-fit rounded-xl bg-sky-300 px-5 py-3 text-sm font-black text-black transition hover:bg-sky-200"
         >
           Submit New Work
@@ -480,7 +475,7 @@ function EmptyProjects() {
       </p>
 
       <Link
-        href="/creator/submit"
+href="/partner/submit"
         className="mt-5 inline-flex rounded-xl bg-sky-300 px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-200"
       >
         Submit Your First Work

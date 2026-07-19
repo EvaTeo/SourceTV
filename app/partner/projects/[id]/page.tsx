@@ -1,4 +1,3 @@
-import PartnerHeader from "@/app/components/PartnerHeader";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/app/lib/prisma";

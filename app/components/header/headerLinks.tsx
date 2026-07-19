@@ -21,9 +21,9 @@ export const partnerLinks: HeaderNavLink[] = [
     href: "/partner/revenue",
   },
   {
-    label: "Submit",
-    href: "/creator/submit",
-  },
+  label: "Submit",
+  href: "/partner/submit",
+},
 ];
 
 export const popularGenres: HeaderNavLink[] = [

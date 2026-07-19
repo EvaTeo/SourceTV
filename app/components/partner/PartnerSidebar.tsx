@@ -16,7 +16,7 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
-    title: "Studio",
+    title: "Workspace",
     items: [
       {
         href: "/partner",
@@ -25,28 +25,13 @@ const navGroups: NavGroup[] = [
       },
       {
         href: "/partner/projects",
-        label: "My Projects",
+        label: "Projects",
         icon: "projects",
       },
       {
-        href: "/creator/submit",
-        label: "Submit Work",
+        href: "/partner/submit",
+        label: "Submit New Work",
         icon: "upload",
-      },
-    ],
-  },
-  {
-    title: "Performance",
-    items: [
-      {
-        href: "/partner/analytics",
-        label: "Analytics",
-        icon: "analytics",
-      },
-      {
-        href: "/partner/revenue",
-        label: "Revenue",
-        icon: "revenue",
       },
     ],
   },
@@ -59,24 +44,14 @@ const navGroups: NavGroup[] = [
         icon: "contracts",
       },
       {
+        href: "/partner/revenue",
+        label: "Revenue",
+        icon: "revenue",
+      },
+      {
         href: "/partner/inbox",
         label: "Messages",
         icon: "messages",
-      },
-    ],
-  },
-  {
-    title: "Account",
-    items: [
-      {
-        href: "/partner/account",
-        label: "Partner Profile",
-        icon: "account",
-      },
-      {
-        href: "/browse",
-        label: "View SourceTV",
-        icon: "external",
       },
     ],
   },
@@ -86,12 +61,14 @@ export default function PartnerSidebar() {
   const pathname = usePathname();
 
   async function logout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-
-    localStorage.removeItem("sourcetvUser");
-    window.location.href = "/login";
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } finally {
+      localStorage.removeItem("sourcetvUser");
+      window.location.href = "/login";
+    }
   }
 
   function isActive(href: string) {
@@ -99,36 +76,39 @@ export default function PartnerSidebar() {
       return pathname === "/partner";
     }
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-[9999] flex h-screen w-[270px] flex-col border-r border-white/10 bg-[#05070d]">
-      <div className="relative px-7 pb-6 pt-7">
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-[270px] flex-col border-r border-white/[0.08] bg-[#05070d]">
+      <div className="px-7 pb-7 pt-8">
         <Link
           href="/partner"
-          className="group inline-flex items-center gap-3"
+          className="inline-block"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition group-hover:border-sky-300/35 group-hover:bg-white/[0.06]">
-            <div className="h-5 w-5 rounded-md border-2 border-sky-300" />
-          </div>
+          <h1 className="text-[1.65rem] font-black leading-none tracking-[-0.04em] text-white">
+            Source
+            <span className="text-sky-300">
+              TV
+            </span>
+          </h1>
 
-          <div>
-            <h1 className="text-2xl font-black leading-none tracking-tight text-white">
-              Source<span className="text-sky-300">TV</span>
-            </h1>
-
-            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
-              Partner Studio
-            </p>
-          </div>
+          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+            Partner Portal
+          </p>
         </Link>
       </div>
 
-      <nav className="relative flex-1 overflow-y-auto px-3 pb-4">
+      <nav className="flex-1 overflow-y-auto px-3 pb-5">
         {navGroups.map((group) => (
-          <div key={group.title} className="mb-5">
-            <p className="mb-1.5 px-4 text-[10px] font-black uppercase tracking-[0.26em] text-white/25">
+          <div
+            key={group.title}
+            className="mb-6"
+          >
+            <p className="mb-2 px-4 text-[9px] font-black uppercase tracking-[0.28em] text-white/22">
               {group.title}
             </p>
 
@@ -140,28 +120,26 @@ export default function PartnerSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-2.5 transition ${
+                    className={`group relative flex items-center gap-3 rounded-xl px-4 py-3 transition ${
                       active
-                        ? "bg-white/[0.05] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                        : "text-white/46 hover:bg-white/[0.035] hover:text-white/85"
+                        ? "bg-white/[0.065] text-white"
+                        : "text-white/42 hover:bg-white/[0.035] hover:text-white/85"
                     }`}
                   >
                     <span
-                      className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full transition ${
+                      className={`absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full transition ${
                         active
-                          ? "bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.65)]"
+                          ? "bg-sky-300"
                           : "bg-transparent"
                       }`}
                     />
 
-                    <span className="relative">
-                      <PartnerIcon
-                        name={item.icon}
-                        active={active}
-                      />
-                    </span>
+                    <PartnerIcon
+                      name={item.icon}
+                      active={active}
+                    />
 
-                    <span className="relative text-sm font-black">
+                    <span className="text-sm font-bold">
                       {item.label}
                     </span>
                   </Link>
@@ -172,68 +150,39 @@ export default function PartnerSidebar() {
         ))}
       </nav>
 
-      <div className="relative border-t border-white/10 p-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-            Partner Access
-          </p>
-
-          <div className="mt-4 space-y-3">
-            <StatusRow
-              label="Account"
-              value="Active"
+      <div className="border-t border-white/[0.08] px-4 pb-5 pt-4">
+        <div className="space-y-1">
+          <Link
+            href="/browse"
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/42 transition hover:bg-white/[0.035] hover:text-white"
+          >
+            <PartnerIcon
+              name="external"
+              active={false}
             />
 
-            <StatusRow
-              label="Submissions"
-              value="Open"
+            View SourceTV
+          </Link>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/42 transition hover:bg-red-500/[0.08] hover:text-red-300"
+          >
+            <PartnerIcon
+              name="logout"
+              active={false}
             />
 
-            <StatusRow
-              label="Payments"
-              value="Connected"
-            />
-          </div>
+            Log Out
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={logout}
-          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 text-sm font-semibold text-white/55 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
-        >
-          <PartnerIcon
-            name="logout"
-            active={false}
-          />
-
-          Logout
-        </button>
+        <p className="mt-5 px-4 text-[10px] font-semibold text-white/18">
+          SourceTV Partner Portal
+        </p>
       </div>
     </aside>
-  );
-}
-
-function StatusRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-
-        <span className="text-sm text-white/75">
-          {label}
-        </span>
-      </div>
-
-      <span className="text-xs text-emerald-400">
-        {value}
-      </span>
-    </div>
   );
 }
 
@@ -246,65 +195,92 @@ function PartnerIcon({
 }) {
   const color = active
     ? "text-sky-300"
-    : "text-white/42";
+    : "text-white/38";
 
   return (
     <span
-      className={`flex h-5 w-5 shrink-0 items-center justify-center ${color}`}
+      className={`flex h-5 w-5 shrink-0 items-center justify-center transition ${color}`}
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="h-5 w-5"
+        aria-hidden="true"
       >
         {name === "overview" && (
           <>
-            <path d="M4 5.5h7v6H4z" />
-            <path d="M13 5.5h7v13h-7z" />
-            <path d="M4 13.5h7v5H4z" />
+            <rect
+              x="4"
+              y="4"
+              width="6"
+              height="6"
+              rx="1"
+            />
+            <rect
+              x="14"
+              y="4"
+              width="6"
+              height="10"
+              rx="1"
+            />
+            <rect
+              x="4"
+              y="14"
+              width="6"
+              height="6"
+              rx="1"
+            />
+            <rect
+              x="14"
+              y="18"
+              width="6"
+              height="2"
+              rx="1"
+            />
           </>
         )}
 
         {name === "projects" && (
           <>
-            <path d="M5 5h14v14H5z" />
+            <rect
+              x="4"
+              y="5"
+              width="16"
+              height="14"
+              rx="2"
+            />
             <path d="m10 9 5 3-5 3z" />
           </>
         )}
 
         {name === "upload" && (
           <>
-            <path d="M12 17V5" />
-            <path d="m7 10 5-5 5 5" />
-            <path d="M5 19h14" />
-          </>
-        )}
-
-        {name === "analytics" && (
-          <>
-            <path d="M4 19V5" />
-            <path d="M4 19h16" />
-            <path d="M8 15v-4" />
-            <path d="M12 15V8" />
-            <path d="M16 15v-7" />
+            <path d="M12 16V4" />
+            <path d="m7 9 5-5 5 5" />
+            <path d="M5 20h14" />
           </>
         )}
 
         {name === "revenue" && (
           <>
-            <path d="M12 3v18" />
-            <path d="M17 7.5c-.8-1.2-2.3-2-4.3-2H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6h-2.7c-2 0-3.5-.8-4.3-2" />
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+            />
+            <path d="M15.5 8.5c-.7-.9-1.8-1.4-3.2-1.4h-.7a2.3 2.3 0 0 0 0 4.6h1a2.3 2.3 0 0 1 0 4.6h-.8c-1.4 0-2.5-.5-3.3-1.4" />
+            <path d="M12 5.5v13" />
           </>
         )}
 
         {name === "contracts" && (
           <>
-            <path d="M6 3h9l3 3v15H6z" />
-            <path d="M15 3v4h4" />
+            <path d="M6 3h8l4 4v14H6z" />
+            <path d="M14 3v5h5" />
             <path d="M9 13h6" />
             <path d="M9 17h4" />
           </>
@@ -312,16 +288,9 @@ function PartnerIcon({
 
         {name === "messages" && (
           <>
-            <path d="M5 6h14v10H8l-3 3z" />
-            <path d="M9 10h6" />
-            <path d="M9 13h4" />
-          </>
-        )}
-
-        {name === "account" && (
-          <>
-            <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-            <path d="M4.5 21c.8-4.4 3.3-7 7.5-7s6.7 2.6 7.5 7" />
+            <path d="M4 5h16v11H8l-4 4z" />
+            <path d="M8 9h8" />
+            <path d="M8 12h5" />
           </>
         )}
 
@@ -335,9 +304,9 @@ function PartnerIcon({
 
         {name === "logout" && (
           <>
-            <path d="M10 6H6v12h4" />
-            <path d="M14 8l4 4-4 4" />
-            <path d="M18 12H9" />
+            <path d="M10 5H5v14h5" />
+            <path d="m15 8 4 4-4 4" />
+            <path d="M19 12H9" />
           </>
         )}
       </svg>

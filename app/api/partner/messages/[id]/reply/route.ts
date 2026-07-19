@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/app/lib/prisma";
 import { getCurrentUser } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
@@ -10,11 +10,20 @@ export async function POST(
     const currentUser = await getCurrentUser();
 
     if (!currentUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    if (currentUser.role !== "partner" && currentUser.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (
+      currentUser.role !== "partner" &&
+      currentUser.role !== "admin"
+    ) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
     }
 
     const { id } = await params;
@@ -29,22 +38,37 @@ export async function POST(
       );
     }
 
-    const message = await prisma.partnerMessage.findUnique({
-      where: {
-        id,
-      },
+    const message = await prisma.partnerMessage.findFirst({
+      where:
+        currentUser.role === "admin"
+          ? {
+              id,
+            }
+          : {
+              id,
+              OR: [
+                {
+                  partnerEmail: currentUser.email,
+                },
+                {
+                  project: {
+                    creatorEmail: currentUser.email,
+                  },
+                },
+              ],
+            },
     });
 
     if (!message) {
-      return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    }
-
-    if (
-      currentUser.role === "partner" &&
-      message.partnerEmail &&
-      message.partnerEmail !== currentUser.email
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        {
+          error:
+            currentUser.role === "admin"
+              ? "Message not found"
+              : "Message not found or access denied",
+        },
+        { status: 404 }
+      );
     }
 
     const reply = await prisma.partnerMessageReply.create({
@@ -54,7 +78,7 @@ export async function POST(
         senderName: currentUser.name,
         senderEmail: currentUser.email,
         body: replyBody,
-isRead: currentUser.role === "admin",
+        isRead: currentUser.role === "admin",
       },
     });
 

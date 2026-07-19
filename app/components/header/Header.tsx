@@ -42,8 +42,7 @@ export default function Header() {
     pathname.startsWith("/admin");
 
   const isPartner =
-    pathname.startsWith("/partner") ||
-    pathname.startsWith("/creator");
+  pathname.startsWith("/partner");
 
   const isViewer =
     pathname.startsWith("/browse") ||
@@ -185,9 +184,9 @@ export default function Header() {
     }
   }, [isViewer]);
 
-  if (isAdmin) {
-    return null;
-  }
+  if (isAdmin || isPartner) {
+  return null;
+}
 
   return (
     <header className="fixed left-0 top-0 z-50 w-full">

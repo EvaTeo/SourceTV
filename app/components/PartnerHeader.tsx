@@ -30,9 +30,9 @@ export default function PartnerHeader() {
               Revenue
             </Link>
 
-            <Link href="/creator/submit" className="transition hover:text-sky-300">
-              Submit Work
-            </Link>
+            <Link href="/partner/submit" className="transition hover:text-sky-300">
+  Submit Work
+</Link>
           </nav>
         </div>
 

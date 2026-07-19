@@ -23,20 +23,15 @@ const navGroups: NavGroup[] = [
       { href: "/admin/revenue", label: "Revenue", icon: "revenue" },
     ],
   },
-  
   {
-  title: "Content",
-  items: [
-    { href: "/admin/content", label: "Library", icon: "content" },
-    {
-      href: "/admin/editorial",
-      label: "Editorial",
-      icon: "editorial",
-    },
-    { href: "/admin/review", label: "Review Queue", icon: "review" },
-    { href: "/admin/upload", label: "Upload", icon: "upload" },
-  ],
-},
+    title: "Content",
+    items: [
+      { href: "/admin/content", label: "Library", icon: "content" },
+      { href: "/admin/editorial", label: "Editorial", icon: "editorial" },
+      { href: "/admin/review", label: "Review Queue", icon: "review" },
+      { href: "/admin/upload", label: "Upload", icon: "upload" },
+    ],
+  },
   {
     title: "Partners",
     items: [
@@ -63,43 +58,35 @@ const navGroups: NavGroup[] = [
 export default function AdminSidebar() {
   const pathname = usePathname();
 
-  async function logout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-
-    localStorage.removeItem("sourcetvUser");
-    window.location.href = "/login";
-  }
-
   function isActive(href: string) {
     if (href === "/admin") return pathname === "/admin";
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  return (
-    <aside className="fixed left-0 top-0 z-[9999] flex h-screen w-[270px] flex-col border-r border-white/10 bg-[#05070d]">
-      <div className="relative px-7 pb-6 pt-7">
-        <Link href="/admin" className="group inline-flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition group-hover:border-sky-300/35 group-hover:bg-white/[0.06]">
-            <div className="h-5 w-5 rounded-md border-2 border-sky-300" />
-          </div>
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem("sourcetvUser");
+    window.location.href = "/login";
+  }
 
-          <div>
-            <h1 className="text-2xl font-black leading-none tracking-tight text-white">
-              Source<span className="text-sky-300">TV</span>
-            </h1>
-            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
-              Admin Studio
-            </p>
-          </div>
+  return (
+    <aside className="fixed left-0 top-0 z-[9999] flex h-screen w-[270px] flex-col border-r border-white/[0.08] bg-[#05070d]">
+      <div className="px-7 pb-7 pt-8">
+        <Link href="/admin" className="inline-block">
+          <h1 className="text-[1.65rem] font-black leading-none tracking-[-0.04em] text-white">
+            Source<span className="text-sky-300">TV</span>
+          </h1>
+
+          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+            Admin Studio
+          </p>
         </Link>
       </div>
 
-      <nav className="relative flex-1 overflow-y-auto px-3 pb-4">
+      <nav className="flex-1 overflow-y-auto px-3 pb-5">
         {navGroups.map((group) => (
-          <div key={group.title} className="mb-5">
-            <p className="mb-1.5 px-4 text-[10px] font-black uppercase tracking-[0.26em] text-white/25">
+          <div key={group.title} className="mb-6">
+            <p className="mb-2 px-4 text-[9px] font-black uppercase tracking-[0.28em] text-white/25">
               {group.title}
             </p>
 
@@ -111,27 +98,21 @@ export default function AdminSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-2.5 transition ${
+                    className={`group relative flex items-center gap-3 rounded-xl px-4 py-3 transition ${
                       active
-                        ? "bg-white/[0.05] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                        : "text-white/46 hover:bg-white/[0.035] hover:text-white/85"
+                        ? "bg-white/[0.065] text-white"
+                        : "text-white/45 hover:bg-white/[0.035] hover:text-white/85"
                     }`}
                   >
                     <span
-                      className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full transition ${
-                        active
-                          ? "bg-sky-300 shadow-[0_0_16px_rgba(56,189,248,0.65)]"
-                          : "bg-transparent"
+                      className={`absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full ${
+                        active ? "bg-sky-300" : "bg-transparent"
                       }`}
                     />
 
-                    <span className="relative">
-                      <SourceIcon name={item.icon} active={active} />
-                    </span>
+                    <SourceIcon name={item.icon} active={active} />
 
-                    <span className="relative text-sm font-black">
-                      {item.label}
-                    </span>
+                    <span className="text-sm font-bold">{item.label}</span>
                   </Link>
                 );
               })}
@@ -140,42 +121,55 @@ export default function AdminSidebar() {
         ))}
       </nav>
 
-      <div className="relative border-t border-white/10 p-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">
-            System Status
-          </p>
+      <div className="border-t border-white/[0.08] px-4 pb-5 pt-4">
+        <div className="space-y-1">
+          <SidebarAction
+            href="/browse"
+            icon="external"
+            label="View SourceTV"
+          />
 
-          <div className="mt-4 space-y-3">
-            <StatusRow label="Bunny Stream" />
-            <StatusRow label="Stripe" />
-            <StatusRow label="Database" />
-            <StatusRow label="Email Service" />
-          </div>
+          <SidebarAction
+            href="/admin/settings"
+            icon="settings"
+            label="Platform Settings"
+          />
+
+          <button
+            type="button"
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/45 transition hover:bg-red-500/[0.08] hover:text-red-300"
+          >
+            <SourceIcon name="logout" active={false} />
+            Log Out
+          </button>
         </div>
 
-        <button
-          onClick={logout}
-          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 text-sm font-semibold text-white/55 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
-        >
-          <SourceIcon name="logout" active={false} />
-          Logout
-        </button>
+        <p className="mt-5 px-4 text-[10px] font-semibold text-white/20">
+          SourceTV Admin Studio
+        </p>
       </div>
     </aside>
   );
 }
 
-function StatusRow({ label }: { label: string }) {
+function SidebarAction({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-        <span className="text-sm text-white/75">{label}</span>
-      </div>
-
-      <span className="text-xs text-emerald-400">Healthy</span>
-    </div>
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/45 transition hover:bg-white/[0.035] hover:text-white"
+    >
+      <SourceIcon name={icon} active={false} />
+      {label}
+    </Link>
   );
 }
 
@@ -186,80 +180,82 @@ function SourceIcon({
   name: string;
   active: boolean;
 }) {
-  const color = active ? "text-sky-300" : "text-white/42";
-
   return (
     <span
-      className={`flex h-5 w-5 shrink-0 items-center justify-center ${color}`}
+      className={`flex h-5 w-5 shrink-0 items-center justify-center transition ${
+        active ? "text-sky-300" : "text-white/40"
+      }`}
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="h-5 w-5"
+        aria-hidden="true"
       >
         {name === "overview" && (
           <>
-            <path d="M4 5.5h7v6H4z" />
-            <path d="M13 5.5h7v13h-7z" />
-            <path d="M4 13.5h7v5H4z" />
+            <rect x="4" y="4" width="6" height="6" rx="1" />
+            <rect x="14" y="4" width="6" height="10" rx="1" />
+            <rect x="4" y="14" width="6" height="6" rx="1" />
+            <rect x="14" y="18" width="6" height="2" rx="1" />
           </>
         )}
 
         {name === "analytics" && (
           <>
-            <path d="M4 19V5" />
-            <path d="M4 19h16" />
-            <path d="M8 15v-4" />
-            <path d="M12 15V8" />
-            <path d="M16 15v-7" />
+            <path d="M5 19V5" />
+            <path d="M5 19h14" />
+            <path d="M9 15v-4" />
+            <path d="M13 15V8" />
+            <path d="M17 15v-7" />
           </>
         )}
 
         {name === "revenue" && (
           <>
-            <path d="M12 3v18" />
-            <path d="M17 7.5c-.8-1.2-2.3-2-4.3-2H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6h-2.7c-2 0-3.5-.8-4.3-2" />
+            <circle cx="12" cy="12" r="9" />
+            <path d="M15.5 8.5c-.7-.9-1.8-1.4-3.2-1.4h-.7a2.3 2.3 0 0 0 0 4.6h1a2.3 2.3 0 0 1 0 4.6h-.8c-1.4 0-2.5-.5-3.3-1.4" />
+            <path d="M12 5.5v13" />
           </>
         )}
 
         {name === "content" && (
           <>
-            <path d="M5 5h14v14H5z" />
+            <rect x="4" y="5" width="16" height="14" rx="2" />
             <path d="m10 9 5 3-5 3z" />
           </>
         )}
 
         {name === "editorial" && (
-  <>
-    <path d="M4 5.5h16v4H4z" />
-    <path d="M4 12h10v6.5H4z" />
-    <path d="M16.5 12H20v6.5h-3.5z" />
-    <path d="M7 7.5h6" />
-  </>
-)}
+          <>
+            <rect x="4" y="5" width="16" height="4" rx="1" />
+            <rect x="4" y="12" width="10" height="7" rx="1" />
+            <rect x="17" y="12" width="3" height="7" rx="1" />
+          </>
+        )}
 
         {name === "review" && (
           <>
-            <path d="M5 4h14v16H5z" />
+            <rect x="5" y="4" width="14" height="16" rx="2" />
             <path d="m8 12 2.5 2.5L16 9" />
           </>
         )}
 
         {name === "upload" && (
           <>
-            <path d="M12 17V5" />
-            <path d="m7 10 5-5 5 5" />
-            <path d="M5 19h14" />
+            <path d="M12 16V4" />
+            <path d="m7 9 5-5 5 5" />
+            <path d="M5 20h14" />
           </>
         )}
 
         {name === "applications" && (
           <>
-            <path d="M7 4h10v16H7z" />
+            <rect x="7" y="4" width="10" height="16" rx="2" />
             <path d="M9.5 8h5" />
             <path d="M9.5 12h5" />
             <path d="M9.5 16h3" />
@@ -268,8 +264,8 @@ function SourceIcon({
 
         {name === "contracts" && (
           <>
-            <path d="M6 3h9l3 3v15H6z" />
-            <path d="M15 3v4h4" />
+            <path d="M6 3h8l4 4v14H6z" />
+            <path d="M14 3v5h5" />
             <path d="M9 13h6" />
             <path d="M9 17h4" />
           </>
@@ -277,15 +273,15 @@ function SourceIcon({
 
         {name === "messages" && (
           <>
-            <path d="M5 6h14v10H8l-3 3z" />
-            <path d="M9 10h6" />
-            <path d="M9 13h4" />
+            <path d="M4 5h16v11H8l-4 4z" />
+            <path d="M8 9h8" />
+            <path d="M8 12h5" />
           </>
         )}
 
         {name === "users" && (
           <>
-            <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+            <circle cx="9" cy="8" r="3" />
             <path d="M3.8 19c.7-3.1 2.5-5 5.2-5s4.5 1.9 5.2 5" />
             <path d="M16.5 11.5a2.5 2.5 0 1 0 0-5" />
             <path d="M15.5 14.2c2 .4 3.3 2 3.8 4.8" />
@@ -301,7 +297,7 @@ function SourceIcon({
 
         {name === "subscriptions" && (
           <>
-            <path d="M5 7h14v10H5z" />
+            <rect x="5" y="7" width="14" height="10" rx="2" />
             <path d="M8 11h3" />
             <path d="M15 11h1" />
             <path d="M8 15h8" />
@@ -310,31 +306,24 @@ function SourceIcon({
 
         {name === "settings" && (
           <>
-            <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" />
-            <path d="M4 12h2" />
-            <path d="M18 12h2" />
-            <path d="M12 4v2" />
-            <path d="M12 18v2" />
-            <path d="m6.6 6.6 1.4 1.4" />
-            <path d="m16 16 1.4 1.4" />
-            <path d="m17.4 6.6-1.4 1.4" />
-            <path d="m8 16-1.4 1.4" />
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1-2.8 2.8-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1.1 1.6V21h-4v-.1A1.8 1.8 0 0 0 8.8 19a1.8 1.8 0 0 0-2 .4l-.1.1-2.8-2.8.1-.1a1.8 1.8 0 0 0 .4-2A1.8 1.8 0 0 0 2.8 13H2v-4h.8a1.8 1.8 0 0 0 1.6-1.1 1.8 1.8 0 0 0-.4-2l-.1-.1L6.7 3l.1.1a1.8 1.8 0 0 0 2 .4A1.8 1.8 0 0 0 9.9 2H14v.1a1.8 1.8 0 0 0 1.1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1L20 6l-.1.1a1.8 1.8 0 0 0-.4 2A1.8 1.8 0 0 0 21.1 9h.9v4h-.9a1.8 1.8 0 0 0-1.7 2z" />
           </>
         )}
 
-        {name === "storage" && (
+        {name === "external" && (
           <>
-            <path d="M5 6c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3z" />
-            <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
-            <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+            <path d="M14 5h5v5" />
+            <path d="m19 5-8 8" />
+            <path d="M17 13v6H5V7h6" />
           </>
         )}
 
         {name === "logout" && (
           <>
-            <path d="M10 6H6v12h4" />
-            <path d="M14 8l4 4-4 4" />
-            <path d="M18 12H9" />
+            <path d="M10 5H5v14h5" />
+            <path d="m15 8 4 4-4 4" />
+            <path d="M19 12H9" />
           </>
         )}
       </svg>

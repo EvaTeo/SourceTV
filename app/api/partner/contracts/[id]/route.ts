@@ -38,7 +38,12 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    if (contract.status === "sent" && !contract.viewedAt) {
+   if (
+  user.role === "partner" &&
+  contract.status === "sent" &&
+  !contract.viewedAt
+) {
+  
       const viewedContract = await prisma.rightsContract.update({
         where: {
           id,

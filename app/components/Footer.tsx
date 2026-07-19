@@ -145,9 +145,9 @@ export default function Footer() {
         href: "/partner",
       },
       {
-        label: "Submit Content",
-        href: "/creator/submit",
-      },
+  label: "Submit Content",
+  href: "/partner/submit",
+},
       {
         label: "Partner Support",
         href: "/partner/inbox",
