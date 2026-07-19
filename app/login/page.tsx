@@ -52,15 +52,12 @@ export default function LoginPage() {
         return;
       }
 
-      if (
-        data.user.role === "partner" ||
-        data.user.role === "creator"
-      ) {
-        window.location.href = "/partner";
-        return;
-      }
+      if (data.user.role === "partner") {
+  window.location.href = "/partner";
+  return;
+}
 
-      // Viewer accounts choose a profile before Browse.
+// Viewer accounts choose a profile before Browse.
 window.location.href = "/profiles/select";
     } catch {
       setError(
