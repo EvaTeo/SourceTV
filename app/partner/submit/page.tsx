@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ChangeEvent,
   DragEvent,
@@ -17,9 +16,11 @@ type ProjectForm = {
   description: string;
   type: string;
   genre: string;
+  year: string;
   maturityRating: string;
   runtime: string;
   creatorName: string;
+  creatorCompany: string;
 };
 
 type UploadKey =
@@ -38,9 +39,11 @@ const DEFAULT_FORM: ProjectForm = {
   description: "",
   type: "Film",
   genre: "Drama",
+  year: "",
   maturityRating: "Not Rated",
   runtime: "",
   creatorName: "",
+  creatorCompany: "",
 };
 
 const DEFAULT_FILES: UploadFiles = {
@@ -185,7 +188,11 @@ export default function SubmitPage() {
       setPreviewMode("main");
     }
 
-    if (name === "trailerFile" && file && !files.mainVideoFile) {
+    if (
+      name === "trailerFile" &&
+      file &&
+      !files.mainVideoFile
+    ) {
       setPreviewMode("trailer");
     }
   }
@@ -275,7 +282,9 @@ export default function SubmitPage() {
   ) {
     event.preventDefault();
 
-    if (submitting) return;
+    if (submitting) {
+      return;
+    }
 
     clearMessages();
 
@@ -302,6 +311,7 @@ export default function SubmitPage() {
     payload.append("description", form.description.trim());
     payload.append("type", form.type);
     payload.append("genre", form.genre);
+    payload.append("year", form.year.trim());
     payload.append(
       "maturityRating",
       form.maturityRating
@@ -311,9 +321,11 @@ export default function SubmitPage() {
       "creatorName",
       form.creatorName.trim()
     );
+    payload.append(
+      "creatorCompany",
+      form.creatorCompany.trim()
+    );
 
-    // The API currently defaults partner submissions to 50.
-    // Contract-driven revenue share can replace this later.
     payload.append("revenueShare", "50");
 
     payload.append(
@@ -390,10 +402,12 @@ export default function SubmitPage() {
       }
 
       const creatorName = form.creatorName;
+      const creatorCompany = form.creatorCompany;
 
       setForm({
         ...DEFAULT_FORM,
         creatorName,
+        creatorCompany,
       });
 
       setFiles(DEFAULT_FILES);
@@ -436,29 +450,37 @@ export default function SubmitPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1540px] space-y-7 pb-16">
-      <header className="mx-auto max-w-5xl text-center">
-        <Link
-          href="/partner"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-white/40 transition hover:text-sky-300"
-        >
-          <span aria-hidden="true">←</span>
-          Partner Overview
-        </Link>
+    <main className="mx-auto w-full max-w-[1540px] space-y-8 pb-16">
+      <header className="relative mx-auto max-w-5xl overflow-hidden px-4 pb-4 pt-1 text-center">
+        <div className="pointer-events-none absolute left-1/2 top-0 h-44 w-[620px] -translate-x-1/2 rounded-full bg-sky-300/[0.055] blur-[95px]" />
 
-        <p className="mt-7 text-[11px] font-black uppercase tracking-[0.3em] text-sky-300">
-          SourceTV Submission Studio
-        </p>
+        <div className="relative">
+          <p className="text-[11px] font-black uppercase tracking-[0.32em] text-sky-300">
+            SourceTV Submission Studio
+          </p>
 
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
-          Submit a New Project
-        </h1>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
+            Submit a New Project
+          </h1>
 
-        <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/45 sm:text-base">
-          Build your presentation, upload your media, and
-          preview how your title could appear across SourceTV
-          before submitting it for review.
-        </p>
+          <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/46 sm:text-base">
+            Create your SourceTV release exactly as viewers
+            could experience it. Upload your media, shape the
+            presentation, preview your title, and submit it for
+            editorial review.
+          </p>
+
+          <div className="mx-auto mt-7 flex max-w-xl items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/25">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+              Private until approved
+            </div>
+
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+          </div>
+        </div>
       </header>
 
       {successMessage && (
@@ -499,11 +521,14 @@ export default function SubmitPage() {
               />
 
               <TextField
-                label="Runtime"
-                value={form.runtime}
-                placeholder="Example: 1h 42m"
+                label="Release year"
+                type="number"
+                value={form.year}
+                placeholder="2026"
+                min="1888"
+                max="2100"
                 onChange={(value) =>
-                  updateField("runtime", value)
+                  updateField("year", value)
                 }
               />
 
@@ -538,12 +563,33 @@ export default function SubmitPage() {
               />
 
               <TextField
-                label="Creator or studio"
+                label="Runtime"
+                value={form.runtime}
+                placeholder="Example: 1h 42m"
+                onChange={(value) =>
+                  updateField("runtime", value)
+                }
+              />
+
+              <TextField
+                label="Creator or representative"
                 value={form.creatorName}
                 placeholder="Creator name"
                 onChange={(value) =>
                   updateField(
                     "creatorName",
+                    value
+                  )
+                }
+              />
+
+              <TextField
+                label="Company or studio"
+                value={form.creatorCompany}
+                placeholder="Optional"
+                onChange={(value) =>
+                  updateField(
+                    "creatorCompany",
                     value
                   )
                 }
@@ -565,10 +611,11 @@ export default function SubmitPage() {
           <FormSection
             number="02"
             title="Video Uploads"
-            description="Upload the finished project and an optional trailer. Your selected video can be played in the live preview."
+            description="Upload the finished project and an optional trailer. Selected videos can be played in the live preview."
           >
             <div className="space-y-4">
               <FileUpload
+                icon="video"
                 label="Main project video"
                 description="Required. Upload the complete film, episode, special, or program."
                 accept="video/*"
@@ -585,6 +632,7 @@ export default function SubmitPage() {
               />
 
               <FileUpload
+                icon="trailer"
                 label="Trailer"
                 description="Optional. Upload a shorter trailer or promotional preview."
                 accept="video/*"
@@ -596,17 +644,25 @@ export default function SubmitPage() {
               />
             </div>
 
-            <div className="mt-5 rounded-2xl border border-sky-300/15 bg-sky-300/[0.055] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">
-                Bunny Stream processing
-              </p>
+            <div className="mt-5 rounded-2xl border border-sky-300/15 bg-gradient-to-br from-sky-300/[0.07] to-transparent p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/[0.08]">
+                  <CloudIcon />
+                </div>
 
-              <p className="mt-2 text-xs leading-5 text-white/43">
-                Video files upload to Bunny Stream when you
-                submit. Large projects may take longer to
-                transfer and process. Keep this page open until
-                SourceTV confirms the submission.
-              </p>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">
+                    Bunny Stream processing
+                  </p>
+
+                  <p className="mt-2 text-xs leading-5 text-white/43">
+                    Videos upload to Bunny Stream when the
+                    project is submitted. Keep this page open
+                    until SourceTV confirms that the upload is
+                    complete.
+                  </p>
+                </div>
+              </div>
             </div>
           </FormSection>
 
@@ -617,6 +673,7 @@ export default function SubmitPage() {
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <FileUpload
+                icon="poster"
                 label="Poster"
                 description="Vertical artwork. A 2:3 ratio works best."
                 accept="image/png,image/jpeg,image/webp"
@@ -631,6 +688,7 @@ export default function SubmitPage() {
               />
 
               <FileUpload
+                icon="image"
                 label="Backdrop"
                 description="Wide cinematic artwork. A 16:9 ratio works best."
                 accept="image/png,image/jpeg,image/webp"
@@ -646,6 +704,7 @@ export default function SubmitPage() {
 
               <div className="sm:col-span-2">
                 <FileUpload
+                  icon="logo"
                   label="Transparent title logo"
                   description="Optional PNG or WebP logo displayed over your backdrop."
                   accept="image/png,image/webp"
@@ -662,21 +721,24 @@ export default function SubmitPage() {
             </div>
           </FormSection>
 
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.032] p-5 sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.055] to-white/[0.018] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.2)] sm:p-7">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-sky-300/[0.08] blur-[85px]" />
+
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-sky-300">
+                <p className="text-[11px] font-black uppercase tracking-[0.23em] text-sky-300">
                   Final submission
                 </p>
 
-                <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
-                  Send to SourceTV Review
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white">
+                  Ready to Publish Your Vision
                 </h2>
 
-                <p className="mt-2 max-w-xl text-sm leading-6 text-white/42">
-                  Your project remains private and enters the
-                  pending review queue. Submission does not
-                  publish it automatically.
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/44">
+                  Your project will remain private while it
+                  enters SourceTV&apos;s editorial review.
+                  Nothing becomes public until it has been
+                  approved.
                 </p>
               </div>
 
@@ -685,30 +747,43 @@ export default function SubmitPage() {
                 disabled={
                   submitting || !requiredComplete
                 }
-                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-sky-300 px-6 py-3 text-sm font-black text-[#05070d] shadow-[0_14px_40px_rgba(56,189,248,0.16)] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                className="group inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-sky-300 px-6 py-3 text-sm font-black text-[#05070d] shadow-[0_16px_45px_rgba(56,189,248,0.2)] transition hover:-translate-y-0.5 hover:bg-sky-200 hover:shadow-[0_20px_55px_rgba(56,189,248,0.28)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
               >
-                {submitting
-                  ? "Uploading Project..."
-                  : "Submit Project"}
+                {submitting ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />
+                    Uploading Project...
+                  </>
+                ) : (
+                  <>
+                    Submit Project
+                    <span
+                      aria-hidden="true"
+                      className="transition-transform group-hover:translate-x-0.5"
+                    >
+                      →
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           </section>
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-24">
-          <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[#080b11] shadow-[0_28px_90px_rgba(0,0,0,0.34)]">
-            <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <section className="overflow-hidden rounded-[32px] border border-white/10 bg-[#080b11] shadow-[0_32px_110px_rgba(0,0,0,0.42)]">
+            <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.018] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.23em] text-sky-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">
                   Live Project Preview
                 </p>
 
                 <p className="mt-1 text-xs text-white/35">
-                  Updates automatically as you build.
+                  See your release take shape in real time.
                 </p>
               </div>
 
-              <div className="inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
+              <div className="inline-flex rounded-xl border border-white/10 bg-black/35 p-1 shadow-inner">
                 <PreviewTab
                   active={previewMode === "main"}
                   disabled={!files.mainVideoFile}
@@ -734,7 +809,7 @@ export default function SubmitPage() {
             </div>
 
             <div className="p-4 sm:p-5">
-              <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black">
+              <div className="relative aspect-video overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
                 {activeVideoPreview ? (
                   <video
                     key={activeVideoPreview}
@@ -761,7 +836,7 @@ export default function SubmitPage() {
                   />
                 )}
 
-                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/65 backdrop-blur-xl">
+                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/65 shadow-lg backdrop-blur-xl">
                   {activeVideoFile
                     ? previewMode === "main"
                       ? "Main Video Preview"
@@ -772,45 +847,58 @@ export default function SubmitPage() {
             </div>
 
             <div
-              className="relative min-h-[360px] overflow-hidden border-t border-white/10 bg-[#070a0f] bg-cover bg-center"
+              className="relative min-h-[430px] overflow-hidden border-t border-white/10 bg-[#070a0f] bg-cover bg-center"
               style={{
                 backgroundImage: backdropPreview
                   ? `url("${backdropPreview}")`
-                  : "radial-gradient(circle at 72% 18%, rgba(56,189,248,0.18), transparent 32%), linear-gradient(135deg, #111827 0%, #070a0f 48%, #030407 100%)",
+                  : "radial-gradient(circle at 74% 15%, rgba(56,189,248,0.2), transparent 32%), linear-gradient(135deg, #111827 0%, #070a0f 48%, #030407 100%)",
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/52 to-black/10" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#070a0f] via-transparent to-black/15" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/64 to-black/5" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#070a0f] via-black/10 to-black/28" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_42%,transparent_0%,rgba(0,0,0,0.15)_45%,rgba(0,0,0,0.62)_100%)]" />
 
-              <div className="relative flex min-h-[360px] max-w-[76%] flex-col justify-end p-6 sm:p-8">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-300">
-                  SourceTV Preview
-                </p>
+              <div className="relative flex min-h-[430px] max-w-[82%] flex-col justify-end p-6 sm:p-9">
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/18 bg-sky-300/[0.07] px-3 py-1.5 backdrop-blur-xl">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.8)]" />
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-sky-200">
+                    SourceTV Preview
+                  </p>
+                </div>
 
                 {titleLogoPreview ? (
                   <img
                     src={titleLogoPreview}
                     alt=""
-                    className="mt-4 max-h-20 max-w-[85%] object-contain object-left"
+                    className="mt-5 max-h-24 max-w-[88%] object-contain object-left drop-shadow-[0_10px_28px_rgba(0,0,0,0.65)]"
                   />
                 ) : (
-                  <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
+                  <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em] text-white sm:text-5xl">
                     {form.title ||
                       "Your Project Title"}
                   </h2>
                 )}
 
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
+                <div className="mt-5 flex flex-wrap items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/53">
                   <span className="text-sky-300">
                     {form.type}
                   </span>
 
-                  <span>•</span>
+                  <MetadataDot />
+
                   <span>{form.genre}</span>
+
+                  {form.year && (
+                    <>
+                      <MetadataDot />
+                      <span>{form.year}</span>
+                    </>
+                  )}
 
                   {form.runtime && (
                     <>
-                      <span>•</span>
+                      <MetadataDot />
                       <span>{form.runtime}</span>
                     </>
                   )}
@@ -818,34 +906,35 @@ export default function SubmitPage() {
                   {form.maturityRating !==
                     "Not Rated" && (
                     <>
-                      <span>•</span>
-                      <span>
+                      <MetadataDot />
+                      <span className="rounded border border-white/18 px-1.5 py-0.5 text-[9px]">
                         {form.maturityRating}
                       </span>
                     </>
                   )}
                 </div>
 
-                <p className="mt-4 line-clamp-3 max-w-xl text-sm leading-6 text-white/52">
+                <p className="mt-5 line-clamp-3 max-w-xl text-sm leading-6 text-white/56">
                   {form.description ||
                     "Your project description will appear here as you complete the submission."}
                 </p>
 
-                <div className="mt-5 flex items-center gap-3">
-                  <div className="rounded-lg bg-white px-4 py-2 text-xs font-black text-black">
-                    ▶ Play
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-black text-black shadow-[0_12px_32px_rgba(255,255,255,0.12)]">
+                    <span aria-hidden="true">▶</span>
+                    Play
                   </div>
 
-                  <div className="rounded-lg border border-white/15 bg-white/[0.07] px-4 py-2 text-xs font-bold text-white/70 backdrop-blur">
+                  <div className="rounded-xl border border-white/15 bg-white/[0.08] px-5 py-2.5 text-xs font-bold text-white/76 shadow-lg backdrop-blur-xl">
                     More Info
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-5 border-t border-white/10 p-5 sm:grid-cols-[110px_1fr] sm:p-6">
+            <div className="grid gap-5 border-t border-white/10 bg-white/[0.015] p-5 sm:grid-cols-[118px_1fr] sm:p-6">
               <div
-                className="aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-[#0c1018] bg-cover bg-center"
+                className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 bg-[#0c1018] bg-cover bg-center shadow-[0_16px_45px_rgba(0,0,0,0.28)]"
                 style={{
                   backgroundImage: posterPreview
                     ? `url("${posterPreview}")`
@@ -864,17 +953,18 @@ export default function SubmitPage() {
                   Browse Presentation
                 </p>
 
-                <h3 className="mt-2 truncate text-lg font-semibold text-white">
+                <h3 className="mt-2 truncate text-xl font-semibold tracking-tight text-white">
                   {form.title ||
                     "Untitled Project"}
                 </h3>
 
                 <p className="mt-1 text-xs font-semibold text-white/35">
-                  {form.creatorName ||
+                  {form.creatorCompany ||
+                    form.creatorName ||
                     "SourceTV Partner"}
                 </p>
 
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-5 grid grid-cols-2 gap-2">
                   <MediaStatus
                     label="Main video"
                     ready={Boolean(
@@ -907,27 +997,33 @@ export default function SubmitPage() {
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.032] p-5 sm:p-6">
+          <section className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.045] to-white/[0.018] p-5 shadow-[0_18px_65px_rgba(0,0,0,0.18)] sm:p-6">
             <div className="flex items-end justify-between gap-5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/30">
                   Submission Readiness
                 </p>
 
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                <p className="mt-2 text-4xl font-semibold tracking-[-0.045em] text-white">
                   {readinessPercent}%
                 </p>
               </div>
 
-              <p className="text-xs font-semibold text-white/35">
-                {completedItems}/
-                {readinessItems.length} complete
-              </p>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-white/52">
+                  {completedItems} of{" "}
+                  {readinessItems.length}
+                </p>
+
+                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.15em] text-white/24">
+                  Assets complete
+                </p>
+              </div>
             </div>
 
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/8">
+            <div className="mt-5 h-2.5 overflow-hidden rounded-full border border-white/[0.04] bg-black/30 p-[2px]">
               <div
-                className="h-full rounded-full bg-sky-300 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-sky-200 shadow-[0_0_18px_rgba(125,211,252,0.4)] transition-all duration-500"
                 style={{
                   width: `${readinessPercent}%`,
                 }}
@@ -938,7 +1034,11 @@ export default function SubmitPage() {
               {readinessItems.map((item) => (
                 <div
                   key={item.label}
-                  className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-black/15 px-3 py-2.5"
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition ${
+                    item.complete
+                      ? "border-emerald-300/12 bg-emerald-300/[0.025]"
+                      : "border-white/[0.07] bg-black/15"
+                  }`}
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-white/48">
@@ -953,15 +1053,23 @@ export default function SubmitPage() {
                   </div>
 
                   <span
-                    className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
+                    className={`ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${
                       item.complete
-                        ? "bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.5)]"
-                        : "bg-white/15"
+                        ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-200"
+                        : "border-white/10 bg-white/[0.025] text-white/18"
                     }`}
-                  />
+                  >
+                    {item.complete ? "✓" : "•"}
+                  </span>
                 </div>
               ))}
             </div>
+
+            <p className="mt-5 text-xs leading-5 text-white/30">
+              Title, description, and the main video are
+              required. Additional artwork and trailer assets
+              improve review and presentation readiness.
+            </p>
           </section>
         </aside>
       </form>
@@ -981,14 +1089,14 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-white/10 bg-white/[0.032] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.16)] sm:p-7">
+    <section className="rounded-[30px] border border-white/10 bg-gradient-to-br from-white/[0.046] to-white/[0.02] p-5 shadow-[0_22px_75px_rgba(0,0,0,0.18)] sm:p-7">
       <div className="flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/[0.075] text-xs font-black text-sky-300">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-sky-300/20 bg-gradient-to-br from-sky-300/[0.11] to-sky-300/[0.035] text-xs font-black text-sky-300 shadow-[0_12px_30px_rgba(56,189,248,0.08)]">
           {number}
         </div>
 
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-white">
+          <h2 className="text-xl font-semibold tracking-[-0.025em] text-white">
             {title}
           </h2>
 
@@ -1008,12 +1116,18 @@ function TextField({
   value,
   placeholder,
   required = false,
+  type = "text",
+  min,
+  max,
   onChange,
 }: {
   label: string;
   value: string;
   placeholder: string;
   required?: boolean;
+  type?: string;
+  min?: string;
+  max?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -1024,14 +1138,16 @@ function TextField({
       />
 
       <input
-        type="text"
+        type={type}
         value={value}
         required={required}
         placeholder={placeholder}
+        min={min}
+        max={max}
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none transition placeholder:text-white/18 hover:border-white/15 focus:border-sky-300/55 focus:bg-black/35"
+        className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none transition placeholder:text-white/18 hover:border-white/16 hover:bg-black/25 focus:border-sky-300/55 focus:bg-black/35 focus:shadow-[0_0_0_3px_rgba(125,211,252,0.06)]"
       />
     </label>
   );
@@ -1057,7 +1173,7 @@ function SelectField({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#080b11] px-4 text-sm text-white outline-none transition hover:border-white/15 focus:border-sky-300/55"
+        className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#080b11] px-4 text-sm text-white outline-none transition hover:border-white/16 focus:border-sky-300/55 focus:shadow-[0_0_0_3px_rgba(125,211,252,0.06)]"
       >
         {options.map((option) => (
           <option
@@ -1109,7 +1225,7 @@ function TextAreaField({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/18 hover:border-white/15 focus:border-sky-300/55 focus:bg-black/35"
+        className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/18 hover:border-white/16 hover:bg-black/25 focus:border-sky-300/55 focus:bg-black/35 focus:shadow-[0_0_0_3px_rgba(125,211,252,0.06)]"
       />
     </label>
   );
@@ -1136,6 +1252,7 @@ function FieldLabel({
 }
 
 function FileUpload({
+  icon,
   label,
   description,
   accept,
@@ -1145,6 +1262,7 @@ function FileUpload({
   buttonLabel,
   onFile,
 }: {
+  icon: UploadIconType;
   label: string;
   description: string;
   accept: string;
@@ -1194,14 +1312,22 @@ function FileUpload({
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
-      className={`rounded-2xl border p-4 transition sm:p-5 ${
+      className={`group relative overflow-hidden rounded-2xl border p-4 transition duration-300 sm:p-5 ${
         dragging
-          ? "border-sky-300/60 bg-sky-300/[0.08]"
+          ? "border-sky-300/65 bg-sky-300/[0.085] shadow-[0_0_0_4px_rgba(125,211,252,0.04)]"
           : file
-            ? "border-emerald-300/20 bg-emerald-300/[0.035]"
-            : "border-white/10 bg-black/15 hover:border-white/16 hover:bg-black/20"
-      } ${large ? "min-h-[155px]" : ""}`}
+            ? "border-emerald-300/22 bg-gradient-to-br from-emerald-300/[0.055] to-transparent shadow-[0_16px_45px_rgba(0,0,0,0.15)]"
+            : "border-white/10 bg-black/15 hover:-translate-y-0.5 hover:border-white/18 hover:bg-black/23 hover:shadow-[0_18px_50px_rgba(0,0,0,0.2)]"
+      } ${large ? "min-h-[175px]" : ""}`}
     >
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-px transition ${
+          file
+            ? "bg-gradient-to-r from-transparent via-emerald-300/45 to-transparent"
+            : "bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100"
+        }`}
+      />
+
       <input
         ref={inputRef}
         type="file"
@@ -1213,35 +1339,57 @@ function FileUpload({
       <div className="flex h-full flex-col justify-between gap-5">
         <div>
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <FieldLabel
-                label={label}
-                required={required}
-              />
+            <div className="flex min-w-0 items-start gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
+                  file
+                    ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200"
+                    : "border-white/10 bg-white/[0.035] text-white/36 group-hover:border-sky-300/20 group-hover:bg-sky-300/[0.055] group-hover:text-sky-200"
+                }`}
+              >
+                {file ? (
+                  <CheckIcon />
+                ) : (
+                  <UploadTypeIcon type={icon} />
+                )}
+              </div>
 
-              <p className="mt-2 text-xs leading-5 text-white/35">
-                {description}
-              </p>
+              <div className="min-w-0">
+                <FieldLabel
+                  label={label}
+                  required={required}
+                />
+
+                <p className="mt-2 text-xs leading-5 text-white/35">
+                  {description}
+                </p>
+              </div>
             </div>
 
             <div
-              className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+              className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full transition ${
                 file
-                  ? "bg-emerald-300"
+                  ? "bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.55)]"
                   : "bg-white/14"
               }`}
             />
           </div>
 
           {file && (
-            <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-3">
-              <p className="truncate text-sm font-semibold text-white/70">
+            <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/25 px-3 py-3">
+              <p className="truncate text-sm font-semibold text-white/72">
                 {file.name}
               </p>
 
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-white/28">
-                {formatFileSize(file.size)}
-              </p>
+              <div className="mt-1.5 flex items-center justify-between gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/28">
+                  {formatFileSize(file.size)}
+                </p>
+
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-emerald-300/75">
+                  Ready
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -1250,7 +1398,7 @@ function FileUpload({
           <button
             type="button"
             onClick={chooseFile}
-            className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black transition hover:bg-sky-100"
+            className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black shadow-[0_8px_24px_rgba(255,255,255,0.08)] transition hover:-translate-y-0.5 hover:bg-sky-100"
           >
             {file ? "Replace File" : buttonLabel}
           </button>
@@ -1294,8 +1442,8 @@ function PreviewTab({
       onClick={onClick}
       className={`rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-[0.13em] transition ${
         active
-          ? "bg-white text-black"
-          : "text-white/35 hover:text-white/70"
+          ? "bg-white text-black shadow-md"
+          : "text-white/35 hover:bg-white/[0.04] hover:text-white/70"
       } disabled:cursor-not-allowed disabled:opacity-25`}
     >
       {children}
@@ -1318,31 +1466,32 @@ function EmptyVideoPreview({
       style={{
         backgroundImage: backdropPreview
           ? `url("${backdropPreview}")`
-          : "radial-gradient(circle at 70% 20%, rgba(56,189,248,0.18), transparent 34%), linear-gradient(135deg, #111827, #05070d)",
+          : "radial-gradient(circle at 70% 20%, rgba(56,189,248,0.2), transparent 34%), linear-gradient(135deg, #111827, #05070d)",
       }}
     >
-      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0 bg-black/58" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
 
       <div className="relative z-10 max-w-sm px-6 text-center">
         {titleLogoPreview ? (
           <img
             src={titleLogoPreview}
             alt=""
-            className="mx-auto max-h-16 max-w-[80%] object-contain"
+            className="mx-auto max-h-16 max-w-[80%] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)]"
           />
         ) : (
-          <p className="text-2xl font-semibold tracking-tight text-white/75">
+          <p className="text-2xl font-semibold tracking-[-0.03em] text-white/78">
             {title || "Video Preview"}
           </p>
         )}
 
-        <div className="mx-auto mt-5 flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-lg text-white/75 backdrop-blur-xl">
+        <div className="mx-auto mt-5 flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xl text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
           ▶
         </div>
 
         <p className="mt-4 text-xs leading-5 text-white/38">
-          Upload the main project video or trailer to
-          preview it here before submission.
+          Upload the main project video or trailer to preview
+          it here before submission.
         </p>
       </div>
     </div>
@@ -1357,7 +1506,13 @@ function MediaStatus({
   ready: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-black/15 px-3 py-3">
+    <div
+      className={`rounded-xl border px-3 py-3 ${
+        ready
+          ? "border-emerald-300/12 bg-emerald-300/[0.025]"
+          : "border-white/[0.07] bg-black/15"
+      }`}
+    >
       <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/25">
         {label}
       </p>
@@ -1388,7 +1543,7 @@ function StatusMessage({
 
   return (
     <section
-      className={`mx-auto max-w-5xl rounded-2xl border px-5 py-4 ${
+      className={`mx-auto max-w-5xl rounded-2xl border px-5 py-4 shadow-[0_16px_50px_rgba(0,0,0,0.16)] ${
         success
           ? "border-emerald-300/20 bg-emerald-300/[0.07]"
           : "border-red-300/20 bg-red-300/[0.07]"
@@ -1414,6 +1569,120 @@ function StatusMessage({
         {message}
       </p>
     </section>
+  );
+}
+
+function MetadataDot() {
+  return (
+    <span
+      aria-hidden="true"
+      className="h-1 w-1 rounded-full bg-white/35"
+    />
+  );
+}
+
+type UploadIconType =
+  | "video"
+  | "trailer"
+  | "poster"
+  | "image"
+  | "logo";
+
+function UploadTypeIcon({
+  type,
+}: {
+  type: UploadIconType;
+}) {
+  if (type === "video" || type === "trailer") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <rect
+          x="3"
+          y="5"
+          width="14"
+          height="14"
+          rx="2.5"
+        />
+        <path d="m17 10 4-2v8l-4-2" />
+        <path d="m9 9 4 3-4 3V9Z" />
+      </svg>
+    );
+  }
+
+  if (type === "logo") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M4 18 9.5 6h5L20 18" />
+        <path d="M7 14h10" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="2.5"
+      />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="m4 17 5-5 3.5 3.5 2-2L20 19" />
+    </svg>
+  );
+}
+
+function CloudIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5 text-sky-300"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <path d="M7 18a4 4 0 0 1-.8-7.92A6 6 0 0 1 17.7 8.3 4.5 4.5 0 0 1 17.5 18H7Z" />
+      <path d="m12 15 0-6" />
+      <path d="m9.5 11.5 2.5-2.5 2.5 2.5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="m5 12 4 4L19 6" />
+    </svg>
   );
 }
 
@@ -1481,7 +1750,9 @@ function validateFile(
 }
 
 function formatFileSize(bytes: number) {
-  if (bytes === 0) return "0 bytes";
+  if (bytes === 0) {
+    return "0 bytes";
+  }
 
   const units = ["bytes", "KB", "MB", "GB"];
   const index = Math.floor(

@@ -52,18 +52,27 @@ function formatDate(date?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === "signed")
-    return "border-emerald-300/40 bg-emerald-300/12 text-emerald-200";
-  if (status === "sent")
-    return "border-sky-300/40 bg-sky-300/12 text-sky-200";
-  if (status === "viewed")
-    return "border-purple-300/40 bg-purple-400/12 text-purple-200";
-  if (status === "changes_requested")
-    return "border-yellow-300/40 bg-yellow-300/12 text-yellow-100";
-  if (status === "cancelled" || status === "expired")
-    return "border-red-400/40 bg-red-500/12 text-red-200";
+  if (status === "signed") {
+    return "border-emerald-300/35 bg-emerald-300/10 text-emerald-200";
+  }
 
-  return "border-white/15 bg-white/[0.05] text-white/65";
+  if (status === "sent") {
+    return "border-sky-300/35 bg-sky-300/10 text-sky-200";
+  }
+
+  if (status === "viewed") {
+    return "border-purple-300/35 bg-purple-300/10 text-purple-200";
+  }
+
+  if (status === "changes_requested") {
+    return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
+  }
+
+  if (status === "cancelled" || status === "expired") {
+    return "border-red-300/35 bg-red-300/10 text-red-200";
+  }
+
+  return "border-white/10 bg-white/[0.035] text-white/60";
 }
 
 function statusLabel(status: string) {
@@ -75,7 +84,7 @@ function needsAction(contract: PartnerContract) {
 }
 
 export default function PartnerContractsClient() {
-      const [contracts, setContracts] = useState<PartnerContract[]>([]);
+  const [contracts, setContracts] = useState<PartnerContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -134,8 +143,8 @@ export default function PartnerContractsClient() {
         activeFilter === "all"
           ? true
           : activeFilter === "needs_action"
-          ? needsAction(contract)
-          : contract.status === activeFilter;
+            ? needsAction(contract)
+            : contract.status === activeFilter;
 
       const matchesSearch =
         !cleanSearch ||
@@ -151,215 +160,267 @@ export default function PartnerContractsClient() {
   }, [contracts, activeFilter, search]);
 
   const stats = [
-    { label: "Needs Action", value: counts.needs_action },
-    { label: "Awaiting Review", value: counts.sent },
-    { label: "Viewed", value: counts.viewed },
-    { label: "Signed", value: counts.signed },
+    {
+      label: "Needs Action",
+      value: counts.needs_action,
+      description: "Contracts waiting for your review",
+    },
+    {
+      label: "Awaiting Review",
+      value: counts.sent,
+      description: "Agreements sent by SourceTV",
+    },
+    {
+      label: "Viewed",
+      value: counts.viewed,
+      description: "Contracts you have opened",
+    },
+    {
+      label: "Signed",
+      value: counts.signed,
+      description: "Completed agreements",
+    },
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black px-4 pb-28 pt-28 text-white md:px-10">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(56,189,248,0.12),transparent_32%),linear-gradient(to_bottom,#020617_0%,#000_48%)]" />
-
-      <div className="relative z-10 mx-auto max-w-6xl">
-        
-
-        <section className="mt-8 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl backdrop-blur-xl md:p-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-sky-300 md:text-sm">
-            SourceTV Partner Portal
+    <main className="mx-auto w-full max-w-[1180px] space-y-7 pb-16">
+      <header className="flex flex-col justify-between gap-6 border-b border-white/10 pb-7 lg:flex-row lg:items-end">
+        <div className="max-w-2xl">
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-sky-300">
+            SourceTV Partner Studio
           </p>
 
-          <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-4xl font-black leading-[0.95] md:text-7xl">
-                Contracts
-              </h1>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
+            Contracts
+          </h1>
 
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-white/55 md:text-base">
-                Review SourceTV streaming rights agreements, sign contracts, or
-                request changes before your title moves forward.
+          <p className="mt-3 text-sm leading-6 text-white/45 sm:text-[15px]">
+            Review agreements, confirm licensing terms, sign contracts, and
+            request revisions before your titles move forward.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={loadContracts}
+          className="w-fit rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs font-black text-white/65 transition hover:border-sky-300/30 hover:text-white"
+        >
+          Refresh Contracts
+        </button>
+      </header>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <ContractStat
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            description={stat.description}
+          />
+        ))}
+      </section>
+
+      <section className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035] shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+        <div className="border-b border-white/10 p-5 md:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">
+                Contract Library
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
+                Your agreements
+              </h2>
+
+              <p className="mt-1 text-sm text-white/40">
+                Filter by status or search by title, partner, or rights owner.
               </p>
             </div>
 
-            <button
-              onClick={loadContracts}
-              className="w-fit rounded-md border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65 backdrop-blur-xl transition hover:border-sky-300/45 hover:bg-sky-300/10 hover:text-sky-200"
-            >
-              Refresh
-            </button>
+            <div className="w-full lg:max-w-sm">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search contracts..."
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/25 px-4 text-sm text-white outline-none placeholder:text-white/25 focus:border-sky-300/50"
+              />
+            </div>
           </div>
-        </section>
 
-        <section className="mt-8 grid gap-3 md:grid-cols-4">
-          {stats.map((stat) => (
-            <ContractStat
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-            />
-          ))}
-        </section>
-
-        <section className="mt-7 rounded-[1.5rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl backdrop-blur-xl">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search contracts, titles, rights owner..."
-            className="min-h-12 w-full rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-semibold text-white outline-none placeholder:text-white/30 focus:border-sky-300/60 md:rounded-2xl"
-          />
-
-          <div className="mt-4 flex gap-5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-6 flex gap-5 overflow-x-auto border-t border-white/10 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((filter) => {
               const active = activeFilter === filter.value;
 
               return (
                 <button
                   key={filter.value}
+                  type="button"
                   onClick={() => setActiveFilter(filter.value)}
-                  className={`shrink-0 border-b-2 pb-2 text-[11px] font-black uppercase tracking-[0.15em] transition ${
+                  className={`shrink-0 border-b-2 pb-3 text-[11px] font-black uppercase tracking-[0.14em] transition ${
                     active
                       ? "border-sky-300 text-sky-300"
-                      : "border-transparent text-white/38 hover:text-white/72"
+                      : "border-transparent text-white/35 hover:text-white/70"
                   }`}
                 >
-                  {filter.label} ({counts[filter.value as keyof typeof counts]})
+                  {filter.label}
+                  <span className="ml-2 text-white/30">
+                    {counts[filter.value as keyof typeof counts]}
+                  </span>
                 </button>
               );
             })}
           </div>
-        </section>
+        </div>
 
         {loading ? (
-          <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-            Loading contracts...
-          </div>
+          <EmptyState
+            title="Loading contracts..."
+            description="Retrieving your latest SourceTV agreements."
+          />
         ) : filteredContracts.length === 0 ? (
-          <div className="mt-8 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-8 text-white/50">
-            No contracts found for this view.
-          </div>
+          <EmptyState
+            title="No contracts found."
+            description="There are no agreements matching this search or filter."
+          />
         ) : (
-          <section className="mt-8 grid gap-4">
-            {filteredContracts.map((contract) => {
-              const artwork =
-                contract.project?.cardArtUrl ||
-                contract.project?.backdropUrl ||
-                contract.project?.thumbnailUrl ||
-                "";
-
-              const urgent = needsAction(contract);
-
-              return (
-                <article
-                  key={contract.id}
-                  className={`overflow-hidden rounded-[1.5rem] border bg-white/[0.045] shadow-2xl backdrop-blur-xl transition hover:border-sky-300/25 ${
-                    urgent ? "border-sky-300/25" : "border-white/10"
-                  }`}
-                >
-                  <div className="grid gap-0 md:grid-cols-[190px_1fr]">
-                    <div
-                      className="relative min-h-[190px] bg-zinc-950 bg-cover bg-center"
-                      style={{
-                        backgroundImage: artwork
-                          ? `linear-gradient(to top, rgba(0,0,0,0.94), rgba(0,0,0,0.18)), url(${artwork})`
-                          : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.18), transparent 34%), linear-gradient(to right, black, #020617)",
-                      }}
-                    >
-                      <div className="absolute left-4 top-4">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] capitalize backdrop-blur-xl ${statusClass(
-                            contract.status
-                          )}`}
-                        >
-                          {statusLabel(contract.status)}
-                        </span>
-                      </div>
-
-                      {urgent && (
-                        <div className="absolute bottom-4 left-4 right-4">
-                          <span className="rounded-full border border-sky-300/35 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-200">
-                            Action Needed
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-5 md:p-6">
-                      <div className="flex flex-col justify-between gap-4 md:flex-row">
-                        <div>
-                          <h2 className="text-2xl font-black md:text-4xl">
-                            {contract.project?.title || "Untitled Contract"}
-                          </h2>
-
-                          <p className="mt-2 text-sm font-bold text-white/45">
-                            License: {contract.licenseType || "Not set"} •
-                            Revenue Share: {contract.revenueShare ?? 50}%
-                          </p>
-
-                          <p className="mt-2 text-sm text-white/45">
-                            Sent: {formatDate(contract.sentAt)} • Signed:{" "}
-                            {formatDate(contract.signedAt)}
-                          </p>
-                        </div>
-
-                        <Link
-                          href={`/partner/contracts/${contract.id}`}
-                          className={`h-fit rounded-md px-4 py-2.5 text-center text-xs font-black transition ${
-                            urgent
-                              ? "bg-sky-400 text-black hover:bg-sky-300"
-                              : "border border-white/10 bg-white/[0.04] text-white/65 hover:border-sky-300/40 hover:bg-sky-300/10 hover:text-sky-200"
-                          }`}
-                        >
-                          {urgent ? "Review Contract" : "Open Contract"}
-                        </Link>
-                      </div>
-
-                      <div className="mt-5 grid gap-3 md:grid-cols-3">
-                        <InfoBox
-                          label="Territories"
-                          value={contract.territories || "Not set"}
-                        />
-                        <InfoBox
-                          label="Exclusivity"
-                          value={contract.exclusivity || "Not set"}
-                        />
-                        <InfoBox
-                          label="Rights Owner"
-                          value={contract.rightsOwner || "Not set"}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+          <div className="divide-y divide-white/10">
+            {filteredContracts.map((contract) => (
+              <ContractRow key={contract.id} contract={contract} />
+            ))}
+          </div>
         )}
-      </div>
+      </section>
     </main>
   );
 }
 
-function ContractStat({ label, value }: { label: string; value: number }) {
+function ContractStat({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: number;
+  description: string;
+}) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-2xl backdrop-blur-xl">
-      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-        {label}
-      </p>
-
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition hover:border-white/15 hover:bg-white/[0.045]">
       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">
         {label}
       </p>
 
-      <p className="mt-2 line-clamp-2 text-sm font-bold text-white/70">
+      <p className="mt-3 text-3xl font-black tracking-tight text-white">
         {value}
+      </p>
+
+      <p className="mt-2 text-xs leading-5 text-white/35">{description}</p>
+    </div>
+  );
+}
+
+function ContractRow({ contract }: { contract: PartnerContract }) {
+  const artwork =
+    contract.project?.cardArtUrl ||
+    contract.project?.backdropUrl ||
+    contract.project?.thumbnailUrl ||
+    "";
+
+  const urgent = needsAction(contract);
+
+  return (
+    <article className="grid gap-5 p-5 transition duration-200 hover:bg-white/[0.025] md:grid-cols-[128px_1fr_auto] md:items-center md:p-6">
+      <div
+        className="aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#090d15] bg-cover bg-center"
+        style={{
+          backgroundImage: artwork
+            ? `linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.08)), url(${artwork})`
+            : "radial-gradient(circle at 70% 20%, rgba(14,165,233,0.18), transparent 34%), linear-gradient(to right, #06090f, #0b1220)",
+        }}
+      />
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${statusClass(
+              contract.status
+            )}`}
+          >
+            {statusLabel(contract.status)}
+          </span>
+
+          {urgent && (
+            <span className="rounded-full border border-sky-300/25 bg-sky-300/[0.08] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-sky-200">
+              Action Needed
+            </span>
+          )}
+        </div>
+
+        <h3 className="mt-3 truncate text-xl font-black tracking-tight text-white">
+          {contract.project?.title || "Untitled Contract"}
+        </h3>
+
+        <p className="mt-1 line-clamp-2 text-sm leading-6 text-white/40">
+          {contract.project?.description ||
+            "Streaming rights agreement for this SourceTV title."}
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/35">
+          <span>
+            License:{" "}
+            <strong className="font-semibold text-white/60">
+              {contract.licenseType || "Not set"}
+            </strong>
+          </span>
+
+          <span>
+            Revenue Share:{" "}
+            <strong className="font-semibold text-white/60">
+              {contract.revenueShare ?? 50}%
+            </strong>
+          </span>
+
+          <span>
+            Updated:{" "}
+            <strong className="font-semibold text-white/60">
+              {formatDate(contract.updatedAt)}
+            </strong>
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 md:items-end">
+        <Link
+          href={`/partner/contracts/${contract.id}`}
+          className={`inline-flex min-w-36 justify-center rounded-xl px-4 py-2.5 shadow-sm text-xs font-black transition ${
+            urgent
+              ? "bg-sky-300 text-black hover:bg-sky-200"
+              : "border border-white/10 bg-white/[0.035] text-white/65 hover:border-sky-300/30 hover:text-white"
+          }`}
+        >
+          {urgent ? "Review Contract" : "Open Contract"}
+        </Link>
+
+        <p className="text-[11px] text-white/25">
+          Signed: {formatDate(contract.signedAt)}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="px-6 py-14 text-center">
+      <h3 className="text-lg font-black text-white">{title}</h3>
+
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/40">
+        {description}
       </p>
     </div>
   );
