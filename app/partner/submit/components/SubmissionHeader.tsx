@@ -22,10 +22,10 @@ export default function SubmissionHeader() {
         <div className="mx-auto mt-7 flex max-w-xl items-center gap-3">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
 
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/25">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
-            Private until approved
-          </div>
+         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+  
+  <span>Your project remains private until it's approved by the SourceTV team.</span>
+</div>
 
           <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
         </div>
