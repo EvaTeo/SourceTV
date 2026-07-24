@@ -1,4 +1,4 @@
-export type Contract = {
+export type PartnerContract = {
   id: string;
   projectId: string;
   partnerEmail?: string | null;
@@ -20,6 +20,8 @@ export type Contract = {
   viewedAt?: string | null;
   signedAt?: string | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
+
   project?: {
     id: string;
     title: string;
@@ -27,7 +29,13 @@ export type Contract = {
     creatorName?: string | null;
     creatorEmail?: string | null;
     creatorCompany?: string | null;
+
+    thumbnailUrl?: string | null;
+    backdropUrl?: string | null;
+    cardArtUrl?: string | null;
   };
 };
 
 export type ContractStatusTone = "yellow" | "green" | "red";
+
+export type Contract = PartnerContract;

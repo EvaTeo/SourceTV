@@ -1,0 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function useObjectUrl(
+  file: File | null
+) {
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    if (!file) {
+      setUrl("");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [file]);
+
+  return url;
+}
