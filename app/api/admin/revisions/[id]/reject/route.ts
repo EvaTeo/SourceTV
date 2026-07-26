@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { NextResponse } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -61,58 +61,105 @@ export async function POST(
   }
 
   try {
-    const revision =
-      await prisma.projectRevision.findUnique({
-        where: {
-          id,
-        },
-        select: {
-          id: true,
-          status: true,
-        },
-      });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const revision =
+          await tx.projectRevision.findUnique({
+            where: {
+              id,
+            },
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  title: true,
+                  creatorName: true,
+                  creatorCompany: true,
+                },
+              },
+            },
+          });
 
-    if (!revision) {
-      return NextResponse.json(
-        {
-          error: "Revision not found.",
-        },
-        {
-          status: 404,
+        if (!revision) {
+          throw new RejectRevisionError(
+            "Revision not found.",
+            404
+          );
         }
-      );
-    }
 
-    if (revision.status !== "pending") {
-      return NextResponse.json(
-        {
-          error: `This revision cannot be rejected because its current status is "${revision.status}".`,
-        },
-        {
-          status: 409,
+        if (revision.status !== "pending") {
+          throw new RejectRevisionError(
+            `This revision cannot be rejected because its current status is "${revision.status}".`,
+            409
+          );
         }
-      );
-    }
 
-    const updatedRevision =
-      await prisma.projectRevision.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "rejected",
-          adminNotes,
-          reviewedByEmail: user.email,
-          reviewedAt: new Date(),
-          rejectedAt: new Date(),
-        },
-      });
+        const reviewedAt = new Date();
+
+        const updatedRevision =
+          await tx.projectRevision.update({
+            where: {
+              id,
+            },
+            data: {
+              status: "rejected",
+              adminNotes,
+              reviewedByEmail: user.email,
+              reviewedAt,
+              rejectedAt: reviewedAt,
+            },
+          });
+
+        const partnerName =
+          revision.project.creatorName ||
+          revision.project.creatorCompany ||
+          null;
+
+        const notification =
+          await tx.partnerMessage.create({
+            data: {
+              projectId: revision.project.id,
+              partnerEmail:
+                revision.submittedByEmail,
+              partnerName,
+              senderTeam:
+                "SourceTV Content Review",
+              subject: `Revision rejected: ${revision.project.title}`,
+              body: createRejectionMessage({
+                projectTitle:
+                  revision.project.title,
+                versionNumber:
+                  revision.versionNumber,
+                adminNotes,
+              }),
+              isRead: false,
+            },
+          });
+
+        return {
+          revision: updatedRevision,
+          notification,
+        };
+      }
+    );
 
     return NextResponse.json({
       success: true,
-      revision: updatedRevision,
+      revision: result.revision,
+      notification: result.notification,
     });
   } catch (error) {
+    if (error instanceof RejectRevisionError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+        },
+        {
+          status: error.status,
+        }
+      );
+    }
+
     console.error(
       `Unable to reject revision ${id}:`,
       error
@@ -127,4 +174,36 @@ export async function POST(
       }
     );
   }
+}
+
+class RejectRevisionError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+
+    this.name = "RejectRevisionError";
+    this.status = status;
+  }
+}
+
+function createRejectionMessage({
+  projectTitle,
+  versionNumber,
+  adminNotes,
+}: {
+  projectTitle: string;
+  versionNumber: number;
+  adminNotes: string;
+}) {
+  return [
+    `Your revision for "${projectTitle}" was not approved.`,
+    "",
+    `Version ${versionNumber} has been marked as rejected by SourceTV Content Review.`,
+    "",
+    "Review notes:",
+    adminNotes,
+    "",
+    "Please review the feedback, update your project, and submit a new revision when it is ready.",
+  ].join("\n");
 }

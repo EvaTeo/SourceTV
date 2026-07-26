@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
+import { NextResponse } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -61,58 +61,105 @@ export async function POST(
   }
 
   try {
-    const revision =
-      await prisma.projectRevision.findUnique({
-        where: {
-          id,
-        },
-        select: {
-          id: true,
-          status: true,
-        },
-      });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const revision =
+          await tx.projectRevision.findUnique({
+            where: {
+              id,
+            },
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  title: true,
+                  creatorName: true,
+                  creatorCompany: true,
+                },
+              },
+            },
+          });
 
-    if (!revision) {
-      return NextResponse.json(
-        {
-          error: "Revision not found.",
-        },
-        {
-          status: 404,
+        if (!revision) {
+          throw new RequestChangesError(
+            "Revision not found.",
+            404
+          );
         }
-      );
-    }
 
-    if (revision.status !== "pending") {
-      return NextResponse.json(
-        {
-          error: `This revision cannot receive a change request because its current status is "${revision.status}".`,
-        },
-        {
-          status: 409,
+        if (revision.status !== "pending") {
+          throw new RequestChangesError(
+            `This revision cannot receive a change request because its current status is "${revision.status}".`,
+            409
+          );
         }
-      );
-    }
 
-    const updatedRevision =
-      await prisma.projectRevision.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "changes_requested",
-          adminNotes,
-          reviewedByEmail: user.email,
-          reviewedAt: new Date(),
-          changesRequestedAt: new Date(),
-        },
-      });
+        const reviewedAt = new Date();
+
+        const updatedRevision =
+          await tx.projectRevision.update({
+            where: {
+              id,
+            },
+            data: {
+              status: "changes_requested",
+              adminNotes,
+              reviewedByEmail: user.email,
+              reviewedAt,
+              changesRequestedAt: reviewedAt,
+            },
+          });
+
+        const partnerName =
+          revision.project.creatorName ||
+          revision.project.creatorCompany ||
+          null;
+
+        const notification =
+          await tx.partnerMessage.create({
+            data: {
+              projectId: revision.project.id,
+              partnerEmail:
+                revision.submittedByEmail,
+              partnerName,
+              senderTeam:
+                "SourceTV Content Review",
+              subject: `Changes requested: ${revision.project.title}`,
+              body: createChangesRequestedMessage({
+                projectTitle:
+                  revision.project.title,
+                versionNumber:
+                  revision.versionNumber,
+                adminNotes,
+              }),
+              isRead: false,
+            },
+          });
+
+        return {
+          revision: updatedRevision,
+          notification,
+        };
+      }
+    );
 
     return NextResponse.json({
       success: true,
-      revision: updatedRevision,
+      revision: result.revision,
+      notification: result.notification,
     });
   } catch (error) {
+    if (error instanceof RequestChangesError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+        },
+        {
+          status: error.status,
+        }
+      );
+    }
+
     console.error(
       `Unable to request changes for revision ${id}:`,
       error
@@ -127,4 +174,36 @@ export async function POST(
       }
     );
   }
+}
+
+class RequestChangesError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+
+    this.name = "RequestChangesError";
+    this.status = status;
+  }
+}
+
+function createChangesRequestedMessage({
+  projectTitle,
+  versionNumber,
+  adminNotes,
+}: {
+  projectTitle: string;
+  versionNumber: number;
+  adminNotes: string;
+}) {
+  return [
+    `SourceTV Content Review has requested changes to your revision for "${projectTitle}".`,
+    "",
+    `Version ${versionNumber} needs additional updates before it can be approved.`,
+    "",
+    "Requested changes:",
+    adminNotes,
+    "",
+    "Open the project from your SourceTV Partner dashboard, make the requested updates, and submit a new revision for review.",
+  ].join("\n");
 }
