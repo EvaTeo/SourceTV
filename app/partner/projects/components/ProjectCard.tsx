@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { PartnerProject } from "../types";
 
 import {
@@ -47,20 +49,25 @@ export default function ProjectCard({
         }`}
       />
 
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="block w-full p-4 text-left sm:p-5 lg:p-6"
-      >
+      <div className="p-4 sm:p-5 lg:p-6">
         <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
-          <div className="overflow-hidden rounded-2xl">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            className="block overflow-hidden rounded-2xl text-left"
+          >
             <ProjectArtwork project={project} />
-          </div>
+          </button>
 
           <div className="flex min-w-0 flex-col">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
+              <button
+                type="button"
+                onClick={onToggle}
+                aria-expanded={expanded}
+                className="min-w-0 text-left"
+              >
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-sky-300/70">
                   SourceTV Project
                 </p>
@@ -111,94 +118,110 @@ export default function ProjectCard({
                     <span>{project.year}</span>
                   ) : null}
                 </div>
-              </div>
+              </button>
 
-              <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                <span
-                  className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ${stageClass(
-                    project.workflowStage
-                  )}`}
+              <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  <span
+                    className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ${stageClass(
+                      project.workflowStage
+                    )}`}
+                  >
+                    {stageLabel}
+                  </span>
+
+                  <span className="text-[10px] font-semibold text-white/25">
+                    Current review stage
+                  </span>
+                </div>
+
+                <Link
+                  href={`/partner/projects/${project.id}/edit`}
+                  className="inline-flex items-center justify-center rounded-xl border border-sky-300/25 bg-sky-300/10 px-4 py-2.5 text-xs font-black text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/15"
                 >
-                  {stageLabel}
-                </span>
-
-                <span className="text-[10px] font-semibold text-white/25">
-                  Current review stage
-                </span>
+                  Edit Project
+                </Link>
               </div>
             </div>
 
-            <p className="mt-4 line-clamp-2 max-w-3xl text-sm leading-6 text-white/45">
-              {project.description ||
-                "No project description has been provided yet."}
-            </p>
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={expanded}
+              className="text-left"
+            >
+              <p className="mt-4 line-clamp-2 max-w-3xl text-sm leading-6 text-white/45">
+                {project.description ||
+                  "No project description has been provided yet."}
+              </p>
 
-            <div className="mt-5">
-              <ReviewTimeline
-                currentStage={
-                  project.workflowStage
-                }
-              />
-            </div>
-
-            <div className="mt-5 grid gap-3 border-t border-white/[0.08] pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
-              <div className="flex flex-wrap items-center gap-5">
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/25">
-                    Release
-                  </p>
-
-                  <p className="mt-1 text-xs font-semibold text-white/50">
-                    {displayDate
-                      ? formatDate(displayDate)
-                      : "Not scheduled"}
-                  </p>
-                </div>
-
-                <div className="h-8 w-px bg-white/[0.08]" />
-
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/25">
-                    Status
-                  </p>
-
-                  <p className="mt-1 text-xs font-semibold text-white/50">
-                    {project.publishedAt
-                      ? "Published"
-                      : project.scheduledAt
-                      ? "Scheduled"
-                      : "In progress"}
-                  </p>
-                </div>
+              <div className="mt-5">
+                <ReviewTimeline
+                  currentStage={
+                    project.workflowStage
+                  }
+                />
               </div>
 
-              <span
-                className={`inline-flex items-center gap-2 text-xs font-black transition ${
-                  expanded
-                    ? "text-white"
-                    : "text-sky-200 group-hover:text-sky-100"
-                }`}
-              >
-                {expanded
-                  ? "Close Details"
-                  : "Open Project"}
+              <div className="mt-5 grid gap-3 border-t border-white/[0.08] pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                <div className="flex flex-wrap items-center gap-5">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/25">
+                      Release
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold text-white/50">
+                      {displayDate
+                        ? formatDate(displayDate)
+                        : "Not scheduled"}
+                    </p>
+                  </div>
+
+                  <div className="h-8 w-px bg-white/[0.08]" />
+
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/25">
+                      Status
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold text-white/50">
+                      {project.publishedAt
+                        ? "Published"
+                        : project.scheduledAt
+                        ? "Scheduled"
+                        : "In progress"}
+                    </p>
+                  </div>
+                </div>
 
                 <span
-                  className={`transition-transform duration-300 ${
+                  className={`inline-flex items-center gap-2 text-xs font-black transition ${
                     expanded
-                      ? "rotate-180"
-                      : "rotate-0"
+                      ? "text-white"
+                      : "text-sky-200 group-hover:text-sky-100"
                   }`}
                 >
-                  <ChevronIcon
-                    expanded={expanded}
-                  />
+                  {expanded
+                    ? "Close Details"
+                    : "Open Project"}
+
+                  <span
+                    className={`transition-transform duration-300 ${
+                      expanded
+                        ? "rotate-180"
+                        : "rotate-0"
+                    }`}
+                  >
+                    <ChevronIcon
+                      expanded={expanded}
+                    />
+                  </span>
                 </span>
-              </span>
-            </div>
+              </div>
+            </button>
           </div>
         </div>
-      </button>
+      </div>
 
       <div
         className={`grid transition-[grid-template-rows,opacity] duration-500 ease-out ${

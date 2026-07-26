@@ -18,24 +18,32 @@ export default function ProjectRow({
     project.publishedAt || project.scheduledAt;
 
   return (
-    <Link
-      href={`/partner/projects/${project.id}`}
-      className="grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-sky-300/25 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center"
-    >
-      <div
-        className="aspect-video rounded-xl bg-zinc-950 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            project.backdropUrl || project.thumbnailUrl
-              ? `linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.1)), url(${
-                  project.backdropUrl || project.thumbnailUrl
-                })`
-              : "linear-gradient(135deg,#07111f,#020617)",
-        }}
-      />
+    <div className="grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-sky-300/25 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
+      <Link
+        href={`/partner/projects/${project.id}`}
+        aria-label={`Open ${project.title}`}
+        className="block"
+      >
+        <div
+          className="aspect-video rounded-xl bg-zinc-950 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              project.backdropUrl ||
+              project.thumbnailUrl
+                ? `linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.1)), url(${
+                    project.backdropUrl ||
+                    project.thumbnailUrl
+                  })`
+                : "linear-gradient(135deg,#07111f,#020617)",
+          }}
+        />
+      </Link>
 
-      <div className="min-w-0">
-        <p className="line-clamp-1 text-sm font-black">
+      <Link
+        href={`/partner/projects/${project.id}`}
+        className="min-w-0"
+      >
+        <p className="line-clamp-1 text-sm font-black transition hover:text-sky-200">
           {project.title}
         </p>
 
@@ -45,8 +53,9 @@ export default function ProjectRow({
               project.workflowStage
             )}`}
           >
-            {stageLabels[project.workflowStage] ??
-              project.workflowStage}
+            {stageLabels[
+              project.workflowStage
+            ] ?? project.workflowStage}
           </span>
 
           {project.type && (
@@ -61,19 +70,31 @@ export default function ProjectRow({
             </span>
           )}
         </div>
-      </div>
+      </Link>
 
-      <div className="text-left sm:text-right">
+      <div className="flex flex-col gap-3 text-left sm:items-end sm:text-right">
         {releaseDate && (
           <p className="text-xs font-semibold text-white/35">
             {formatDate(releaseDate)}
           </p>
         )}
 
-        <p className="mt-1 text-xs font-black text-sky-200">
-          Open →
-        </p>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Link
+            href={`/partner/projects/${project.id}`}
+            className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[11px] font-black text-white/60 transition hover:border-white/20 hover:text-white"
+          >
+            Open
+          </Link>
+
+          <Link
+            href={`/partner/projects/${project.id}/edit`}
+            className="rounded-lg border border-sky-300/25 bg-sky-300/10 px-3 py-2 text-[11px] font-black text-sky-200 transition hover:border-sky-300/50 hover:bg-sky-300/15"
+          >
+            Edit Project
+          </Link>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

@@ -175,12 +175,77 @@ model ProjectSubmission {
   continueWatching     ContinueWatching[]
   partnerMessages      PartnerMessage[]
   rightsContracts      RightsContract[]
+  projectRevisions     ProjectRevision[]
   adImpressions        AdImpression[]
   reactions            ContentReaction[]
   editorialCollections EditorialCollectionItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProjectRevision {
+  id String @id @default(cuid())
+
+  projectId String
+  project   ProjectSubmission @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  versionNumber Int
+
+  status String @default("pending")
+  // draft
+  // pending
+  // changes_requested
+  // approved
+  // rejected
+  // withdrawn
+
+  baseProjectUpdatedAt DateTime
+
+  submittedByEmail String
+  reviewedByEmail  String?
+
+  partnerNotes  String?
+  adminNotes    String?
+  changeSummary String?
+
+  proposedTitle       String
+  proposedDescription String?
+  proposedType        String?
+  proposedGenre       String?
+  proposedYear        Int?
+
+  proposedVideoUrl     String?
+  proposedMainVideoUrl String?
+  proposedTrailerUrl   String?
+  proposedThumbnailUrl String?
+  proposedBackdropUrl  String?
+  proposedTitleLogoUrl String?
+  proposedCardArtUrl   String?
+
+  proposedBunnyVideoId   String?
+  proposedBunnyLibraryId String?
+
+  proposedMaturityRating String?
+  proposedRuntime        String?
+
+  proposedCreatorName    String?
+  proposedCreatorCompany String?
+
+  submittedAt        DateTime  @default(now())
+  reviewedAt         DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  changesRequestedAt DateTime?
+  withdrawnAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId, status])
+  @@index([status, submittedAt])
+  @@index([submittedByEmail])
 }
 
 model EditorialCollection {
@@ -393,31 +458,31 @@ model PlatformSettings {
   id String @id @default(cuid())
 
   platformName String @default("SourceTV")
-  tagline String @default("The Next Generation of Entertainment")
+  tagline      String @default("The Next Generation of Entertainment")
 
   supportEmail String @default("support@sourcetv.com")
   contactEmail String @default("contact@sourcetv.com")
 
-  allowRegistrations Boolean @default(true)
+  allowRegistrations       Boolean @default(true)
   requireEmailVerification Boolean @default(false)
-  maxProfiles Int @default(5)
+  maxProfiles              Int     @default(5)
 
-  heroAutoplay Boolean @default(true)
+  heroAutoplay  Boolean @default(true)
   autoplayMuted Boolean @default(true)
-  homepageRows Int @default(12)
+  homepageRows  Int     @default(12)
 
   premiumEnabled Boolean @default(false)
-  monthlyPrice Float @default(8.99)
-  annualPrice Float @default(89.99)
-  freeTrialDays Int @default(7)
+  monthlyPrice   Float   @default(8.99)
+  annualPrice    Float   @default(89.99)
+  freeTrialDays  Int     @default(7)
 
   adsEnabled Boolean @default(true)
   preRollAds Boolean @default(true)
   midRollAds Boolean @default(false)
-  bannerAds Boolean @default(true)
+  bannerAds  Boolean @default(true)
 
   partnerApplications Boolean @default(true)
-  defaultRevenueShare Int @default(50)
+  defaultRevenueShare Int     @default(50)
 
   notificationsEnabled Boolean @default(true)
 
@@ -426,8 +491,8 @@ model PlatformSettings {
   maintenanceMode Boolean @default(false)
 
   aiRecommendations Boolean @default(true)
-  aiEditorial Boolean @default(false)
-  aiModeration Boolean @default(false)
+  aiEditorial       Boolean @default(false)
+  aiModeration      Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

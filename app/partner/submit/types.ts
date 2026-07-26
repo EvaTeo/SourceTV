@@ -1,3 +1,10 @@
+export type SubmissionSectionId =
+  | "project-details"
+  | "video-uploads"
+  | "artwork"
+  | "live-preview"
+  | "submit-project";
+
 export type ProjectForm = {
   title: string;
   description: string;
@@ -20,13 +27,6 @@ export type UploadKey =
 export type UploadFiles = Record<UploadKey, File | null>;
 
 export type PreviewMode = "main" | "trailer";
-
-export type SubmissionSectionId =
-  | "project-details"
-  | "video-uploads"
-  | "artwork"
-  | "live-preview"
-  | "submit-project";
 
 export type ReadinessItem = {
   label: string;

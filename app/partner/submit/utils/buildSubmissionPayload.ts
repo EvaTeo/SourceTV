@@ -1,90 +1,81 @@
 import type {
   ProjectForm,
   UploadFiles,
+  UploadKey,
 } from "../types";
+
+type BuildPayloadOptions = {
+  requireMainVideo?: boolean;
+};
+
+const FILE_FIELD_MAP: Record<
+  UploadKey,
+  string
+> = {
+  mainVideoFile: "mainVideoFile",
+  trailerFile: "trailerFile",
+  thumbnailFile: "thumbnailFile",
+  backdropFile: "backdropFile",
+  titleLogoFile: "titleLogoFile",
+};
 
 export function buildSubmissionPayload(
   form: ProjectForm,
-  files: UploadFiles
+  files: UploadFiles,
+  options: BuildPayloadOptions = {}
 ) {
-  if (!files.mainVideoFile) {
-    throw new Error(
-      "Main video is required."
-    );
-  }
+  const {
+    requireMainVideo = true,
+  } = options;
 
   const payload = new FormData();
 
-  payload.append(
-    "title",
-    form.title.trim()
-  );
-
+  payload.append("title", form.title);
   payload.append(
     "description",
-    form.description.trim()
+    form.description
   );
-
   payload.append("type", form.type);
   payload.append("genre", form.genre);
-
-  payload.append(
-    "year",
-    form.year.trim()
-  );
-
+  payload.append("year", form.year);
   payload.append(
     "maturityRating",
     form.maturityRating
   );
-
   payload.append(
     "runtime",
-    form.runtime.trim()
+    form.runtime
   );
-
   payload.append(
     "creatorName",
-    form.creatorName.trim()
+    form.creatorName
   );
-
   payload.append(
     "creatorCompany",
-    form.creatorCompany.trim()
+    form.creatorCompany
   );
 
-  payload.append("revenueShare", "50");
+  (
+    Object.keys(FILE_FIELD_MAP) as UploadKey[]
+  ).forEach((key) => {
+    const file = files[key];
 
-  payload.append(
-    "mainVideoFile",
-    files.mainVideoFile
-  );
+    if (!file) {
+      return;
+    }
 
-  if (files.trailerFile) {
     payload.append(
-      "trailerFile",
-      files.trailerFile
+      FILE_FIELD_MAP[key],
+      file
     );
-  }
+  });
 
-  if (files.thumbnailFile) {
-    payload.append(
-      "thumbnailFile",
-      files.thumbnailFile
-    );
-  }
-
-  if (files.backdropFile) {
-    payload.append(
-      "backdropFile",
-      files.backdropFile
-    );
-  }
-
-  if (files.titleLogoFile) {
-    payload.append(
-      "titleLogoFile",
-      files.titleLogoFile
+  if (
+    requireMainVideo &&
+    !files.mainVideoFile
+  ) {
+    throw new Error(
+      "Main project video is required."
     );
   }
 

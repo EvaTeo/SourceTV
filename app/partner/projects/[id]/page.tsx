@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
+import EditProjectPage from "./edit/page";
 
-export default async function PartnerProjectDetailsPage({
+export default function PartnerProjectDetailsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await params;
-
-  redirect("/partner/projects");
+  return <EditProjectPage params={params} />;
 }
