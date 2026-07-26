@@ -6,6 +6,7 @@ import DescriptionComparison from "./components/DescriptionComparison";
 import MetadataComparison from "./components/MetadataComparison";
 import RevisionActions from "./components/RevisionActions";
 import RevisionSummaryCard from "./components/RevisionSummaryCard";
+import RevisionTimeline from "./components/RevisionTimeline";
 import VideoComparison from "./components/VideoComparison";
 
 type PageProps = {
@@ -14,7 +15,10 @@ type PageProps = {
   }>;
 };
 
-type ComparableValue = string | number | null;
+type ComparableValue =
+  | string
+  | number
+  | null;
 
 type ChangedField = {
   label: string;
@@ -22,7 +26,9 @@ type ChangedField = {
   proposed: ComparableValue;
 };
 
-function normalizeValue(value: ComparableValue) {
+function normalizeValue(
+  value: ComparableValue
+) {
   if (value === null || value === "") {
     return "Not provided";
   }
@@ -34,7 +40,10 @@ function hasChanged(
   live: ComparableValue,
   proposed: ComparableValue
 ) {
-  return normalizeValue(live) !== normalizeValue(proposed);
+  return (
+    normalizeValue(live) !==
+    normalizeValue(proposed)
+  );
 }
 
 export default async function AdminRevisionDetailsPage({
@@ -42,18 +51,37 @@ export default async function AdminRevisionDetailsPage({
 }: PageProps) {
   const { id } = await params;
 
-  const revision = await prisma.projectRevision.findUnique({
-    where: {
-      id,
-    },
-    include: {
-      project: true,
-    },
-  });
+  const revision =
+    await prisma.projectRevision.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        project: true,
+      },
+    });
 
   if (!revision) {
     notFound();
   }
+
+  const revisionHistory =
+    await prisma.projectRevision.findMany({
+      where: {
+        projectId: revision.projectId,
+      },
+      orderBy: {
+        versionNumber: "desc",
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        status: true,
+        submittedAt: true,
+        reviewedAt: true,
+        submittedByEmail: true,
+      },
+    });
 
   const liveMainVideo =
     revision.project.mainVideoUrl ??
@@ -72,7 +100,8 @@ export default async function AdminRevisionDetailsPage({
     {
       label: "Description",
       live: revision.project.description,
-      proposed: revision.proposedDescription,
+      proposed:
+        revision.proposedDescription,
     },
     {
       label: "Content Type",
@@ -91,23 +120,29 @@ export default async function AdminRevisionDetailsPage({
     },
     {
       label: "Maturity Rating",
-      live: revision.project.maturityRating,
-      proposed: revision.proposedMaturityRating,
+      live:
+        revision.project.maturityRating,
+      proposed:
+        revision.proposedMaturityRating,
     },
     {
       label: "Runtime",
       live: revision.project.runtime,
-      proposed: revision.proposedRuntime,
+      proposed:
+        revision.proposedRuntime,
     },
     {
       label: "Creator Name",
       live: revision.project.creatorName,
-      proposed: revision.proposedCreatorName,
+      proposed:
+        revision.proposedCreatorName,
     },
     {
       label: "Creator Company",
-      live: revision.project.creatorCompany,
-      proposed: revision.proposedCreatorCompany,
+      live:
+        revision.project.creatorCompany,
+      proposed:
+        revision.proposedCreatorCompany,
     },
     {
       label: "Main Video",
@@ -117,35 +152,46 @@ export default async function AdminRevisionDetailsPage({
     {
       label: "Trailer",
       live: revision.project.trailerUrl,
-      proposed: revision.proposedTrailerUrl,
+      proposed:
+        revision.proposedTrailerUrl,
     },
     {
       label: "Thumbnail",
-      live: revision.project.thumbnailUrl,
-      proposed: revision.proposedThumbnailUrl,
+      live:
+        revision.project.thumbnailUrl,
+      proposed:
+        revision.proposedThumbnailUrl,
     },
     {
       label: "Backdrop",
       live: revision.project.backdropUrl,
-      proposed: revision.proposedBackdropUrl,
+      proposed:
+        revision.proposedBackdropUrl,
     },
     {
       label: "Title Logo",
-      live: revision.project.titleLogoUrl,
-      proposed: revision.proposedTitleLogoUrl,
+      live:
+        revision.project.titleLogoUrl,
+      proposed:
+        revision.proposedTitleLogoUrl,
     },
     {
       label: "Card Artwork",
       live: revision.project.cardArtUrl,
-      proposed: revision.proposedCardArtUrl,
+      proposed:
+        revision.proposedCardArtUrl,
     },
   ];
 
-  const changedFields = comparableFields
-    .filter((field) =>
-      hasChanged(field.live, field.proposed)
-    )
-    .map((field) => field.label);
+  const changedFields =
+    comparableFields
+      .filter((field) =>
+        hasChanged(
+          field.live,
+          field.proposed
+        )
+      )
+      .map((field) => field.label);
 
   const metadataFields = [
     {
@@ -170,46 +216,58 @@ export default async function AdminRevisionDetailsPage({
     },
     {
       label: "Maturity Rating",
-      live: revision.project.maturityRating,
-      proposed: revision.proposedMaturityRating,
+      live:
+        revision.project.maturityRating,
+      proposed:
+        revision.proposedMaturityRating,
     },
     {
       label: "Runtime",
       live: revision.project.runtime,
-      proposed: revision.proposedRuntime,
+      proposed:
+        revision.proposedRuntime,
     },
     {
       label: "Creator Name",
       live: revision.project.creatorName,
-      proposed: revision.proposedCreatorName,
+      proposed:
+        revision.proposedCreatorName,
     },
     {
       label: "Creator Company",
-      live: revision.project.creatorCompany,
-      proposed: revision.proposedCreatorCompany,
+      live:
+        revision.project.creatorCompany,
+      proposed:
+        revision.proposedCreatorCompany,
     },
   ];
 
   const artwork = [
     {
       label: "Thumbnail",
-      live: revision.project.thumbnailUrl,
-      proposed: revision.proposedThumbnailUrl,
+      live:
+        revision.project.thumbnailUrl,
+      proposed:
+        revision.proposedThumbnailUrl,
     },
     {
       label: "Backdrop",
       live: revision.project.backdropUrl,
-      proposed: revision.proposedBackdropUrl,
+      proposed:
+        revision.proposedBackdropUrl,
     },
     {
       label: "Title Logo",
-      live: revision.project.titleLogoUrl,
-      proposed: revision.proposedTitleLogoUrl,
+      live:
+        revision.project.titleLogoUrl,
+      proposed:
+        revision.proposedTitleLogoUrl,
     },
     {
       label: "Card Artwork",
       live: revision.project.cardArtUrl,
-      proposed: revision.proposedCardArtUrl,
+      proposed:
+        revision.proposedCardArtUrl,
     },
   ];
 
@@ -222,9 +280,21 @@ export default async function AdminRevisionDetailsPage({
     {
       label: "Trailer",
       live: revision.project.trailerUrl,
-      proposed: revision.proposedTrailerUrl,
+      proposed:
+        revision.proposedTrailerUrl,
     },
   ];
+
+  const canHaveConflict = [
+    "draft",
+    "pending",
+    "changes_requested",
+  ].includes(revision.status);
+
+  const isBasedOnOlderProject =
+    canHaveConflict &&
+    revision.baseProjectUpdatedAt.getTime() <
+      revision.project.updatedAt.getTime();
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-12 sm:px-6 lg:px-8">
@@ -246,23 +316,60 @@ export default async function AdminRevisionDetailsPage({
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-white/50 sm:text-base">
-            Review the partner&apos;s proposed artwork, video,
-            metadata, and synopsis before making a final decision.
+            Review the partner&apos;s
+            proposed artwork, video,
+            metadata, and synopsis before
+            making a final decision.
           </p>
         </div>
       </section>
+
+      {isBasedOnOlderProject && (
+        <section className="rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10 text-lg font-black text-amber-200">
+              !
+            </div>
+
+            <div>
+              <p className="text-sm font-black text-amber-100">
+                Possible version conflict
+              </p>
+
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/60">
+                This revision was started
+                before the live project was
+                last updated. Review each
+                proposed field carefully so
+                a newer project change is
+                not replaced accidentally.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <RevisionSummaryCard
         projectTitle={
           revision.proposedTitle ||
           revision.project.title
         }
-        partnerEmail={revision.submittedByEmail}
+        partnerEmail={
+          revision.submittedByEmail
+        }
         version={revision.versionNumber}
         status={revision.status}
         submittedAt={revision.submittedAt}
         reviewedAt={revision.reviewedAt}
         changedFields={changedFields}
+      />
+
+      <RevisionTimeline
+        projectTitle={
+          revision.project.title
+        }
+        currentRevisionId={revision.id}
+        revisions={revisionHistory}
       />
 
       {(revision.changeSummary ||
@@ -294,15 +401,23 @@ export default async function AdminRevisionDetailsPage({
         </section>
       )}
 
-      <ArtworkComparison artwork={artwork} />
+      <ArtworkComparison
+        artwork={artwork}
+      />
 
       <VideoComparison videos={videos} />
 
-      <MetadataComparison fields={metadataFields} />
+      <MetadataComparison
+        fields={metadataFields}
+      />
 
       <DescriptionComparison
-        live={revision.project.description}
-        proposed={revision.proposedDescription}
+        live={
+          revision.project.description
+        }
+        proposed={
+          revision.proposedDescription
+        }
       />
 
       {revision.adminNotes && (
@@ -317,7 +432,8 @@ export default async function AdminRevisionDetailsPage({
 
           {revision.reviewedByEmail && (
             <p className="mt-5 text-xs font-bold text-white/35">
-              Reviewed by {revision.reviewedByEmail}
+              Reviewed by{" "}
+              {revision.reviewedByEmail}
             </p>
           )}
         </section>
