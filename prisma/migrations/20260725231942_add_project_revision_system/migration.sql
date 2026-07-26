@@ -1,15 +1,3 @@
--- AlterTable
-ALTER TABLE "Profile" ADD COLUMN "favoriteCreators" TEXT;
-ALTER TABLE "Profile" ADD COLUMN "favoriteGenres" TEXT;
-ALTER TABLE "Profile" ADD COLUMN "lastRecommendationRefresh" DATETIME;
-ALTER TABLE "Profile" ADD COLUMN "recommendationProfile" TEXT;
-
--- AlterTable
-ALTER TABLE "ProjectSubmission" ADD COLUMN "heroBadge" TEXT;
-ALTER TABLE "ProjectSubmission" ADD COLUMN "heroEndDate" DATETIME;
-ALTER TABLE "ProjectSubmission" ADD COLUMN "heroPriority" INTEGER;
-ALTER TABLE "ProjectSubmission" ADD COLUMN "heroStartDate" DATETIME;
-
 -- CreateTable
 CREATE TABLE "ContentReaction" (
     "id" TEXT NOT NULL PRIMARY KEY,
