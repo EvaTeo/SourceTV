@@ -7,6 +7,7 @@ import ProjectOverview from "./ProjectOverview";
 import ProjectProgress from "./ProjectProgress";
 import ProjectReleaseCard from "./ProjectReleaseCard";
 import ProjectReviewNotes from "./ProjectReviewNotes";
+import RevisionHistory from "./RevisionHistory";
 
 type ExpandedProjectDetailsProps = {
   project: PartnerProject;
@@ -25,6 +26,8 @@ export default function ExpandedProjectDetails({
             <ProjectOverview project={project} />
 
             <ProjectReviewNotes project={project} />
+
+            <RevisionHistory projectId={project.id} />
 
             <ProjectAssets project={project} />
           </div>

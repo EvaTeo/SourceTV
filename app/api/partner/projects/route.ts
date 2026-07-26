@@ -7,41 +7,80 @@ export async function GET() {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Not logged in" },
+        { status: 401 }
+      );
     }
 
-    if (user.role !== "partner" && user.role !== "admin") {
+    if (
+      user.role !== "partner" &&
+      user.role !== "admin"
+    ) {
       return NextResponse.json(
-        { error: "Only partners can view projects" },
+        {
+          error: "Only partners can view projects",
+        },
         { status: 403 }
       );
     }
 
-    const projects = await prisma.projectSubmission.findMany({
-      where:
-        user.role === "admin"
-          ? {}
-          : {
-              creatorEmail: user.email,
+    const projects =
+      await prisma.projectSubmission.findMany({
+        where:
+          user.role === "admin"
+            ? {}
+            : {
+                creatorEmail: user.email,
+              },
+
+        orderBy: {
+          updatedAt: "desc",
+        },
+
+        include: {
+          rightsContracts: {
+            orderBy: {
+              updatedAt: "desc",
             },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      include: {
-        rightsContracts: {
-          orderBy: {
-            updatedAt: "desc",
+          },
+
+          projectRevisions: {
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 1,
           },
         },
-      },
-    });
+      });
 
-    return NextResponse.json(projects);
-  } catch (error) {
-    console.error("PARTNER PROJECTS API ERROR:", error);
+    const formattedProjects = projects.map(
+      (project) => {
+        const latestRevision =
+          project.projectRevisions[0] ?? null;
+
+        return {
+          ...project,
+          latestRevision,
+          projectRevisions: undefined,
+        };
+      }
+    );
 
     return NextResponse.json(
-      { error: "Failed to load partner projects" },
+      formattedProjects
+    );
+  } catch (error) {
+    console.error(
+      "PARTNER PROJECTS API ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to load partner projects",
+      },
       { status: 500 }
     );
   }

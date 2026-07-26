@@ -120,28 +120,71 @@ export default function ProjectCard({
                 </div>
               </button>
 
-              <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-                <div className="flex flex-col items-start gap-2 sm:items-end">
-                  <span
-                    className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ${stageClass(
-                      project.workflowStage
-                    )}`}
-                  >
-                    {stageLabel}
-                  </span>
+             <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+  <div className="flex flex-col items-start gap-2 sm:items-end">
+    <span
+      className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] ${stageClass(
+        project.workflowStage
+      )}`}
+    >
+      {stageLabel}
+    </span>
 
-                  <span className="text-[10px] font-semibold text-white/25">
-                    Current review stage
-                  </span>
-                </div>
+    <span className="text-[10px] font-semibold text-white/25">
+      Current review stage
+    </span>
 
-                <Link
-                  href={`/partner/projects/${project.id}/edit`}
-                  className="inline-flex items-center justify-center rounded-xl border border-sky-300/25 bg-sky-300/10 px-4 py-2.5 text-xs font-black text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/15"
-                >
-                  Edit Project
-                </Link>
-              </div>
+    {project.latestRevision ? (
+      <>
+        <span
+          className={`rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.14em]
+          ${
+            project.latestRevision.status === "approved"
+              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+              : project.latestRevision.status === "rejected"
+              ? "border-red-400/30 bg-red-500/10 text-red-300"
+              : project.latestRevision.status === "changes_requested"
+              ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+              : "border-sky-400/30 bg-sky-500/10 text-sky-200"
+          }`}
+        >
+          Revision {project.latestRevision.status.replace("_", " ")}
+        </span>
+
+        {project.latestRevision.adminNotes ? (
+          <div className="max-w-xs rounded-xl border border-white/10 bg-black/20 p-3 text-left">
+            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/30">
+              Admin Review
+            </p>
+
+            <p className="mt-2 text-xs leading-5 text-white/65">
+              {project.latestRevision.adminNotes}
+            </p>
+
+            {project.latestRevision.reviewedAt && (
+              <p className="mt-2 text-[10px] text-white/25">
+                Reviewed{" "}
+                {formatDate(
+                  project.latestRevision.reviewedAt
+                )}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </>
+    ) : null}
+  </div>
+
+  <Link
+    href={`/partner/projects/${project.id}/edit`}
+    className="inline-flex items-center justify-center rounded-xl border border-sky-300/25 bg-sky-300/10 px-4 py-2.5 text-xs font-black text-sky-100 transition hover:border-sky-300/50 hover:bg-sky-300/15"
+  >
+    {project.latestRevision?.status === "rejected" ||
+    project.latestRevision?.status === "changes_requested"
+      ? "Continue Editing"
+      : "Edit Project"}
+  </Link>
+</div>
             </div>
 
             <button

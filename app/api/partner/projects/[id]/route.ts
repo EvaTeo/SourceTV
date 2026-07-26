@@ -1,22 +1,24 @@
+import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
+
 import {
   authorizeProject,
   ProjectAuthorizationError,
 } from "./lib/authorizeProject";
 import {
+  createRevision,
+  RevisionSubmissionError,
+} from "./lib/createRevision";
+import {
   parseProjectForm,
   ProjectFormError,
 } from "./lib/parseProjectForm";
+import { uploadImages } from "./lib/uploadImages";
+import { uploadVideoToBunny } from "./lib/uploadVideo";
 import {
   validateProject,
   ProjectValidationError,
 } from "./lib/validateProject";
-import { uploadImages } from "./lib/uploadImages";
-import { uploadVideoToBunny } from "./lib/uploadVideo";
-import {
-  createRevision,
-  RevisionSubmissionError,
-} from "./lib/createRevision";
 
 export const runtime = "nodejs";
 
@@ -80,7 +82,52 @@ export async function GET(
     const { project } =
       await authorizeProject(id);
 
-    return NextResponse.json(project);
+    const revisionHistory =
+      await prisma.projectRevision.findMany({
+        where: {
+          projectId: project.id,
+        },
+
+        orderBy: [
+          {
+            versionNumber: "desc",
+          },
+          {
+            submittedAt: "desc",
+          },
+        ],
+
+        select: {
+          id: true,
+          projectId: true,
+          versionNumber: true,
+          status: true,
+
+          submittedByEmail: true,
+          reviewedByEmail: true,
+
+          partnerNotes: true,
+          adminNotes: true,
+          changeSummary: true,
+
+          submittedAt: true,
+          reviewedAt: true,
+          approvedAt: true,
+          rejectedAt: true,
+          changesRequestedAt: true,
+          withdrawnAt: true,
+
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+    return NextResponse.json({
+      project,
+      revisionHistory,
+      latestRevision:
+        revisionHistory[0] ?? null,
+    });
   } catch (error) {
     return createErrorResponse(
       error,

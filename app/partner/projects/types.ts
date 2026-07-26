@@ -7,6 +7,39 @@ export type ReviewStage =
   | "scheduled"
   | "published";
 
+export type RevisionStatus =
+  | "draft"
+  | "pending"
+  | "changes_requested"
+  | "approved"
+  | "rejected"
+  | "withdrawn";
+
+export type ProjectRevision = {
+  id: string;
+  projectId: string;
+  versionNumber: number;
+
+  status: RevisionStatus;
+
+  submittedByEmail: string;
+  reviewedByEmail?: string | null;
+
+  partnerNotes?: string | null;
+  adminNotes?: string | null;
+  changeSummary?: string | null;
+
+  submittedAt: string;
+  reviewedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  changesRequestedAt?: string | null;
+  withdrawnAt?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PartnerProject = {
   id: string;
   title: string;
@@ -41,4 +74,6 @@ export type PartnerProject = {
 
   creatorName?: string | null;
   creatorCompany?: string | null;
+
+  latestRevision?: ProjectRevision | null;
 };

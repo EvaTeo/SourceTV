@@ -29,6 +29,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/content", label: "Library", icon: "content" },
       { href: "/admin/editorial", label: "Editorial", icon: "editorial" },
       { href: "/admin/review", label: "Review Queue", icon: "review" },
+      { href: "/admin/revisions", label: "Revisions", icon: "revisions" },
       { href: "/admin/upload", label: "Upload", icon: "upload" },
     ],
   },
@@ -59,12 +60,18 @@ export default function AdminSidebar() {
   const pathname = usePathname();
 
   function isActive(href: string) {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin") {
+      return pathname === "/admin";
+    }
+
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+
     localStorage.removeItem("sourcetvUser");
     window.location.href = "/login";
   }
@@ -110,9 +117,14 @@ export default function AdminSidebar() {
                       }`}
                     />
 
-                    <SourceIcon name={item.icon} active={active} />
+                    <SourceIcon
+                      name={item.icon}
+                      active={active}
+                    />
 
-                    <span className="text-sm font-bold">{item.label}</span>
+                    <span className="text-sm font-bold">
+                      {item.label}
+                    </span>
                   </Link>
                 );
               })}
@@ -140,7 +152,11 @@ export default function AdminSidebar() {
             onClick={logout}
             className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/45 transition hover:bg-red-500/[0.08] hover:text-red-300"
           >
-            <SourceIcon name="logout" active={false} />
+            <SourceIcon
+              name="logout"
+              active={false}
+            />
+
             Log Out
           </button>
         </div>
@@ -167,7 +183,11 @@ function SidebarAction({
       href={href}
       className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-white/45 transition hover:bg-white/[0.035] hover:text-white"
     >
-      <SourceIcon name={icon} active={false} />
+      <SourceIcon
+        name={icon}
+        active={false}
+      />
+
       {label}
     </Link>
   );
@@ -242,6 +262,15 @@ function SourceIcon({
           <>
             <rect x="5" y="4" width="14" height="16" rx="2" />
             <path d="m8 12 2.5 2.5L16 9" />
+          </>
+        )}
+
+        {name === "revisions" && (
+          <>
+            <path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+            <path d="M9 8h6" />
+            <path d="M9 12h4" />
+            <path d="m9 17 2-2 1.5 1.5L16 13" />
           </>
         )}
 
