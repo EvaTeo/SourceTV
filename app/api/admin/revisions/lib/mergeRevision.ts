@@ -21,11 +21,12 @@ export async function mergeRevision({
   reviewedByEmail,
 }: MergeRevisionInput) {
   return prisma.$transaction(async (tx) => {
-    const revision = await tx.projectRevision.findUnique({
-      where: {
-        id: revisionId,
-      },
-    });
+    const revision =
+      await tx.projectRevision.findUnique({
+        where: {
+          id: revisionId,
+        },
+      });
 
     if (!revision) {
       throw new MergeRevisionError(
@@ -41,15 +42,19 @@ export async function mergeRevision({
       );
     }
 
-    const project = await tx.projectSubmission.findUnique({
-      where: {
-        id: revision.projectId,
-      },
-      select: {
-        id: true,
-        updatedAt: true,
-      },
-    });
+    const project =
+      await tx.projectSubmission.findUnique({
+        where: {
+          id: revision.projectId,
+        },
+        select: {
+          id: true,
+          title: true,
+          creatorName: true,
+          creatorCompany: true,
+          updatedAt: true,
+        },
+      });
 
     if (!project) {
       throw new MergeRevisionError(
@@ -68,39 +73,54 @@ export async function mergeRevision({
       );
     }
 
-    const updatedProject = await tx.projectSubmission.update({
-      where: {
-        id: revision.projectId,
-      },
-      data: {
-        title: revision.proposedTitle,
-        description: revision.proposedDescription,
-        type: revision.proposedType,
-        genre: revision.proposedGenre,
-        year: revision.proposedYear,
+    const reviewedAt = new Date();
 
-        videoUrl: revision.proposedVideoUrl,
-        mainVideoUrl: revision.proposedMainVideoUrl,
-        trailerUrl: revision.proposedTrailerUrl,
+    const updatedProject =
+      await tx.projectSubmission.update({
+        where: {
+          id: revision.projectId,
+        },
+        data: {
+          title: revision.proposedTitle,
+          description:
+            revision.proposedDescription,
+          type: revision.proposedType,
+          genre: revision.proposedGenre,
+          year: revision.proposedYear,
 
-        thumbnailUrl: revision.proposedThumbnailUrl,
-        backdropUrl: revision.proposedBackdropUrl,
-        titleLogoUrl: revision.proposedTitleLogoUrl,
-        cardArtUrl: revision.proposedCardArtUrl,
+          videoUrl:
+            revision.proposedVideoUrl,
+          mainVideoUrl:
+            revision.proposedMainVideoUrl,
+          trailerUrl:
+            revision.proposedTrailerUrl,
 
-        bunnyVideoId: revision.proposedBunnyVideoId,
-        bunnyLibraryId: revision.proposedBunnyLibraryId,
+          thumbnailUrl:
+            revision.proposedThumbnailUrl,
+          backdropUrl:
+            revision.proposedBackdropUrl,
+          titleLogoUrl:
+            revision.proposedTitleLogoUrl,
+          cardArtUrl:
+            revision.proposedCardArtUrl,
 
-        maturityRating:
-          revision.proposedMaturityRating,
+          bunnyVideoId:
+            revision.proposedBunnyVideoId,
+          bunnyLibraryId:
+            revision.proposedBunnyLibraryId,
 
-        runtime: revision.proposedRuntime,
+          maturityRating:
+            revision.proposedMaturityRating,
 
-        creatorName: revision.proposedCreatorName,
-        creatorCompany:
-          revision.proposedCreatorCompany,
-      },
-    });
+          runtime:
+            revision.proposedRuntime,
+
+          creatorName:
+            revision.proposedCreatorName,
+          creatorCompany:
+            revision.proposedCreatorCompany,
+        },
+      });
 
     const approvedRevision =
       await tx.projectRevision.update({
@@ -110,14 +130,56 @@ export async function mergeRevision({
         data: {
           status: "approved",
           reviewedByEmail,
-          reviewedAt: new Date(),
-          approvedAt: new Date(),
+          reviewedAt,
+          approvedAt: reviewedAt,
+        },
+      });
+
+    const partnerName =
+      updatedProject.creatorName ||
+      updatedProject.creatorCompany ||
+      null;
+
+    const notification =
+      await tx.partnerMessage.create({
+        data: {
+          projectId: updatedProject.id,
+          partnerEmail:
+            revision.submittedByEmail,
+          partnerName,
+          senderTeam:
+            "SourceTV Content Review",
+          subject: `Revision approved: ${updatedProject.title}`,
+          body: createApprovalMessage({
+            projectTitle:
+              updatedProject.title,
+            versionNumber:
+              approvedRevision.versionNumber,
+          }),
+          isRead: false,
         },
       });
 
     return {
       project: updatedProject,
       revision: approvedRevision,
+      notification,
     };
   });
+}
+
+function createApprovalMessage({
+  projectTitle,
+  versionNumber,
+}: {
+  projectTitle: string;
+  versionNumber: number;
+}) {
+  return [
+    `Your revision for "${projectTitle}" has been approved.`,
+    "",
+    `Version ${versionNumber} has been merged into the live project record.`,
+    "",
+    "You can review the updated project and its revision history from your SourceTV Partner dashboard.",
+  ].join("\n");
 }
