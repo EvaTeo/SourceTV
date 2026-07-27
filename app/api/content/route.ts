@@ -2,7 +2,20 @@ import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
 function shuffle<T>(items: T[]) {
-  return [...items].sort(() => Math.random() - 0.5);
+  const result = [...items];
+
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(
+      Math.random() * (index + 1)
+    );
+
+    [result[index], result[randomIndex]] = [
+      result[randomIndex],
+      result[index],
+    ];
+  }
+
+  return result;
 }
 
 function cleanContentItem(item: any) {
@@ -28,44 +41,89 @@ export async function GET(request: Request) {
     const mode = searchParams.get("mode") || "all";
     const type = searchParams.get("type");
     const genre = searchParams.get("genre");
-    const creatorName = searchParams.get("creatorName");
-    const excludeId = searchParams.get("excludeId");
+    const creatorName =
+      searchParams.get("creatorName");
+    const excludeId =
+      searchParams.get("excludeId");
 
-    const requestedLimit = Number(searchParams.get("limit") || 50);
-    const limit = Number.isNaN(requestedLimit) ? 50 : requestedLimit;
+    const requestedLimit = Number(
+      searchParams.get("limit") || 50
+    );
 
-    const content = await prisma.projectSubmission.findMany({
-      where: {
-        OR: [
+    const limit = Math.min(
+      Math.max(
+        Number.isFinite(requestedLimit)
+          ? Math.trunc(requestedLimit)
+          : 50,
+        1
+      ),
+      100
+    );
+
+    const content =
+      await prisma.projectSubmission.findMany({
+        where: {
+          status: "approved",
+
+          AND: [
+            {
+              OR: [
+                {
+                  workflowStage: "published",
+                },
+                {
+                  workflowStage: "scheduled",
+                  scheduledAt: {
+                    lte: now,
+                  },
+                },
+              ],
+            },
+            {
+              OR: [
+                {
+                  licenseStartDate: null,
+                },
+                {
+                  licenseStartDate: {
+                    lte: now,
+                  },
+                },
+              ],
+            },
+            {
+              OR: [
+                {
+                  licenseEndDate: null,
+                },
+                {
+                  licenseEndDate: {
+                    gte: now,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
+        orderBy: [
           {
-            workflowStage: "published",
+            featured: "desc",
           },
           {
-            workflowStage: "scheduled",
-            scheduledAt: {
-              lte: now,
-            },
+            heroPriority: "asc",
+          },
+          {
+            featuredRank: "asc",
+          },
+          {
+            publishedAt: "desc",
+          },
+          {
+            createdAt: "desc",
           },
         ],
-      },
-      orderBy: [
-        {
-          featured: "desc",
-        },
-        {
-          heroPriority: "asc",
-        },
-        {
-          featuredRank: "asc",
-        },
-        {
-          publishedAt: "desc",
-        },
-        {
-          createdAt: "desc",
-        },
-      ],
-    });
+      });
 
     const cleanContent = content
       .filter((item) => item.id !== excludeId)
@@ -75,17 +133,22 @@ export async function GET(request: Request) {
 
     if (mode === "trending") {
       result = [...cleanContent].sort(
-        (a, b) => (b.views || 0) - (a.views || 0)
+        (a, b) =>
+          (b.views || 0) - (a.views || 0)
       );
     }
 
     if (mode === "featured") {
       result = cleanContent
         .filter((item) => {
-          if (!item.featured) return false;
+          if (!item.featured) {
+            return false;
+          }
 
           const startsAt = item.heroStartDate
-            ? new Date(item.heroStartDate).getTime()
+            ? new Date(
+                item.heroStartDate
+              ).getTime()
             : null;
 
           const endsAt = item.heroEndDate
@@ -93,20 +156,24 @@ export async function GET(request: Request) {
             : null;
 
           const hasValidStart =
-            startsAt === null || !Number.isNaN(startsAt);
+            startsAt === null ||
+            !Number.isNaN(startsAt);
 
           const hasValidEnd =
-            endsAt === null || !Number.isNaN(endsAt);
+            endsAt === null ||
+            !Number.isNaN(endsAt);
 
           if (!hasValidStart || !hasValidEnd) {
             return false;
           }
 
           const hasStarted =
-            startsAt === null || startsAt <= currentTime;
+            startsAt === null ||
+            startsAt <= currentTime;
 
           const hasNotEnded =
-            endsAt === null || endsAt >= currentTime;
+            endsAt === null ||
+            endsAt >= currentTime;
 
           return hasStarted && hasNotEnded;
         })
@@ -114,14 +181,16 @@ export async function GET(request: Request) {
           const aPriority =
             typeof a.heroPriority === "number"
               ? a.heroPriority
-              : typeof a.featuredRank === "number"
+              : typeof a.featuredRank ===
+                  "number"
                 ? a.featuredRank
                 : 999;
 
           const bPriority =
             typeof b.heroPriority === "number"
               ? b.heroPriority
-              : typeof b.featuredRank === "number"
+              : typeof b.featuredRank ===
+                  "number"
                 ? b.featuredRank
                 : 999;
 
@@ -142,34 +211,40 @@ export async function GET(request: Request) {
     }
 
     if (mode === "new") {
-      result = [...cleanContent].sort((a, b) => {
-        const aDate = new Date(
-          a.publishedAt || a.createdAt
-        ).getTime();
+      result = [...cleanContent].sort(
+        (a, b) => {
+          const aDate = new Date(
+            a.publishedAt || a.createdAt
+          ).getTime();
 
-        const bDate = new Date(
-          b.publishedAt || b.createdAt
-        ).getTime();
+          const bDate = new Date(
+            b.publishedAt || b.createdAt
+          ).getTime();
 
-        return bDate - aDate;
-      });
+          return bDate - aDate;
+        }
+      );
     }
 
     if (mode === "editor_picks") {
-      result = cleanContent.filter((item) => item.editorPick);
+      result = cleanContent.filter(
+        (item) => item.editorPick
+      );
     }
 
     if (mode === "genre" && genre) {
       result = cleanContent.filter(
         (item) =>
-          item.genre?.toLowerCase() === genre.toLowerCase()
+          item.genre?.toLowerCase() ===
+          genre.toLowerCase()
       );
     }
 
     if (mode === "type" && type) {
       result = cleanContent.filter(
         (item) =>
-          item.type?.toLowerCase() === type.toLowerCase()
+          item.type?.toLowerCase() ===
+          type.toLowerCase()
       );
     }
 
@@ -185,11 +260,13 @@ export async function GET(request: Request) {
       result = cleanContent.filter((item) => {
         const typeMatch =
           type &&
-          item.type?.toLowerCase() === type.toLowerCase();
+          item.type?.toLowerCase() ===
+            type.toLowerCase();
 
         const genreMatch =
           genre &&
-          item.genre?.toLowerCase() === genre.toLowerCase();
+          item.genre?.toLowerCase() ===
+            genre.toLowerCase();
 
         const creatorMatch =
           creatorName &&
@@ -197,7 +274,9 @@ export async function GET(request: Request) {
             creatorName.toLowerCase();
 
         return Boolean(
-          typeMatch || genreMatch || creatorMatch
+          typeMatch ||
+            genreMatch ||
+            creatorMatch
         );
       });
 
@@ -207,14 +286,16 @@ export async function GET(request: Request) {
 
         if (
           genre &&
-          a.genre?.toLowerCase() === genre.toLowerCase()
+          a.genre?.toLowerCase() ===
+            genre.toLowerCase()
         ) {
           aScore += 4;
         }
 
         if (
           type &&
-          a.type?.toLowerCase() === type.toLowerCase()
+          a.type?.toLowerCase() ===
+            type.toLowerCase()
         ) {
           aScore += 2;
         }
@@ -229,14 +310,16 @@ export async function GET(request: Request) {
 
         if (
           genre &&
-          b.genre?.toLowerCase() === genre.toLowerCase()
+          b.genre?.toLowerCase() ===
+            genre.toLowerCase()
         ) {
           bScore += 4;
         }
 
         if (
           type &&
-          b.type?.toLowerCase() === type.toLowerCase()
+          b.type?.toLowerCase() ===
+            type.toLowerCase()
         ) {
           bScore += 2;
         }
@@ -257,32 +340,43 @@ export async function GET(request: Request) {
       result = cleanContent
         .filter((item) => !item.featured)
         .sort(
-          (a, b) => (a.views || 0) - (b.views || 0)
+          (a, b) =>
+            (a.views || 0) -
+            (b.views || 0)
         );
     }
 
     if (mode === "recommended") {
-      result = shuffle(cleanContent).sort((a, b) => {
-        const aScore =
-          (a.featured ? 5 : 0) +
-          (a.editorPick ? 4 : 0) +
-          Math.min(a.views || 0, 1000) / 100;
+      result = shuffle(cleanContent).sort(
+        (a, b) => {
+          const aScore =
+            (a.featured ? 5 : 0) +
+            (a.editorPick ? 4 : 0) +
+            Math.min(a.views || 0, 1000) /
+              100;
 
-        const bScore =
-          (b.featured ? 5 : 0) +
-          (b.editorPick ? 4 : 0) +
-          Math.min(b.views || 0, 1000) / 100;
+          const bScore =
+            (b.featured ? 5 : 0) +
+            (b.editorPick ? 4 : 0) +
+            Math.min(b.views || 0, 1000) /
+              100;
 
-        return bScore - aScore;
-      });
+          return bScore - aScore;
+        }
+      );
     }
 
-    return NextResponse.json(result.slice(0, limit));
-  } catch (error: any) {
+    return NextResponse.json(
+      result.slice(0, limit)
+    );
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         error: "Failed to load public content",
-        message: error?.message || "Unknown error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown error",
       },
       { status: 500 }
     );
