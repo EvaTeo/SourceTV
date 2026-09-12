@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { collectionErrorResponse } from "./lib/errors";
+import { collectionErrorResponse } from "../lib/errors";
 import { parseCollectionUpdate } from "./lib/parser";
 import {
   deleteCollection,

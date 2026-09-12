@@ -1,6 +1,7 @@
-import { getCurrentUser } from "@/app/lib/auth";
+import { requireAdmin } from "@/app/api/admin/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
+
 import { cancelContract } from "./lib/cancel";
 import { markContractSigned } from "./lib/markSigned";
 import { sendContract } from "./lib/send";
@@ -17,41 +18,9 @@ type RouteContext = {
   }>;
 };
 
-async function requireAdmin() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      response: NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        }
-      ),
-    };
-  }
-
-  if (user.role !== "admin") {
-    return {
-      response: NextResponse.json(
-        {
-          error: "Forbidden",
-        },
-        {
-          status: 403,
-        }
-      ),
-    };
-  }
-
-  return {
-    response: null,
-  };
-}
-
-async function readContractId(context: RouteContext) {
+async function readContractId(
+  context: RouteContext
+) {
   const { id } = await context.params;
 
   return id.trim();
@@ -61,19 +30,21 @@ export async function GET(
   _request: Request,
   context: RouteContext
 ) {
-  const auth = await requireAdmin();
+  const authResponse = await requireAdmin();
 
-  if (auth.response) {
-    return auth.response;
+  if (authResponse) {
+    return authResponse;
   }
 
   try {
-    const id = await readContractId(context);
+    const id =
+      await readContractId(context);
 
     if (!id) {
       return NextResponse.json(
         {
-          error: "Contract ID is required.",
+          error:
+            "Contract ID is required.",
         },
         {
           status: 400,
@@ -94,7 +65,8 @@ export async function GET(
     if (!contract) {
       return NextResponse.json(
         {
-          error: "Contract not found.",
+          error:
+            "Contract not found.",
         },
         {
           status: 404,
@@ -111,7 +83,8 @@ export async function GET(
 
     return NextResponse.json(
       {
-        error: "Failed to load contract.",
+        error:
+          "Failed to load contract.",
       },
       {
         status: 500,
@@ -124,18 +97,20 @@ export async function PATCH(
   request: Request,
   context: RouteContext
 ) {
-  const auth = await requireAdmin();
+  const authResponse = await requireAdmin();
 
-  if (auth.response) {
-    return auth.response;
+  if (authResponse) {
+    return authResponse;
   }
 
-  const id = await readContractId(context);
+  const id =
+    await readContractId(context);
 
   if (!id) {
     return NextResponse.json(
       {
-        error: "Contract ID is required.",
+        error:
+          "Contract ID is required.",
       },
       {
         status: 400,
@@ -151,7 +126,8 @@ export async function PATCH(
   } catch {
     return NextResponse.json(
       {
-        error: "Invalid request body.",
+        error:
+          "Invalid request body.",
         message:
           "The contract request must contain valid JSON.",
       },
@@ -175,7 +151,8 @@ export async function PATCH(
     if (!existingContract) {
       return NextResponse.json(
         {
-          error: "Contract not found.",
+          error:
+            "Contract not found.",
         },
         {
           status: 404,
@@ -183,7 +160,9 @@ export async function PATCH(
       );
     }
 
-    if (existingContract.status === "signed") {
+    if (
+      existingContract.status === "signed"
+    ) {
       return NextResponse.json(
         {
           error:
@@ -196,7 +175,8 @@ export async function PATCH(
     }
 
     if (
-      existingContract.status === "cancelled" ||
+      existingContract.status ===
+        "cancelled" ||
       existingContract.status === "expired"
     ) {
       return NextResponse.json(
@@ -211,11 +191,12 @@ export async function PATCH(
     }
 
     if (
-  !EDITABLE_CONTRACT_STATUSES.some(
-    (status) =>
-      status === existingContract.status
-  )
-) {
+      !EDITABLE_CONTRACT_STATUSES.some(
+        (status) =>
+          status ===
+          existingContract.status
+      )
+    ) {
       return NextResponse.json(
         {
           error:
@@ -236,7 +217,8 @@ export async function PATCH(
     ) {
       return NextResponse.json(
         {
-          error: "Invalid contract action.",
+          error:
+            "Invalid contract action.",
         },
         {
           status: 400,
@@ -245,7 +227,9 @@ export async function PATCH(
     }
 
     if (action === "send") {
-      return sendContract(existingContract);
+      return sendContract(
+        existingContract
+      );
     }
 
     if (action === "mark_signed") {
@@ -255,7 +239,9 @@ export async function PATCH(
     }
 
     if (action === "cancel") {
-      return cancelContract(existingContract);
+      return cancelContract(
+        existingContract
+      );
     }
 
     return updateContract(
@@ -270,7 +256,8 @@ export async function PATCH(
 
     return NextResponse.json(
       {
-        error: "Failed to update contract.",
+        error:
+          "Failed to update contract.",
       },
       {
         status: 500,

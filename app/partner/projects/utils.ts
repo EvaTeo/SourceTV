@@ -3,17 +3,10 @@ import type {
   ReviewStage,
 } from "./types";
 
-export const stageLabels: Record<string, string> = {
-  submission: "Submission Received",
-  metadata_review: "Metadata Review",
-  content_review: "Content Review",
-  rights_review: "Rights Review",
-  approved: "Approved",
-  scheduled: "Scheduled",
-  published: "Published",
-  archived: "Archived",
-  rejected: "Rejected",
-};
+export {
+  formatDate,
+  stageLabels,
+} from "../utils";
 
 export const stageOptions = [
   {
@@ -120,18 +113,6 @@ export function stageClass(stage: string) {
   return "border-white/10 bg-white/[0.05] text-white/60";
 }
 
-export function formatDate(date?: string | null) {
-  if (!date) {
-    return null;
-  }
-
-  return new Date(date).toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export function hasAttention(
   project: PartnerProject
 ) {
@@ -144,7 +125,10 @@ export function hasAttention(
 }
 
 export function getStageIndex(stage: string) {
-  if (stage === "rejected" || stage === "archived") {
+  if (
+    stage === "rejected" ||
+    stage === "archived"
+  ) {
     return -1;
   }
 
@@ -167,11 +151,15 @@ export function getRecognition(
     return "Featured Selection";
   }
 
-  if (project.workflowStage === "published") {
+  if (
+    project.workflowStage === "published"
+  ) {
     return "SourceTV Selection";
   }
 
-  if (project.workflowStage === "approved") {
+  if (
+    project.workflowStage === "approved"
+  ) {
     return "Selection Pending";
   }
 

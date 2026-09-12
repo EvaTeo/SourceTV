@@ -1,6 +1,6 @@
+import { requireAdmin } from "@/app/api/admin/lib/auth";
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "./lib/auth";
 import {
   createContractForProject,
   getContracts,
@@ -8,10 +8,10 @@ import {
 import { parseCreateContractRequest } from "./lib/parser";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const authResponse = await requireAdmin();
 
-  if (auth.response) {
-    return auth.response;
+  if (authResponse) {
+    return authResponse;
   }
 
   try {
@@ -38,10 +38,10 @@ export async function GET() {
 export async function POST(
   request: Request
 ) {
-  const auth = await requireAdmin();
+  const authResponse = await requireAdmin();
 
-  if (auth.response) {
-    return auth.response;
+  if (authResponse) {
+    return authResponse;
   }
 
   const parsed =
