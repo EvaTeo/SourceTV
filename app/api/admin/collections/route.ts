@@ -1,164 +1,81 @@
-import { prisma } from "@/app/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-function createSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { requireAdmin } from "@/app/api/admin/lib/auth";
 
-function toNullableDate(value: unknown) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(String(value));
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
+import { collectionErrorResponse } from "./lib/errors";
+import { parseCollectionCreate } from "./lib/parser";
+import {
+  createCollection,
+  getCollections,
+} from "./lib/repository";
 
 export async function GET() {
-  try {
-    const collections = await prisma.editorialCollection.findMany({
-      orderBy: [
-        {
-          sortOrder: "asc",
-        },
-        {
-          createdAt: "desc",
-        },
-      ],
-      include: {
-        items: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-          include: {
-            project: true,
-          },
-        },
-      },
-    });
+  const authResponse =
+    await requireAdmin();
 
-    return NextResponse.json(collections);
-  } catch (error) {
-    console.error("GET ADMIN COLLECTIONS ERROR:", error);
+  if (authResponse) {
+    return authResponse;
+  }
+
+  try {
+    const collections =
+      await getCollections();
 
     return NextResponse.json(
-      {
-        error: "Failed to load collections.",
-      },
-      {
-        status: 500,
-      }
+      collections
+    );
+  } catch (error) {
+    return collectionErrorResponse(
+      error,
+      "[admin/collections] GET",
+      "Failed to load collections."
     );
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+export async function POST(
+  request: NextRequest
+) {
+  const authResponse =
+    await requireAdmin();
 
-    const title =
-      typeof body.title === "string" ? body.title.trim() : "";
+  if (authResponse) {
+    return authResponse;
+  }
 
-    if (!title) {
-      return NextResponse.json(
-        {
-          error: "Collection title is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+  const parsed =
+    await parseCollectionCreate(
+      request
+    );
 
-    const requestedSlug =
-      typeof body.slug === "string" ? body.slug.trim() : "";
-
-    const baseSlug = createSlug(requestedSlug || title);
-
-    if (!baseSlug) {
-      return NextResponse.json(
-        {
-          error: "A valid collection slug could not be created.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    let slug = baseSlug;
-    let suffix = 2;
-
-    while (
-      await prisma.editorialCollection.findUnique({
-        where: {
-          slug,
-        },
-        select: {
-          id: true,
-        },
-      })
-    ) {
-      slug = `${baseSlug}-${suffix}`;
-      suffix += 1;
-    }
-
-    const collection = await prisma.editorialCollection.create({
-      data: {
-        title,
-        slug,
-        description:
-          typeof body.description === "string" &&
-          body.description.trim()
-            ? body.description.trim()
-            : null,
-        placement:
-          typeof body.placement === "string" &&
-          body.placement.trim()
-            ? body.placement.trim()
-            : "browse",
-        status:
-          typeof body.status === "string" &&
-          body.status.trim()
-            ? body.status.trim()
-            : "active",
-        sortOrder:
-          typeof body.sortOrder === "number"
-            ? body.sortOrder
-            : 0,
-        startsAt: toNullableDate(body.startsAt),
-        endsAt: toNullableDate(body.endsAt),
-      },
-      include: {
-        items: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-          include: {
-            project: true,
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(collection, {
-      status: 201,
-    });
-  } catch (error) {
-    console.error("CREATE ADMIN COLLECTION ERROR:", error);
-
+  if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Failed to create collection.",
+        error: parsed.error,
       },
       {
-        status: 500,
+        status: 400,
       }
+    );
+  }
+
+  try {
+    const collection =
+      await createCollection(
+        parsed.data
+      );
+
+    return NextResponse.json(
+      collection,
+      {
+        status: 201,
+      }
+    );
+  } catch (error) {
+    return collectionErrorResponse(
+      error,
+      "[admin/collections] POST",
+      "Failed to create collection."
     );
   }
 }

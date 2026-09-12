@@ -1,3 +1,8 @@
+import {
+  cleanString,
+  getFile,
+} from "@/app/api/lib/formData";
+
 export type ParsedProjectForm = {
   title: string;
   description: string;
@@ -28,31 +33,6 @@ export class ProjectFormError extends Error {
     this.name = "ProjectFormError";
     this.status = status;
   }
-}
-
-function cleanString(
-  value: FormDataEntryValue | null
-) {
-  return typeof value === "string"
-    ? value.trim()
-    : "";
-}
-
-function getFile(
-  formData: FormData,
-  key: string
-) {
-  const value = formData.get(key);
-
-  if (!(value instanceof File)) {
-    return null;
-  }
-
-  if (value.size === 0) {
-    return null;
-  }
-
-  return value;
 }
 
 function parseYear(value: string) {

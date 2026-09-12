@@ -1,43 +1,21 @@
-import { prisma } from "@/app/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-function toNullableDate(value: unknown) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(String(value));
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
+import { collectionErrorResponse } from "./lib/errors";
+import { parseCollectionUpdate } from "./lib/parser";
+import {
+  deleteCollection,
+  getCollection,
+  updateCollection,
+} from "./lib/repository";
+import type { CollectionRouteContext } from "./lib/types";
 
 export async function GET(
   _request: NextRequest,
-  context: {
-    params: Promise<{
-      id: string;
-    }>;
-  }
+  context: CollectionRouteContext
 ) {
   try {
     const { id } = await context.params;
-
-    const collection =
-      await prisma.editorialCollection.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          items: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-            include: {
-              project: true,
-            },
-          },
-        },
-      });
+    const collection = await getCollection(id);
 
     if (!collection) {
       return NextResponse.json(
@@ -51,137 +29,66 @@ export async function GET(
     }
 
     return NextResponse.json(collection);
-  } catch (error) {
-    console.error("GET ADMIN COLLECTION ERROR:", error);
-
-    return NextResponse.json(
-      {
-        error: "Failed to load collection.",
-      },
-      {
-        status: 500,
-      }
+  } catch (error: unknown) {
+    return collectionErrorResponse(
+      error,
+      "GET ADMIN COLLECTION ERROR:",
+      "Failed to load collection."
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  context: {
-    params: Promise<{
-      id: string;
-    }>;
-  }
+  context: CollectionRouteContext
 ) {
   try {
     const { id } = await context.params;
-    const body = await request.json();
+    const parsed = await parseCollectionUpdate(request);
 
-    const collection =
-      await prisma.editorialCollection.update({
-        where: {
-          id,
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: parsed.error,
         },
-        data: {
-          ...(typeof body.title === "string"
-            ? {
-                title: body.title.trim(),
-              }
-            : {}),
-          ...(typeof body.description === "string"
-            ? {
-                description: body.description.trim() || null,
-              }
-            : {}),
-          ...(typeof body.placement === "string"
-            ? {
-                placement: body.placement.trim() || "browse",
-              }
-            : {}),
-          ...(typeof body.status === "string"
-            ? {
-                status: body.status.trim() || "draft",
-              }
-            : {}),
-          ...(typeof body.sortOrder === "number"
-            ? {
-                sortOrder: body.sortOrder,
-              }
-            : {}),
-          ...(Object.prototype.hasOwnProperty.call(
-            body,
-            "startsAt"
-          )
-            ? {
-                startsAt: toNullableDate(body.startsAt),
-              }
-            : {}),
-          ...(Object.prototype.hasOwnProperty.call(
-            body,
-            "endsAt"
-          )
-            ? {
-                endsAt: toNullableDate(body.endsAt),
-              }
-            : {}),
-        },
-        include: {
-          items: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-            include: {
-              project: true,
-            },
-          },
-        },
-      });
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const collection = await updateCollection(
+      id,
+      parsed.data
+    );
 
     return NextResponse.json(collection);
-  } catch (error) {
-    console.error("UPDATE ADMIN COLLECTION ERROR:", error);
-
-    return NextResponse.json(
-      {
-        error: "Failed to update collection.",
-      },
-      {
-        status: 500,
-      }
+  } catch (error: unknown) {
+    return collectionErrorResponse(
+      error,
+      "UPDATE ADMIN COLLECTION ERROR:",
+      "Failed to update collection."
     );
   }
 }
 
 export async function DELETE(
   _request: NextRequest,
-  context: {
-    params: Promise<{
-      id: string;
-    }>;
-  }
+  context: CollectionRouteContext
 ) {
   try {
     const { id } = await context.params;
 
-    await prisma.editorialCollection.delete({
-      where: {
-        id,
-      },
-    });
+    await deleteCollection(id);
 
     return NextResponse.json({
       success: true,
     });
-  } catch (error) {
-    console.error("DELETE ADMIN COLLECTION ERROR:", error);
-
-    return NextResponse.json(
-      {
-        error: "Failed to delete collection.",
-      },
-      {
-        status: 500,
-      }
+  } catch (error: unknown) {
+    return collectionErrorResponse(
+      error,
+      "DELETE ADMIN COLLECTION ERROR:",
+      "Failed to delete collection."
     );
   }
 }

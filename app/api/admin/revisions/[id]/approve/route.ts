@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/lib/auth";
-import { mergeRevision, MergeRevisionError } from "../../lib/mergeRevision";
+import {
+  mergeRevision,
+  MergeRevisionError,
+} from "../../lib/mergeRevision";
 
 type RouteContext = {
   params: Promise<{
@@ -14,7 +17,7 @@ export async function POST(
 ) {
   const user = await getCurrentUser();
 
-  if (!user || user.role !== "admin") {
+  if (!user) {
     return NextResponse.json(
       {
         error: "Unauthorized",
@@ -25,7 +28,29 @@ export async function POST(
     );
   }
 
+  if (user.role !== "admin") {
+    return NextResponse.json(
+      {
+        error: "Forbidden",
+      },
+      {
+        status: 403,
+      }
+    );
+  }
+
   const { id } = await context.params;
+
+  if (!id.trim()) {
+    return NextResponse.json(
+      {
+        error: "Revision ID is required.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
 
   try {
     const result = await mergeRevision({
@@ -50,7 +75,10 @@ export async function POST(
       );
     }
 
-    console.error(error);
+    console.error(
+      "Unable to approve project revision:",
+      error
+    );
 
     return NextResponse.json(
       {

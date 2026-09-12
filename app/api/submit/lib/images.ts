@@ -1,0 +1,1 @@
+export { saveImage } from "@/app/api/lib/images";

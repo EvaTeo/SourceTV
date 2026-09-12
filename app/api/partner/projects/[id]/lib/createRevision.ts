@@ -1,12 +1,7 @@
+import type { BunnyUploadResult } from "@/app/api/lib/bunny";
 import { prisma } from "@/app/lib/prisma";
-import type { ParsedProjectForm } from "./parseProjectForm";
 
-type BunnyUploadResult = {
-  guid: string;
-  iframeUrl: string;
-  hlsUrl: string;
-  thumbnailUrl: string;
-};
+import type { ParsedProjectForm } from "./parseProjectForm";
 
 type UploadedImages = {
   thumbnailUrl: string | null;

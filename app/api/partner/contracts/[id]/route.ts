@@ -1,222 +1,192 @@
 import { getCurrentUser } from "@/app/lib/auth";
-import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
-type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+import {
+  verifyPartnerActionAccess,
+  verifyPartnerContractAccess,
+} from "./lib/auth";
+import { getPartnerContract } from "./lib/get";
+import { requestContractChanges } from "./lib/requestChanges";
+import { signContract } from "./lib/sign";
+import type {
+  PartnerContractRequestBody,
+  RouteContext,
+} from "./lib/types";
+import {
+  isPartnerContractAction,
+  parsePartnerContractBody,
+  PartnerContractValidationError,
+} from "./lib/validation";
 
-export async function GET(request: Request, context: RouteContext) {
+export async function GET(
+  _request: Request,
+  context: RouteContext
+): Promise<Response> {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
     }
 
     const { id } = await context.params;
 
-    const contract = await prisma.rightsContract.findUnique({
-      where: {
+    const result =
+      await getPartnerContract(
         id,
-      },
-      include: {
-        project: true,
-      },
-    });
-
-    if (!contract) {
-      return NextResponse.json(
-        { error: "Contract not found" },
-        { status: 404 }
+        user.role === "partner"
       );
+
+    if (!result.ok) {
+      return result.response;
     }
 
-    if (user.role !== "admin" && contract.partnerEmail !== user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const accessResponse =
+      verifyPartnerContractAccess(
+        user,
+        result.contract
+      );
+
+    if (accessResponse) {
+      return accessResponse;
     }
 
-   if (
-  user.role === "partner" &&
-  contract.status === "sent" &&
-  !contract.viewedAt
-) {
-  
-      const viewedContract = await prisma.rightsContract.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "viewed",
-          viewedAt: new Date(),
-        },
-        include: {
-          project: true,
-        },
-      });
+    return result.response;
+  } catch (error) {
+    console.error(
+      "Failed to load partner contract:",
+      error
+    );
 
-      return NextResponse.json(viewedContract);
-    }
-
-    return NextResponse.json(contract);
-  } catch (error: any) {
     return NextResponse.json(
       {
-        error: "Failed to load contract",
-        message: error?.message || "Unknown error",
+        error: "Failed to load contract.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
+export async function PATCH(
+  request: Request,
+  context: RouteContext
+): Promise<Response> {
   try {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
     }
 
     const { id } = await context.params;
-    const body = await request.json();
 
-    const contract = await prisma.rightsContract.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        project: true,
-      },
-    });
+    const result =
+      await getPartnerContract(id, false);
 
-    if (!contract) {
-      return NextResponse.json(
-        { error: "Contract not found" },
-        { status: 404 }
+    if (!result.ok) {
+      return result.response;
+    }
+
+    const accessResponse =
+      verifyPartnerActionAccess(
+        user,
+        result.contract
       );
+
+    if (accessResponse) {
+      return accessResponse;
     }
 
-    if (user.role !== "admin" && contract.partnerEmail !== user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+    let requestData: unknown;
 
-    if (contract.status === "signed") {
+    try {
+      requestData = await request.json();
+    } catch {
       return NextResponse.json(
         {
-          error:
-            "This contract has already been signed and can no longer be changed.",
+          error: "Invalid request body.",
         },
-        { status: 409 }
+        {
+          status: 400,
+        }
       );
     }
 
+    const body: PartnerContractRequestBody =
+      parsePartnerContractBody(
+        requestData
+      );
+
     if (
-      contract.status === "cancelled" ||
-      contract.status === "expired"
+      !isPartnerContractAction(body.action)
     ) {
       return NextResponse.json(
         {
-          error: "This contract is no longer active.",
+          error: "Invalid action.",
         },
-        { status: 409 }
+        {
+          status: 400,
+        }
       );
     }
 
     if (body.action === "sign") {
-      const signatureName = String(body.signatureName || "").trim();
-      const signatureDataUrl = String(body.signatureDataUrl || "").trim();
-
-      if (!signatureName || !signatureDataUrl) {
-        return NextResponse.json(
-          {
-            error: "Signature name and drawn signature are required.",
-          },
-          { status: 400 }
-        );
-      }
-
-      const updated = await prisma.rightsContract.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "signed",
-          signedAt: new Date(),
-          partnerSignatureName: signatureName,
-          partnerSignatureDataUrl: signatureDataUrl,
-        },
-        include: {
-          project: true,
-        },
+      return signContract({
+        contract: result.contract,
+        signatureName:
+          body.signatureName,
+        signatureDataUrl:
+          body.signatureDataUrl,
       });
-
-      await prisma.partnerMessage.create({
-        data: {
-          projectId: contract.projectId,
-          senderTeam: "Partner",
-          subject: "Contract Signed",
-          body: `${
-            contract.partnerName || contract.partnerEmail
-          } signed the streaming rights agreement.`,
-        },
-      });
-
-      return NextResponse.json(updated);
     }
 
-    if (body.action === "request_changes") {
-      const partnerNotes = String(body.partnerNotes || "").trim();
-
-      if (!partnerNotes) {
-        return NextResponse.json(
-          {
-            error: "Please explain what changes you are requesting.",
-          },
-          { status: 400 }
-        );
-      }
-
-      const updated = await prisma.rightsContract.update({
-        where: {
-          id,
+    return requestContractChanges({
+      contract: result.contract,
+      partnerNotes: body.partnerNotes,
+    });
+  } catch (error) {
+    if (
+      error instanceof
+      PartnerContractValidationError
+    ) {
+      return NextResponse.json(
+        {
+          error: error.message,
         },
-        data: {
-          status: "changes_requested",
-          partnerNotes,
-        },
-        include: {
-          project: true,
-        },
-      });
-
-      await prisma.partnerMessage.create({
-        data: {
-          projectId: contract.projectId,
-          senderTeam: "Partner",
-          subject: "Contract Changes Requested",
-          body: partnerNotes,
-        },
-      });
-
-      return NextResponse.json(updated);
+        {
+          status: 400,
+        }
+      );
     }
 
-    return NextResponse.json(
-      {
-        error: "Invalid action",
-      },
-      { status: 400 }
+    console.error(
+      "Failed to update partner contract:",
+      error
     );
-  } catch (error: any) {
+
     return NextResponse.json(
       {
-        error: "Failed to update contract",
-        message: error?.message || "Unknown error",
+        error: "Failed to update contract.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

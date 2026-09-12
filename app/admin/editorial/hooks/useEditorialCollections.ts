@@ -6,222 +6,211 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { emptyCollectionForm } from "../constants";
+
+import {
+  addEditorialCollectionProject,
+  createEditorialCollection,
+  deleteEditorialCollection,
+  fetchEditorialCollections,
+  fetchEditorialProjects,
+  removeEditorialCollectionItem,
+  reorderEditorialCollectionItems,
+  saveEditorialCollectionOrder,
+  updateEditorialCollection,
+  type CollectionPayload,
+} from "../lib/editorialCollectionsApi";
+
 import type {
   CollectionForm,
   EditorialCollection,
   Project,
 } from "../types";
+
 import { collectionToForm } from "../utils";
 
 export default function useEditorialCollections() {
-  const [collections, setCollections] = useState<
-    EditorialCollection[]
-  >([]);
+  const [collections, setCollections] =
+    useState<EditorialCollection[]>([]);
 
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] =
+    useState<Project[]>([]);
 
-  const [selectedId, setSelectedId] = useState<
-    string | null
-  >(null);
+  const [selectedId, setSelectedId] =
+    useState<string | null>(null);
 
-  const [form, setForm] = useState<CollectionForm>(
-    emptyCollectionForm
-  );
+  const [form, setForm] =
+    useState<CollectionForm>(
+      emptyCollectionForm
+    );
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [collectionSearch, setCollectionSearch] =
-    useState("");
-
-  const [titleSearch, setTitleSearch] = useState("");
-
-  const [showTitlePicker, setShowTitlePicker] =
+  const [saving, setSaving] =
     useState(false);
 
-  const selectedCollection = useMemo(() => {
-    return (
-      collections.find(
-        (collection) => collection.id === selectedId
-      ) || null
-    );
-  }, [collections, selectedId]);
+  const [creating, setCreating] =
+    useState(false);
 
-  const filteredCollections = useMemo(() => {
-    const cleanSearch = collectionSearch
-      .trim()
-      .toLowerCase();
+  const [
+    collectionSearch,
+    setCollectionSearch,
+  ] = useState("");
 
-    if (!cleanSearch) {
-      return collections;
-    }
+  const [
+    titleSearch,
+    setTitleSearch,
+  ] = useState("");
 
-    return collections.filter((collection) => {
-      return [
-        collection.title,
-        collection.slug,
-        collection.placement,
-        collection.status,
-        collection.description,
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(cleanSearch)
-        );
-    });
-  }, [collections, collectionSearch]);
+  const [
+    showTitlePicker,
+    setShowTitlePicker,
+  ] = useState(false);
 
-  const availableProjects = useMemo(() => {
-    const cleanSearch = titleSearch
-      .trim()
-      .toLowerCase();
-
-    const assignedProjectIds = new Set(
-      selectedCollection?.items.map(
-        (item) => item.projectId
-      ) || []
-    );
-
-    return projects
-      .filter(
-        (project) =>
-          !assignedProjectIds.has(project.id)
-      )
-      .filter((project) => {
-        if (!cleanSearch) {
-          return true;
-        }
-
-        return [
-          project.title,
-          project.description,
-          project.type,
-          project.genre,
-        ]
-          .filter(Boolean)
-          .some((value) =>
-            String(value)
-              .toLowerCase()
-              .includes(cleanSearch)
-          );
-      });
-  }, [projects, selectedCollection, titleSearch]);
-
-  const loadCollections = useCallback(
-    async (preferredId?: string | null) => {
-      const response = await fetch(
-        "/api/admin/collections",
-        {
-          cache: "no-store",
-        }
-      );
-
-      const responseText = await response.text();
-
-      let data: unknown;
-
-      try {
-        data = responseText
-          ? JSON.parse(responseText)
-          : [];
-      } catch {
-        console.error(
-          "COLLECTIONS API RETURNED NON-JSON:",
-          response.status,
-          responseText
-        );
-
-        throw new Error(
-          `Collections API returned an invalid response (${response.status}).`
-        );
-      }
-
-      if (!response.ok) {
-        const errorData = data as {
-          error?: string;
-        };
-
-        throw new Error(
-          errorData?.error ||
-            `Failed to load collections (${response.status}).`
-        );
-      }
-
-      const nextCollections: EditorialCollection[] =
-        Array.isArray(data) ? data : [];
-
-      setCollections(nextCollections);
-
-      const selectedStillExists =
-        nextCollections.some(
+  const selectedCollection =
+    useMemo(() => {
+      return (
+        collections.find(
           (collection) =>
-            collection.id === selectedId
+            collection.id ===
+            selectedId
+        ) || null
+      );
+    }, [
+      collections,
+      selectedId,
+    ]);
+
+  const filteredCollections =
+    useMemo(() => {
+      const cleanSearch =
+        collectionSearch
+          .trim()
+          .toLowerCase();
+
+      if (!cleanSearch) {
+        return collections;
+      }
+
+      return collections.filter(
+        (collection) => {
+          return [
+            collection.title,
+            collection.slug,
+            collection.placement,
+            collection.status,
+            collection.description,
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(
+                  cleanSearch
+                )
+            );
+        }
+      );
+    }, [
+      collections,
+      collectionSearch,
+    ]);
+
+  const availableProjects =
+    useMemo(() => {
+      const cleanSearch =
+        titleSearch
+          .trim()
+          .toLowerCase();
+
+      const assignedProjectIds =
+        new Set(
+          selectedCollection?.items.map(
+            (item) =>
+              item.projectId
+          ) || []
         );
 
-      const nextSelectedId =
-        preferredId ||
-        (selectedStillExists
-          ? selectedId
-          : null) ||
-        nextCollections[0]?.id ||
-        null;
+      return projects
+        .filter(
+          (project) =>
+            !assignedProjectIds.has(
+              project.id
+            )
+        )
+        .filter((project) => {
+          if (!cleanSearch) {
+            return true;
+          }
 
-      setSelectedId(nextSelectedId);
+          return [
+            project.title,
+            project.description,
+            project.type,
+            project.genre,
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(
+                  cleanSearch
+                )
+            );
+        });
+    }, [
+      projects,
+      selectedCollection,
+      titleSearch,
+    ]);
 
-      return nextCollections;
-    },
-    [selectedId]
-  );
+  const loadCollections =
+    useCallback(
+      async (
+        preferredId?: string | null
+      ) => {
+        const nextCollections =
+          await fetchEditorialCollections();
 
-  const loadProjects = useCallback(async () => {
-    const response = await fetch(
-      "/api/admin/content",
-      {
-        cache: "no-store",
-      }
+        setCollections(
+          nextCollections
+        );
+
+        const selectedStillExists =
+          nextCollections.some(
+            (collection) =>
+              collection.id ===
+              selectedId
+          );
+
+        const nextSelectedId =
+          preferredId ||
+          (selectedStillExists
+            ? selectedId
+            : null) ||
+          nextCollections[0]?.id ||
+          null;
+
+        setSelectedId(
+          nextSelectedId
+        );
+
+        return nextCollections;
+      },
+      [selectedId]
     );
 
-    const responseText = await response.text();
+  const loadProjects =
+    useCallback(async () => {
+      const nextProjects =
+        await fetchEditorialProjects();
 
-    let data: unknown;
-
-    try {
-      data = responseText
-        ? JSON.parse(responseText)
-        : [];
-    } catch {
-      console.error(
-        "ADMIN CONTENT API RETURNED NON-JSON:",
-        response.status,
-        responseText
+      setProjects(
+        nextProjects
       );
-
-      throw new Error(
-        `Content API returned an invalid response (${response.status}).`
-      );
-    }
-
-    if (!response.ok) {
-      const errorData = data as {
-        error?: string;
-        message?: string;
-      };
-
-      throw new Error(
-        errorData?.error ||
-          errorData?.message ||
-          `Failed to load content library (${response.status}).`
-      );
-    }
-
-    setProjects(
-      Array.isArray(data) ? data : []
-    );
-  }, []);
+    }, []);
 
   useEffect(() => {
     async function loadPage() {
@@ -249,7 +238,10 @@ export default function useEditorialCollections() {
     }
 
     void loadPage();
-  }, [loadCollections, loadProjects]);
+  }, [
+    loadCollections,
+    loadProjects,
+  ]);
 
   useEffect(() => {
     if (creating) {
@@ -257,16 +249,26 @@ export default function useEditorialCollections() {
     }
 
     if (!selectedCollection) {
-      setForm(emptyCollectionForm);
+      setForm(
+        emptyCollectionForm
+      );
+
       return;
     }
 
     setForm(
-      collectionToForm(selectedCollection)
+      collectionToForm(
+        selectedCollection
+      )
     );
-  }, [creating, selectedCollection]);
+  }, [
+    creating,
+    selectedCollection,
+  ]);
 
-  function selectCollection(id: string) {
+  function selectCollection(
+    id: string
+  ) {
     setCreating(false);
     setSelectedId(id);
     setShowTitlePicker(false);
@@ -281,20 +283,24 @@ export default function useEditorialCollections() {
 
     setForm({
       ...emptyCollectionForm,
-      sortOrder: collections.length + 1,
+      sortOrder:
+        collections.length + 1,
     });
   }
 
   function cancelCreating() {
     setCreating(false);
+
     setSelectedId(
-      collections[0]?.id || null
+      collections[0]?.id ||
+        null
     );
+
     setShowTitlePicker(false);
   }
 
   function updateForm<
-    K extends keyof CollectionForm
+    K extends keyof CollectionForm,
   >(
     key: K,
     value: CollectionForm[K]
@@ -305,17 +311,33 @@ export default function useEditorialCollections() {
     }));
   }
 
-  function buildCollectionPayload() {
+  function buildCollectionPayload(): CollectionPayload {
     return {
-      title: form.title.trim(),
+      title:
+        form.title.trim(),
+
       description:
-        form.description.trim() || null,
-      placement: form.placement,
-      status: form.status,
+        form.description.trim() ||
+        null,
+
+      placement:
+        form.placement,
+
+      status:
+        form.status,
+
       sortOrder:
-        Number(form.sortOrder) || 0,
-      startsAt: form.startsAt || null,
-      endsAt: form.endsAt || null,
+        Number(
+          form.sortOrder
+        ) || 0,
+
+      startsAt:
+        form.startsAt ||
+        null,
+
+      endsAt:
+        form.endsAt ||
+        null,
     };
   }
 
@@ -324,37 +346,23 @@ export default function useEditorialCollections() {
       window.alert(
         "Enter a collection title."
       );
+
       return;
     }
 
     try {
       setSaving(true);
 
-      const response = await fetch(
-        "/api/admin/collections",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify(
-            buildCollectionPayload()
-          ),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to create collection."
+      const data =
+        await createEditorialCollection(
+          buildCollectionPayload()
         );
-      }
 
       setCreating(false);
-      await loadCollections(data.id);
+
+      await loadCollections(
+        data.id
+      );
     } catch (error) {
       console.error(
         "CREATE COLLECTION ERROR:",
@@ -380,34 +388,17 @@ export default function useEditorialCollections() {
       window.alert(
         "Enter a collection title."
       );
+
       return;
     }
 
     try {
       setSaving(true);
 
-      const response = await fetch(
-        `/api/admin/collections/${selectedCollection.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify(
-            buildCollectionPayload()
-          ),
-        }
+      await updateEditorialCollection(
+        selectedCollection.id,
+        buildCollectionPayload()
       );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to save collection."
-        );
-      }
 
       await loadCollections(
         selectedCollection.id
@@ -433,9 +424,10 @@ export default function useEditorialCollections() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${selectedCollection.title}"? This removes the collection and its title assignments, but it will not delete the titles.`
-    );
+    const confirmed =
+      window.confirm(
+        `Delete "${selectedCollection.title}"? This removes the collection and its title assignments, but it will not delete the titles.`
+      );
 
     if (!confirmed) {
       return;
@@ -444,24 +436,15 @@ export default function useEditorialCollections() {
     try {
       setSaving(true);
 
-      const response = await fetch(
-        `/api/admin/collections/${selectedCollection.id}`,
-        {
-          method: "DELETE",
-        }
+      await deleteEditorialCollection(
+        selectedCollection.id
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to delete collection."
-        );
-      }
-
       setSelectedId(null);
-      await loadCollections(null);
+
+      await loadCollections(
+        null
+      );
     } catch (error) {
       console.error(
         "DELETE COLLECTION ERROR:",
@@ -488,28 +471,10 @@ export default function useEditorialCollections() {
     try {
       setSaving(true);
 
-      const response = await fetch(
-        `/api/admin/collections/${selectedCollection.id}/items`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            projectId,
-          }),
-        }
+      await addEditorialCollectionProject(
+        selectedCollection.id,
+        projectId
       );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to add title."
-        );
-      }
 
       await loadCollections(
         selectedCollection.id
@@ -540,21 +505,10 @@ export default function useEditorialCollections() {
     try {
       setSaving(true);
 
-      const response = await fetch(
-        `/api/admin/collections/${selectedCollection.id}/items/${itemId}`,
-        {
-          method: "DELETE",
-        }
+      await removeEditorialCollectionItem(
+        selectedCollection.id,
+        itemId
       );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to remove title."
-        );
-      }
 
       await loadCollections(
         selectedCollection.id
@@ -576,60 +530,48 @@ export default function useEditorialCollections() {
   }
 
   async function reorderItems(
-    reorderedItems: EditorialCollection["items"]
+    reorderedItems:
+      EditorialCollection["items"]
   ) {
     if (!selectedCollection) {
       return;
     }
 
-    const previousCollections = collections;
+    const previousCollections =
+      collections;
 
-    const normalizedItems = reorderedItems.map(
-      (item, index) => ({
-        ...item,
-        sortOrder: index,
-      })
-    );
+    const normalizedItems =
+      reorderedItems.map(
+        (item, index) => ({
+          ...item,
+          sortOrder: index,
+        })
+      );
 
-    setCollections((current) =>
-      current.map((collection) =>
-        collection.id === selectedCollection.id
-          ? {
-              ...collection,
-              items: normalizedItems,
-            }
-          : collection
-      )
+    setCollections(
+      (current) =>
+        current.map(
+          (collection) =>
+            collection.id ===
+            selectedCollection.id
+              ? {
+                  ...collection,
+                  items:
+                    normalizedItems,
+                }
+              : collection
+        )
     );
 
     try {
       setSaving(true);
 
-      const response = await fetch(
-        `/api/admin/collections/${selectedCollection.id}/items`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            orderedItemIds:
-              normalizedItems.map(
-                (item) => item.id
-              ),
-          }),
-        }
+      await reorderEditorialCollectionItems(
+        selectedCollection.id,
+        normalizedItems.map(
+          (item) => item.id
+        )
       );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to reorder titles."
-        );
-      }
 
       await loadCollections(
         selectedCollection.id
@@ -640,7 +582,9 @@ export default function useEditorialCollections() {
         error
       );
 
-      setCollections(previousCollections);
+      setCollections(
+        previousCollections
+      );
 
       window.alert(
         error instanceof Error
@@ -653,66 +597,47 @@ export default function useEditorialCollections() {
   }
 
   async function reorderCollections(
-    reordered: EditorialCollection[]
+    reordered:
+      EditorialCollection[]
   ) {
-    const previous = collections;
+    const previous =
+      collections;
 
-    const normalized = reordered.map(
-      (collection, index) => ({
-        ...collection,
-        sortOrder: index + 1,
-      })
+    const normalized =
+      reordered.map(
+        (
+          collection,
+          index
+        ) => ({
+          ...collection,
+          sortOrder:
+            index + 1,
+        })
+      );
+
+    setCollections(
+      normalized
     );
-
-    setCollections(normalized);
 
     try {
       setSaving(true);
 
-      const responses = await Promise.all(
-        normalized.map(
-          (collection) =>
-            fetch(
-              `/api/admin/collections/${collection.id}`,
-              {
-                method: "PATCH",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  sortOrder:
-                    collection.sortOrder,
-                }),
-              }
-            )
-        )
+      await saveEditorialCollectionOrder(
+        normalized
       );
 
-      const failedResponse =
-        responses.find(
-          (response) => !response.ok
-        );
-
-      if (failedResponse) {
-        const data = await failedResponse
-          .json()
-          .catch(() => null);
-
-        throw new Error(
-          data?.error ||
-            "Failed to save collection order."
-        );
-      }
-
-      await loadCollections(selectedId);
+      await loadCollections(
+        selectedId
+      );
     } catch (error) {
       console.error(
         "COLLECTION REORDER ERROR:",
         error
       );
 
-      setCollections(previous);
+      setCollections(
+        previous
+      );
 
       window.alert(
         error instanceof Error
@@ -726,13 +651,15 @@ export default function useEditorialCollections() {
 
   function toggleTitlePicker() {
     setShowTitlePicker(
-      (current) => !current
+      (current) =>
+        !current
     );
   }
 
   return {
     collections,
     projects,
+
     selectedCollection,
     filteredCollections,
     availableProjects,

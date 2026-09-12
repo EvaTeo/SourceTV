@@ -1,191 +1,137 @@
-import { getCurrentUser } from "@/app/lib/auth";
-import { prisma } from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
+import { requireAdmin } from "@/app/api/admin/lib/auth";
+
+import { adminMessageErrorResponse } from "./lib/errors";
+import {
+  parseCreateMessageRequest,
+  parseMarkRepliesReadRequest,
+} from "./lib/parser";
+import {
+  createAdminMessage,
+  getAdminMessages,
+  markPartnerRepliesRead,
+} from "./lib/repository";
+
 export async function GET() {
+  const authResponse = await requireAdmin();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
   try {
-    const user = await getCurrentUser();
-
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    const messages = await prisma.partnerMessage.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        project: true,
-        replies: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(messages);
-  } catch (error: any) {
-    console.error("ADMIN MESSAGES GET ERROR:", error);
+    const messages =
+      await getAdminMessages();
 
     return NextResponse.json(
-      {
-        error: "Failed to load admin messages",
-        message: error?.message || "Unknown error",
-      },
-      { status: 500 }
+      messages
+    );
+  } catch (error) {
+    return adminMessageErrorResponse(
+      error,
+      "Failed to load messages."
     );
   }
 }
 
-export async function POST(request: Request) {
-  try {
-    const user = await getCurrentUser();
+export async function POST(
+  request: Request
+) {
+  const authResponse =
+    await requireAdmin();
 
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+  if (authResponse) {
+    return authResponse;
+  }
 
-    const body = await request.json();
+  const parsed =
+    await parseCreateMessageRequest(
+      request
+    );
 
-    const projectId = body.projectId || null;
-    const partnerEmail = String(body.partnerEmail || "").trim();
-    const partnerName = String(body.partnerName || "").trim();
-    const subject = String(body.subject || "").trim();
-    const message = String(body.message || body.body || "").trim();
-    const senderTeam =
-      String(body.senderTeam || "").trim() || "SourceTV Partner Relations";
-
-    if (!partnerEmail) {
-      return NextResponse.json(
-        { error: "Partner email is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!subject) {
-      return NextResponse.json(
-        { error: "Subject is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!message) {
-      return NextResponse.json(
-        { error: "Message body is required." },
-        { status: 400 }
-      );
-    }
-
-    let resolvedPartnerName = partnerName;
-
-    if (projectId) {
-      const project = await prisma.projectSubmission.findUnique({
-        where: {
-          id: projectId,
-        },
-      });
-
-      if (!project) {
-        return NextResponse.json(
-          { error: "Selected project was not found." },
-          { status: 404 }
-        );
-      }
-
-      if (!resolvedPartnerName) {
-        resolvedPartnerName =
-          project.creatorName || project.creatorCompany || partnerEmail;
-      }
-    }
-
-    const created = await prisma.partnerMessage.create({
-      data: {
-        projectId,
-        partnerEmail,
-        partnerName: resolvedPartnerName || null,
-        senderTeam,
-        subject,
-        body: message,
-        isRead: false,
-      },
-      include: {
-        project: true,
-        replies: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(created);
-  } catch (error: any) {
-    console.error("ADMIN MESSAGE POST ERROR:", error);
-
+  if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Failed to send admin message",
-        message: error?.message || "Unknown error",
+        error: parsed.error,
       },
-      { status: 500 }
+      {
+        status: parsed.status,
+      }
+    );
+  }
+
+  try {
+    const result =
+      await createAdminMessage(
+        parsed.data
+      );
+
+    if (
+      result.status ===
+      "project_not_found"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Project not found.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    return NextResponse.json(
+      result.message
+    );
+  } catch (error) {
+    return adminMessageErrorResponse(
+      error,
+      "Failed to send message."
     );
   }
 }
 
-export async function PATCH(request: Request) {
-  try {
-    const user = await getCurrentUser();
+export async function PATCH(
+  request: Request
+) {
+  const authResponse =
+    await requireAdmin();
 
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+  if (authResponse) {
+    return authResponse;
+  }
 
-    const body = await request.json();
-    const messageId = String(body.messageId || "").trim();
+  const parsed =
+    await parseMarkRepliesReadRequest(
+      request
+    );
 
-    if (!messageId) {
-      return NextResponse.json(
-        { error: "Message ID is required." },
-        { status: 400 }
-      );
-    }
-
-    await prisma.partnerMessageReply.updateMany({
-      where: {
-        messageId,
-        senderRole: "partner",
-        isRead: false,
-      },
-      data: {
-        isRead: true,
-      },
-    });
-
-    const updatedMessage = await prisma.partnerMessage.findUnique({
-      where: {
-        id: messageId,
-      },
-      include: {
-        project: true,
-        replies: {
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(updatedMessage);
-  } catch (error: any) {
-    console.error("ADMIN MESSAGE PATCH ERROR:", error);
-
+  if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Failed to mark partner replies as read",
-        message: error?.message || "Unknown error",
+        error: parsed.error,
       },
-      { status: 500 }
+      {
+        status: parsed.status,
+      }
+    );
+  }
+
+  try {
+    const thread =
+      await markPartnerRepliesRead(
+        parsed.messageId
+      );
+
+    return NextResponse.json(
+      thread
+    );
+  } catch (error) {
+    return adminMessageErrorResponse(
+      error,
+      "Failed to update thread."
     );
   }
 }

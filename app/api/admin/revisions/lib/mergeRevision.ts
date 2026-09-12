@@ -20,11 +20,28 @@ export async function mergeRevision({
   revisionId,
   reviewedByEmail,
 }: MergeRevisionInput) {
+  const cleanRevisionId = revisionId.trim();
+  const reviewerEmail = reviewedByEmail.trim();
+
+  if (!cleanRevisionId) {
+    throw new MergeRevisionError(
+      "A revision ID is required.",
+      400
+    );
+  }
+
+  if (!reviewerEmail) {
+    throw new MergeRevisionError(
+      "The reviewing administrator must have a valid email address.",
+      400
+    );
+  }
+
   return prisma.$transaction(async (tx) => {
     const revision =
       await tx.projectRevision.findUnique({
         where: {
-          id: revisionId,
+          id: cleanRevisionId,
         },
       });
 
@@ -111,7 +128,6 @@ export async function mergeRevision({
 
           maturityRating:
             revision.proposedMaturityRating,
-
           runtime:
             revision.proposedRuntime,
 
@@ -129,7 +145,7 @@ export async function mergeRevision({
         },
         data: {
           status: "approved",
-          reviewedByEmail,
+          reviewedByEmail: reviewerEmail,
           reviewedAt,
           approvedAt: reviewedAt,
         },

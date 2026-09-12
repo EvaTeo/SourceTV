@@ -1,87 +1,42 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/app/lib/auth";
-import { prisma } from "@/app/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  const user = await getCurrentUser();
+import { requireAdmin } from "@/app/api/admin/lib/auth";
 
-  if (!user || user.role !== "admin") {
+import { revisionErrorResponse } from "./lib/errors";
+import { parseRevisionQuery } from "./lib/query";
+import { getRevisionPage } from "./lib/repository";
+
+export async function GET(
+  request: NextRequest
+) {
+  const authResponse = await requireAdmin();
+
+  if (authResponse) {
+    return authResponse;
+  }
+
+  const parsed = parseRevisionQuery(
+    request.nextUrl.searchParams
+  );
+
+  if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Unauthorized",
+        error: parsed.error,
       },
       {
-        status: 401,
+        status: 400,
       }
     );
   }
 
   try {
-    const revisions = await prisma.projectRevision.findMany({
-      orderBy: {
-        submittedAt: "desc",
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            type: true,
-            genre: true,
-            year: true,
-            maturityRating: true,
-            runtime: true,
-            creatorName: true,
-            creatorCompany: true,
-            thumbnailUrl: true,
-            backdropUrl: true,
-            titleLogoUrl: true,
-            cardArtUrl: true,
-            status: true,
-            updatedAt: true,
-          },
-        },
-      },
-    });
-
-    const counts = {
-      total: revisions.length,
-      pending: revisions.filter(
-        (revision) => revision.status === "pending"
-      ).length,
-      changesRequested: revisions.filter(
-        (revision) =>
-          revision.status === "changes_requested"
-      ).length,
-      approved: revisions.filter(
-        (revision) => revision.status === "approved"
-      ).length,
-      rejected: revisions.filter(
-        (revision) => revision.status === "rejected"
-      ).length,
-      withdrawn: revisions.filter(
-        (revision) => revision.status === "withdrawn"
-      ).length,
-    };
-
-    return NextResponse.json({
-      revisions,
-      counts,
-    });
-  } catch (error) {
-    console.error(
-      "Unable to load admin project revisions:",
-      error
+    const result = await getRevisionPage(
+      parsed.query
     );
 
-    return NextResponse.json(
-      {
-        error: "Unable to load project revisions.",
-      },
-      {
-        status: 500,
-      }
-    );
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    return revisionErrorResponse(error);
   }
 }
