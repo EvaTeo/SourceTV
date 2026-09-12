@@ -47,3 +47,6 @@ next-env.d.ts
 *.db-wal
 
 /app/generated/prisma
+
+# Local audit archives
+*.zip
