@@ -22,7 +22,46 @@ export type ContentQuery = {
   limit: number;
 };
 
-export type RawContentItem = ProjectSubmission;
+export type RawContentItem =
+  ProjectSubmission;
+
+/**
+ * Minimum database shape required by
+ * selectPublicContent().
+ *
+ * Full ProjectSubmission records satisfy this type,
+ * while browse can request only these viewer-facing
+ * and ranking fields.
+ */
+export type ContentSelectableItem = Pick<
+  ProjectSubmission,
+  | "id"
+  | "title"
+  | "description"
+  | "type"
+  | "genre"
+  | "videoUrl"
+  | "mainVideoUrl"
+  | "trailerUrl"
+  | "thumbnailUrl"
+  | "backdropUrl"
+  | "titleLogoUrl"
+  | "status"
+  | "views"
+  | "year"
+  | "maturityRating"
+  | "runtime"
+  | "creatorName"
+  | "scheduledAt"
+  | "createdAt"
+  | "publishedAt"
+  | "editorPick"
+  | "featured"
+  | "featuredRank"
+  | "heroPriority"
+  | "heroStartDate"
+  | "heroEndDate"
+>;
 
 export type PublicContentItem = Omit<
   ProjectSubmission,

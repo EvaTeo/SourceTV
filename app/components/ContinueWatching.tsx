@@ -330,15 +330,16 @@ export default function ContinueWatching() {
 
               <div className="relative aspect-video overflow-hidden bg-zinc-950">
                 {item.artwork ? (
-                  <div
-                    className="absolute inset-0 scale-[1.02] bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-                    style={{
-                      backgroundImage: `url(${item.artwork})`,
-                    }}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(to_right,black,#020617)]" />
-                )}
+  <img
+    src={item.artwork}
+    alt=""
+    loading="lazy"
+    decoding="async"
+    className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+  />
+) : (
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(to_right,black,#020617)]" />
+)}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-black/10 transition-opacity duration-500 group-hover:opacity-90" />
 

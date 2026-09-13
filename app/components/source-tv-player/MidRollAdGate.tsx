@@ -1,6 +1,6 @@
 "use client";
 
-import Hls from "hls.js";
+import type HlsType from "hls.js";
 import {
   useCallback,
   useEffect,
@@ -50,10 +50,19 @@ export default function MidRollAdGate({
     useRef<HTMLVideoElement | null>(null);
 
   const hlsRef =
-    useRef<Hls | null>(null);
+    useRef<HlsType | null>(null);
 
-  const trackedRef = useRef(false);
-  const finishedRef = useRef(false);
+  const trackedRef =
+    useRef(false);
+
+  const finishedRef =
+    useRef(false);
+
+  const secondsWatchedRef =
+    useRef(0);
+
+  const onFinishedRef =
+    useRef(onFinished);
 
   const [ad, setAd] =
     useState<ActiveAd | null>(null);
@@ -69,20 +78,29 @@ export default function MidRollAdGate({
   const [skipReady, setSkipReady] =
     useState(false);
 
-  const cleanupVideo = useCallback(() => {
-    const video = videoRef.current;
+  useEffect(() => {
+    onFinishedRef.current =
+      onFinished;
+  }, [onFinished]);
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+  const cleanupVideo =
+    useCallback(() => {
+      const video =
+        videoRef.current;
 
-    if (video) {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    }
-  }, []);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      if (video) {
+        video.pause();
+        video.removeAttribute(
+          "src"
+        );
+        video.load();
+      }
+    }, []);
 
   const trackAd = useCallback(
     async ({
@@ -96,32 +114,40 @@ export default function MidRollAdGate({
       clicked?: boolean;
       watchedSecondsOverride?: number;
     }) => {
-      if (!ad || trackedRef.current) {
+      if (
+        !ad ||
+        trackedRef.current
+      ) {
         return;
       }
 
       trackedRef.current = true;
 
       try {
-        await fetch("/api/ads/impression", {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            campaignId: ad.id,
-            projectId: projectId || "",
-            placement:
-              ad.placement || "mid_roll",
-            completed,
-            skipped,
-            clicked,
-            watchedSeconds:
-              watchedSecondsOverride ??
-              secondsWatched,
-          }),
-        });
+        await fetch(
+          "/api/ads/impression",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              campaignId: ad.id,
+              projectId:
+                projectId || "",
+              placement:
+                ad.placement ||
+                "mid_roll",
+              completed,
+              skipped,
+              clicked,
+              watchedSeconds:
+                watchedSecondsOverride ??
+                secondsWatchedRef.current,
+            }),
+          }
+        );
       } catch (error) {
         console.error(
           "TRACK MIDROLL AD ERROR:",
@@ -129,15 +155,11 @@ export default function MidRollAdGate({
         );
       }
     },
-    [
-      ad,
-      projectId,
-      secondsWatched,
-    ]
+    [ad, projectId]
   );
 
   const finishAd = useCallback(
-    async (
+    (
       completed: boolean,
       skipped: boolean
     ) => {
@@ -147,46 +169,48 @@ export default function MidRollAdGate({
 
       finishedRef.current = true;
 
-      const watched = Math.floor(
-        videoRef.current?.currentTime ||
-          secondsWatched
-      );
+      const watched =
+        Math.floor(
+          videoRef.current
+            ?.currentTime ||
+            secondsWatchedRef.current
+        );
 
       cleanupVideo();
 
-      await trackAd({
+      void trackAd({
         completed,
         skipped,
-        watchedSecondsOverride: watched,
+        watchedSecondsOverride:
+          watched,
       });
 
-      onFinished();
+      onFinishedRef.current();
     },
     [
       cleanupVideo,
-      onFinished,
-      secondsWatched,
       trackAd,
     ]
   );
 
-  const clickAd = useCallback(async () => {
-    if (!ad?.clickUrl) {
-      return;
-    }
+  const clickAd =
+    useCallback(() => {
+      if (!ad?.clickUrl) {
+        return;
+      }
 
-    await trackAd({
-      completed: false,
-      skipped: false,
-      clicked: true,
-    });
+      window.open(
+        ad.clickUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
 
-    window.open(
-      ad.clickUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  }, [ad, trackAd]);
+      void trackAd({
+        completed: false,
+        skipped: false,
+        clicked: true,
+      });
+    }, [ad, trackAd]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,37 +231,77 @@ export default function MidRollAdGate({
           );
         }
 
-        const res = await fetch(
-          `/api/ads/active?${params.toString()}`,
-          {
-            cache: "no-store",
+        const response =
+          await fetch(
+            `/api/ads/active?${params.toString()}`,
+            {
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          if (
+            !cancelled &&
+            !finishedRef.current
+          ) {
+            finishedRef.current =
+              true;
+
+            onFinishedRef.current();
           }
-        );
+
+          return;
+        }
 
         const data =
-          (await res.json()) as ActiveAd | null;
+          (await response.json()) as
+            | ActiveAd
+            | null;
 
         if (cancelled) {
           return;
         }
 
         if (!data?.id) {
-          onFinished();
+          if (
+            !finishedRef.current
+          ) {
+            finishedRef.current =
+              true;
+
+            onFinishedRef.current();
+          }
+
           return;
         }
 
         const creativeUrl =
-          data.adSource === "google"
+          data.adSource ===
+          "google"
             ? data.vastTagUrl
             : data.videoUrl;
 
         if (!creativeUrl) {
-          onFinished();
+          if (
+            !finishedRef.current
+          ) {
+            finishedRef.current =
+              true;
+
+            onFinishedRef.current();
+          }
+
           return;
         }
 
-        trackedRef.current = false;
-        finishedRef.current = false;
+        trackedRef.current =
+          false;
+
+        finishedRef.current =
+          false;
+
+        secondsWatchedRef.current =
+          0;
 
         setSecondsWatched(0);
         setSkipReady(false);
@@ -248,18 +312,24 @@ export default function MidRollAdGate({
           error
         );
 
-        if (!cancelled) {
-          onFinished();
+        if (
+          !cancelled &&
+          !finishedRef.current
+        ) {
+          finishedRef.current =
+            true;
+
+          onFinishedRef.current();
         }
       }
     }
 
-    loadAd();
+    void loadAd();
 
     return () => {
       cancelled = true;
     };
-  }, [onFinished, projectId]);
+  }, [projectId]);
 
   useEffect(() => {
     const creativeUrl =
@@ -271,7 +341,8 @@ export default function MidRollAdGate({
       return;
     }
 
-    const video = videoRef.current;
+    const video =
+      videoRef.current;
 
     if (!video) {
       return;
@@ -281,7 +352,7 @@ export default function MidRollAdGate({
       getHlsUrl(creativeUrl);
 
     if (!hlsUrl) {
-      onFinished();
+      onFinishedRef.current();
       return;
     }
 
@@ -289,11 +360,12 @@ export default function MidRollAdGate({
 
     const failTimer =
       window.setTimeout(() => {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          finishAd(
+            false,
+            true
+          );
         }
-
-        finishAd(false, true);
       }, 9000);
 
     async function tryPlay() {
@@ -317,7 +389,8 @@ export default function MidRollAdGate({
 
         setLoading(false);
       } catch {
-        currentVideo.muted = true;
+        currentVideo.muted =
+          true;
 
         try {
           await currentVideo.play();
@@ -328,87 +401,152 @@ export default function MidRollAdGate({
 
           setLoading(false);
         } catch {
-          finishAd(false, true);
+          finishAd(
+            false,
+            true
+          );
         }
       }
     }
 
-    cleanupVideo();
+    async function setupPlayback() {
+      const currentVideo =
+        videoRef.current;
 
-    video.muted = false;
-    video.playsInline = true;
-    video.controls = false;
+      if (
+        !currentVideo ||
+        cancelled
+      ) {
+        return;
+      }
 
-    if (
-      video.canPlayType(
-        "application/vnd.apple.mpegurl"
-      )
-    ) {
-      video.src = hlsUrl;
-      video.load();
+      cleanupVideo();
 
-      video.addEventListener(
-        "canplay",
-        tryPlay
-      );
+      currentVideo.muted =
+        false;
 
-      video.addEventListener(
-        "loadedmetadata",
-        tryPlay
-      );
+      currentVideo.playsInline =
+        true;
 
-      return () => {
-        cancelled = true;
+      currentVideo.controls =
+        false;
 
-        window.clearTimeout(
-          failTimer
-        );
+      if (
+        currentVideo.canPlayType(
+          "application/vnd.apple.mpegurl"
+        )
+      ) {
+        currentVideo.src =
+          hlsUrl;
 
-        video.removeEventListener(
+        currentVideo.load();
+
+        currentVideo.addEventListener(
           "canplay",
           tryPlay
         );
 
-        video.removeEventListener(
+        currentVideo.addEventListener(
           "loadedmetadata",
           tryPlay
         );
-      };
-    }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        maxBufferLength: 12,
-      });
+        return;
+      }
 
-      hlsRef.current = hls;
+      try {
+        const hlsModule =
+          await import(
+            "hls.js"
+          );
 
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-
-      hls.on(
-        Hls.Events.MANIFEST_PARSED,
-        tryPlay
-      );
-
-      hls.on(
-        Hls.Events.ERROR,
-        (_event, data) => {
-          if (data.fatal) {
-            finishAd(false, true);
-          }
+        if (cancelled) {
+          return;
         }
-      );
-    } else {
-      onFinished();
+
+        const Hls =
+          hlsModule.default;
+
+        if (
+          !Hls.isSupported()
+        ) {
+          onFinishedRef.current();
+          return;
+        }
+
+        const hls =
+          new Hls({
+            enableWorker: true,
+            maxBufferLength: 12,
+          });
+
+        if (cancelled) {
+          hls.destroy();
+          return;
+        }
+
+        hlsRef.current =
+          hls;
+
+        hls.loadSource(
+          hlsUrl
+        );
+
+        hls.attachMedia(
+          currentVideo
+        );
+
+        hls.on(
+          Hls.Events
+            .MANIFEST_PARSED,
+          tryPlay
+        );
+
+        hls.on(
+          Hls.Events.ERROR,
+          (_event, data) => {
+            if (
+              data.fatal
+            ) {
+              finishAd(
+                false,
+                true
+              );
+            }
+          }
+        );
+      } catch (error) {
+        console.error(
+          "LOAD MIDROLL HLS ERROR:",
+          error
+        );
+
+        if (!cancelled) {
+          finishAd(
+            false,
+            true
+          );
+        }
+      }
     }
+
+    void setupPlayback();
 
     return () => {
       cancelled = true;
 
       window.clearTimeout(
         failTimer
+      );
+
+      video.removeEventListener(
+        "canplay",
+        tryPlay
+      );
+
+      video.removeEventListener(
+        "loadedmetadata",
+        tryPlay
       );
 
       if (hlsRef.current) {
@@ -420,7 +558,6 @@ export default function MidRollAdGate({
     ad,
     cleanupVideo,
     finishAd,
-    onFinished,
   ]);
 
   useEffect(() => {
@@ -440,7 +577,8 @@ export default function MidRollAdGate({
   }
 
   const skipAfterSeconds =
-    ad.skipAfterSeconds ?? 5;
+    ad.skipAfterSeconds ??
+    5;
 
   const backendAllowsSkip =
     ad.canSkip === true;
@@ -473,7 +611,12 @@ export default function MidRollAdGate({
               video.currentTime
             );
 
-          setSecondsWatched(watched);
+          secondsWatchedRef.current =
+            watched;
+
+          setSecondsWatched(
+            watched
+          );
 
           if (
             backendAllowsSkip &&
@@ -483,9 +626,12 @@ export default function MidRollAdGate({
             setSkipReady(true);
           }
         }}
-        onEnded={() =>
-          finishAd(true, false)
-        }
+        onEnded={() => {
+          finishAd(
+            true,
+            false
+          );
+        }}
         onClick={clickAd}
         className="h-full w-full bg-black object-contain"
         playsInline
@@ -517,9 +663,12 @@ export default function MidRollAdGate({
         <button
           type="button"
           disabled={!skipReady}
-          onClick={() =>
-            finishAd(false, true)
-          }
+          onClick={() => {
+            finishAd(
+              false,
+              true
+            );
+          }}
           className="absolute bottom-8 right-4 z-20 rounded-full border border-white/15 bg-black/65 px-5 py-2.5 text-xs font-black text-white/80 backdrop-blur-xl transition hover:border-sky-300/40 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-45 md:right-10"
         >
           {skipReady

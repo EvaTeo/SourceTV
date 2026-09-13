@@ -1,6 +1,6 @@
 "use client";
 
-import Hls from "hls.js";
+import type HlsType from "hls.js";
 import {
   useCallback,
   useEffect,
@@ -27,6 +27,11 @@ type SubscriptionStatus = {
   isPremium: boolean;
 };
 
+type SubscriptionCheck = {
+  loaded: boolean;
+  isPremium: boolean;
+};
+
 type AdvertisingSettings = {
   adsEnabled: boolean;
   preRollAds: boolean;
@@ -37,12 +42,18 @@ const defaultAdvertisingSettings: AdvertisingSettings = {
   preRollAds: true,
 };
 
-function getHlsUrl(url?: string | null) {
+function getHlsUrl(
+  url?: string | null
+) {
   if (!url) {
     return "";
   }
 
-  if (url.includes("playlist.m3u8")) {
+  if (
+    url.includes(
+      "playlist.m3u8"
+    )
+  ) {
     return url;
   }
 
@@ -57,7 +68,9 @@ function getHlsUrl(url?: string | null) {
   return `https://vz-${match[1]}.b-cdn.net/${match[2]}/playlist.m3u8`;
 }
 
-function getAdLabel(ad: ActiveAd) {
+function getAdLabel(
+  ad: ActiveAd
+) {
   if (
     ad.isHouseAd ||
     ad.adType === "house"
@@ -65,7 +78,9 @@ function getAdLabel(ad: ActiveAd) {
     return "SourceTV";
   }
 
-  if (ad.adType === "sponsor") {
+  if (
+    ad.adType === "sponsor"
+  ) {
     return "Sponsored";
   }
 
@@ -80,58 +95,95 @@ export default function PreRollAdGate({
   onFinished: () => void;
 }) {
   const videoRef =
-    useRef<HTMLVideoElement | null>(null);
+    useRef<HTMLVideoElement | null>(
+      null
+    );
 
-  const trackedRef = useRef(false);
-  const finishedRef = useRef(false);
-  const hlsRef = useRef<Hls | null>(null);
-  const secondsWatchedRef = useRef(0);
-  const onFinishedRef = useRef(onFinished);
+  const trackedRef =
+    useRef(false);
+
+  const finishedRef =
+    useRef(false);
+
+  const hlsRef =
+    useRef<HlsType | null>(
+      null
+    );
+
+  const secondsWatchedRef =
+    useRef(0);
+
+  const onFinishedRef =
+    useRef(onFinished);
 
   const [ad, setAd] =
-    useState<ActiveAd | null>(null);
+    useState<ActiveAd | null>(
+      null
+    );
 
   const [loading, setLoading] =
     useState(true);
 
-  const [secondsWatched, setSecondsWatched] =
-    useState(0);
+  const [
+    secondsWatched,
+    setSecondsWatched,
+  ] = useState(0);
 
-  const [skipReady, setSkipReady] =
-    useState(false);
+  const [
+    skipReady,
+    setSkipReady,
+  ] = useState(false);
 
-  const [settingsLoaded, setSettingsLoaded] =
-    useState(false);
+  const [
+    settingsLoaded,
+    setSettingsLoaded,
+  ] = useState(false);
+
+  const [
+    subscriptionCheck,
+    setSubscriptionCheck,
+  ] = useState<SubscriptionCheck>({
+    loaded: false,
+    isPremium: false,
+  });
 
   const [
     advertisingSettings,
     setAdvertisingSettings,
-  ] = useState<AdvertisingSettings>(
-    defaultAdvertisingSettings
-  );
+  ] =
+    useState<AdvertisingSettings>(
+      defaultAdvertisingSettings
+    );
 
   const adsAllowed =
     advertisingSettings.adsEnabled &&
     advertisingSettings.preRollAds;
 
   useEffect(() => {
-    onFinishedRef.current = onFinished;
+    onFinishedRef.current =
+      onFinished;
   }, [onFinished]);
 
-  const cleanupVideo = useCallback(() => {
-    const video = videoRef.current;
+  const cleanupVideo =
+    useCallback(() => {
+      const video =
+        videoRef.current;
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
 
-    if (video) {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    }
-  }, []);
+      if (video) {
+        video.pause();
+
+        video.removeAttribute(
+          "src"
+        );
+
+        video.load();
+      }
+    }, []);
 
   const trackAd = useCallback(
     async ({
@@ -153,7 +205,8 @@ export default function PreRollAdGate({
         return;
       }
 
-      trackedRef.current = true;
+      trackedRef.current =
+        true;
 
       try {
         await fetch(
@@ -166,7 +219,8 @@ export default function PreRollAdGate({
             },
             body: JSON.stringify({
               campaignId: ad.id,
-              projectId: projectId || "",
+              projectId:
+                projectId || "",
               placement:
                 ad.placement ||
                 "pre_roll",
@@ -186,42 +240,55 @@ export default function PreRollAdGate({
         );
       }
     },
-    [ad, adsAllowed, projectId]
+    [
+      ad,
+      adsAllowed,
+      projectId,
+    ]
   );
 
   const finishAd = useCallback(
-    async (
+    (
       completed: boolean,
       skipped: boolean
     ) => {
-      if (finishedRef.current) {
+      if (
+        finishedRef.current
+      ) {
         return;
       }
 
-      finishedRef.current = true;
+      finishedRef.current =
+        true;
 
-      const watched = Math.floor(
-        videoRef.current?.currentTime ||
-          secondsWatchedRef.current
-      );
+      const watched =
+        Math.floor(
+          videoRef.current
+            ?.currentTime ||
+            secondsWatchedRef.current
+        );
 
       cleanupVideo();
 
-      await trackAd({
+      void trackAd({
         completed,
         skipped,
-        watchedSecondsOverride: watched,
+        watchedSecondsOverride:
+          watched,
       });
 
       window.setTimeout(() => {
         onFinishedRef.current();
       }, 75);
     },
-    [cleanupVideo, trackAd]
+    [
+      cleanupVideo,
+      trackAd,
+    ]
   );
 
   const clickAd =
-    useCallback(async () => {
+    useCallback(() => {
       if (
         !adsAllowed ||
         !ad?.clickUrl
@@ -229,30 +296,36 @@ export default function PreRollAdGate({
         return;
       }
 
-      await trackAd({
-        completed: false,
-        skipped: false,
-        clicked: true,
-      });
-
       window.open(
         ad.clickUrl,
         "_blank",
         "noopener,noreferrer"
       );
-    }, [ad, adsAllowed, trackAd]);
+
+      void trackAd({
+        completed: false,
+        skipped: false,
+        clicked: true,
+      });
+    }, [
+      ad,
+      adsAllowed,
+      trackAd,
+    ]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadAdvertisingSettings() {
       try {
-        const response = await fetch(
-          "/api/settings",
-          {
-            cache: "no-store",
-          }
-        );
+        const response =
+          await fetch(
+            "/api/settings",
+            {
+              cache:
+                "no-store",
+            }
+          );
 
         if (!response.ok) {
           return;
@@ -264,15 +337,17 @@ export default function PreRollAdGate({
         if (
           cancelled ||
           !data ||
-          typeof data !== "object"
+          typeof data !==
+            "object"
         ) {
           return;
         }
 
-        const result = data as {
-          adsEnabled?: unknown;
-          preRollAds?: unknown;
-        };
+        const result =
+          data as {
+            adsEnabled?: unknown;
+            preRollAds?: unknown;
+          };
 
         setAdvertisingSettings({
           adsEnabled:
@@ -294,7 +369,9 @@ export default function PreRollAdGate({
         );
       } finally {
         if (!cancelled) {
-          setSettingsLoaded(true);
+          setSettingsLoaded(
+            true
+          );
         }
       }
     }
@@ -309,8 +386,59 @@ export default function PreRollAdGate({
   useEffect(() => {
     let cancelled = false;
 
+    async function loadSubscription() {
+      let isPremium = false;
+
+      try {
+        const response =
+          await fetch(
+            "/api/stripe/subscription",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        if (response.ok) {
+          const subscription =
+            (await response.json()) as
+              SubscriptionStatus;
+
+          isPremium =
+            subscription
+              ?.isPremium ===
+            true;
+        }
+      } catch (error) {
+        console.error(
+          "LOAD SUBSCRIPTION FOR AD ERROR:",
+          error
+        );
+      } finally {
+        if (!cancelled) {
+          setSubscriptionCheck({
+            loaded: true,
+            isPremium,
+          });
+        }
+      }
+    }
+
+    void loadSubscription();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadAd() {
-      if (!settingsLoaded) {
+      if (
+        !settingsLoaded ||
+        !subscriptionCheck.loaded
+      ) {
         return;
       }
 
@@ -318,8 +446,12 @@ export default function PreRollAdGate({
         setLoading(false);
         setAd(null);
 
-        if (!finishedRef.current) {
-          finishedRef.current = true;
+        if (
+          !finishedRef.current
+        ) {
+          finishedRef.current =
+            true;
+
           onFinishedRef.current();
         }
 
@@ -329,36 +461,13 @@ export default function PreRollAdGate({
       try {
         setLoading(true);
 
-        let isPremium = false;
-
-        try {
-          const subscriptionResponse =
-            await fetch(
-              "/api/stripe/subscription",
-              {
-                cache: "no-store",
-              }
-            );
-
-          if (subscriptionResponse.ok) {
-            const subscription =
-              (await subscriptionResponse.json()) as
-                SubscriptionStatus;
-
-            isPremium =
-              subscription?.isPremium === true;
-          }
-        } catch (error) {
-          console.error(
-            "LOAD SUBSCRIPTION FOR AD ERROR:",
-            error
-          );
-        }
-
         const params =
           new URLSearchParams({
-            placement: "pre_roll",
-            premium: String(isPremium),
+            placement:
+              "pre_roll",
+            premium: String(
+              subscriptionCheck.isPremium
+            ),
           });
 
         if (projectId) {
@@ -368,19 +477,23 @@ export default function PreRollAdGate({
           );
         }
 
-        const response = await fetch(
-          `/api/ads/active?${params.toString()}`,
-          {
-            cache: "no-store",
-          }
-        );
+        const response =
+          await fetch(
+            `/api/ads/active?${params.toString()}`,
+            {
+              cache:
+                "no-store",
+            }
+          );
 
         if (!response.ok) {
           if (
             !cancelled &&
             !finishedRef.current
           ) {
-            finishedRef.current = true;
+            finishedRef.current =
+              true;
+
             onFinishedRef.current();
           }
 
@@ -397,8 +510,12 @@ export default function PreRollAdGate({
         }
 
         if (!data?.id) {
-          if (!finishedRef.current) {
-            finishedRef.current = true;
+          if (
+            !finishedRef.current
+          ) {
+            finishedRef.current =
+              true;
+
             onFinishedRef.current();
           }
 
@@ -406,22 +523,32 @@ export default function PreRollAdGate({
         }
 
         const creativeUrl =
-          data.adSource === "google"
+          data.adSource ===
+          "google"
             ? data.vastTagUrl
             : data.videoUrl;
 
         if (!creativeUrl) {
-          if (!finishedRef.current) {
-            finishedRef.current = true;
+          if (
+            !finishedRef.current
+          ) {
+            finishedRef.current =
+              true;
+
             onFinishedRef.current();
           }
 
           return;
         }
 
-        trackedRef.current = false;
-        finishedRef.current = false;
-        secondsWatchedRef.current = 0;
+        trackedRef.current =
+          false;
+
+        finishedRef.current =
+          false;
+
+        secondsWatchedRef.current =
+          0;
 
         setSecondsWatched(0);
         setSkipReady(false);
@@ -436,7 +563,9 @@ export default function PreRollAdGate({
           !cancelled &&
           !finishedRef.current
         ) {
-          finishedRef.current = true;
+          finishedRef.current =
+            true;
+
           onFinishedRef.current();
         }
       }
@@ -451,6 +580,7 @@ export default function PreRollAdGate({
     adsAllowed,
     projectId,
     settingsLoaded,
+    subscriptionCheck,
   ]);
 
   useEffect(() => {
@@ -467,14 +597,17 @@ export default function PreRollAdGate({
       return;
     }
 
-    const video = videoRef.current;
+    const video =
+      videoRef.current;
 
     if (!video) {
       return;
     }
 
     const hlsUrl =
-      getHlsUrl(creativeUrl);
+      getHlsUrl(
+        creativeUrl
+      );
 
     if (!hlsUrl) {
       onFinishedRef.current();
@@ -486,7 +619,10 @@ export default function PreRollAdGate({
     const failTimer =
       window.setTimeout(() => {
         if (!cancelled) {
-          void finishAd(false, true);
+          finishAd(
+            false,
+            true
+          );
         }
       }, 9000);
 
@@ -505,10 +641,14 @@ export default function PreRollAdGate({
       try {
         await currentVideo.play();
 
-        window.clearTimeout(failTimer);
+        window.clearTimeout(
+          failTimer
+        );
+
         setLoading(false);
       } catch {
-        currentVideo.muted = true;
+        currentVideo.muted =
+          true;
 
         try {
           await currentVideo.play();
@@ -519,89 +659,153 @@ export default function PreRollAdGate({
 
           setLoading(false);
         } catch {
-          void finishAd(false, true);
+          finishAd(
+            false,
+            true
+          );
         }
       }
     }
 
-    cleanupVideo();
+    async function setupPlayback() {
+      const currentVideo =
+        videoRef.current;
 
-    video.muted = false;
-    video.playsInline = true;
-    video.controls = false;
+      if (
+        !currentVideo ||
+        cancelled
+      ) {
+        return;
+      }
 
-    if (
-      video.canPlayType(
-        "application/vnd.apple.mpegurl"
-      )
-    ) {
-      video.src = hlsUrl;
-      video.load();
+      cleanupVideo();
 
-      video.addEventListener(
-        "canplay",
-        tryPlay
-      );
+      currentVideo.muted =
+        false;
 
-      video.addEventListener(
-        "loadedmetadata",
-        tryPlay
-      );
+      currentVideo.playsInline =
+        true;
 
-      return () => {
-        cancelled = true;
+      currentVideo.controls =
+        false;
 
-        window.clearTimeout(
-          failTimer
-        );
+      if (
+        currentVideo.canPlayType(
+          "application/vnd.apple.mpegurl"
+        )
+      ) {
+        currentVideo.src =
+          hlsUrl;
 
-        video.removeEventListener(
+        currentVideo.load();
+
+        currentVideo.addEventListener(
           "canplay",
           tryPlay
         );
 
-        video.removeEventListener(
+        currentVideo.addEventListener(
           "loadedmetadata",
           tryPlay
         );
-      };
-    }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        maxBufferLength: 12,
-      });
+        return;
+      }
 
-      hlsRef.current = hls;
+      try {
+        const hlsModule =
+          await import(
+            "hls.js"
+          );
 
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-
-      hls.on(
-        Hls.Events.MANIFEST_PARSED,
-        tryPlay
-      );
-
-      hls.on(
-        Hls.Events.ERROR,
-        (_event, data) => {
-          if (data.fatal) {
-            void finishAd(
-              false,
-              true
-            );
-          }
+        if (cancelled) {
+          return;
         }
-      );
-    } else {
-      onFinishedRef.current();
+
+        const Hls =
+          hlsModule.default;
+
+        if (
+          !Hls.isSupported()
+        ) {
+          onFinishedRef.current();
+          return;
+        }
+
+        const hls =
+          new Hls({
+            enableWorker: true,
+            maxBufferLength: 12,
+          });
+
+        if (cancelled) {
+          hls.destroy();
+          return;
+        }
+
+        hlsRef.current =
+          hls;
+
+        hls.loadSource(
+          hlsUrl
+        );
+
+        hls.attachMedia(
+          currentVideo
+        );
+
+        hls.on(
+          Hls.Events
+            .MANIFEST_PARSED,
+          tryPlay
+        );
+
+        hls.on(
+          Hls.Events.ERROR,
+          (_event, data) => {
+            if (
+              data.fatal
+            ) {
+              finishAd(
+                false,
+                true
+              );
+            }
+          }
+        );
+      } catch (error) {
+        console.error(
+          "LOAD PREROLL HLS ERROR:",
+          error
+        );
+
+        if (!cancelled) {
+          finishAd(
+            false,
+            true
+          );
+        }
+      }
     }
+
+    void setupPlayback();
 
     return () => {
       cancelled = true;
 
-      window.clearTimeout(failTimer);
+      window.clearTimeout(
+        failTimer
+      );
+
+      video.removeEventListener(
+        "canplay",
+        tryPlay
+      );
+
+      video.removeEventListener(
+        "loadedmetadata",
+        tryPlay
+      );
 
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -638,15 +842,21 @@ export default function PreRollAdGate({
         <style jsx>{`
           @keyframes playerLoadSlide {
             0% {
-              transform: translateX(-120%);
+              transform: translateX(
+                -120%
+              );
             }
 
             50% {
-              transform: translateX(80%);
+              transform: translateX(
+                80%
+              );
             }
 
             100% {
-              transform: translateX(220%);
+              transform: translateX(
+                220%
+              );
             }
           }
         `}</style>
@@ -655,7 +865,8 @@ export default function PreRollAdGate({
   }
 
   const skipAfterSeconds =
-    ad.skipAfterSeconds ?? 5;
+    ad.skipAfterSeconds ??
+    5;
 
   const backendAllowsSkip =
     ad.canSkip === true;
@@ -683,28 +894,35 @@ export default function PreRollAdGate({
             return;
           }
 
-          const watched = Math.floor(
-            video.currentTime
-          );
+          const watched =
+            Math.floor(
+              video.currentTime
+            );
 
           secondsWatchedRef.current =
             watched;
 
-          setSecondsWatched(watched);
+          setSecondsWatched(
+            watched
+          );
 
           if (
             backendAllowsSkip &&
-            watched >= skipAfterSeconds
+            watched >=
+              skipAfterSeconds
           ) {
-            setSkipReady(true);
+            setSkipReady(
+              true
+            );
           }
         }}
         onEnded={() => {
-          void finishAd(true, false);
+          finishAd(
+            true,
+            false
+          );
         }}
-        onClick={() => {
-          void clickAd();
-        }}
+        onClick={clickAd}
         className="h-full w-full bg-black object-contain"
         playsInline
       />
@@ -724,9 +942,7 @@ export default function PreRollAdGate({
       {ad.clickUrl && (
         <button
           type="button"
-          onClick={() => {
-            void clickAd();
-          }}
+          onClick={clickAd}
           className="absolute bottom-8 left-4 z-20 rounded-full border border-sky-300/35 bg-sky-300/10 px-4 py-2 text-xs font-black text-sky-100 backdrop-blur-xl transition hover:bg-sky-300 hover:text-black md:left-10"
         >
           Learn More
@@ -738,7 +954,7 @@ export default function PreRollAdGate({
           type="button"
           disabled={!skipReady}
           onClick={() => {
-            void finishAd(
+            finishAd(
               false,
               true
             );
@@ -760,15 +976,21 @@ export default function PreRollAdGate({
       <style jsx>{`
         @keyframes playerLoadSlide {
           0% {
-            transform: translateX(-120%);
+            transform: translateX(
+              -120%
+            );
           }
 
           50% {
-            transform: translateX(80%);
+            transform: translateX(
+              80%
+            );
           }
 
           100% {
-            transform: translateX(220%);
+            transform: translateX(
+              220%
+            );
           }
         }
       `}</style>

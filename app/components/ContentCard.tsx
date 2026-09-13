@@ -279,18 +279,14 @@ export default function ContentCard({
             backgroundPosition: "center",
           }}
         >
-          <div
-            className={`absolute inset-0 bg-cover bg-center transition-all duration-700 ease-out ${
-              hovering
-                ? "scale-100 opacity-100"
-                : "scale-[1.06] opacity-0"
-            }`}
-            style={{
-              backgroundImage: previewImage
-                ? `url(${previewImage})`
-                : undefined,
-            }}
-          />
+         {hovering && previewImage && (
+  <div
+    className="absolute inset-0 bg-cover bg-center opacity-100 transition-all duration-700 ease-out"
+    style={{
+      backgroundImage: `url(${previewImage})`,
+    }}
+  />
+)}
 
           {hasTrailer && (
             <video

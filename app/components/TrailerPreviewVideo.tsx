@@ -1,7 +1,11 @@
 "use client";
 
-import Hls from "hls.js";
-import { useEffect, useRef, useState } from "react";
+import type HlsType from "hls.js";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type Props = {
   url?: string | null;
@@ -12,15 +16,34 @@ type Props = {
   fadeIn?: boolean;
 };
 
-function getHlsUrl(url?: string | null) {
-  if (!url) return "";
-  if (url.includes("playlist.m3u8")) return url;
+function getHlsUrl(
+  url?: string | null
+) {
+  if (!url) {
+    return "";
+  }
 
-  const match = url.match(/embed\/(\d+)\/([a-zA-Z0-9-]+)/);
-  if (!match) return "";
+  if (
+    url.includes(
+      "playlist.m3u8"
+    )
+  ) {
+    return url;
+  }
 
-  const libraryId = match[1];
-  const videoGuid = match[2];
+  const match = url.match(
+    /embed\/(\d+)\/([a-zA-Z0-9-]+)/
+  );
+
+  if (!match) {
+    return "";
+  }
+
+  const libraryId =
+    match[1];
+
+  const videoGuid =
+    match[2];
 
   return `https://vz-${libraryId}.b-cdn.net/${videoGuid}/playlist.m3u8`;
 }
@@ -33,37 +56,65 @@ export default function TrailerPreviewVideo({
   autoPlay = true,
   fadeIn = false,
 }: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const readyRef = useRef(false);
+  const videoRef =
+    useRef<HTMLVideoElement | null>(
+      null
+    );
 
-  const [ready, setReady] = useState(!fadeIn);
+  const hlsRef =
+    useRef<HlsType | null>(
+      null
+    );
+
+  const readyRef =
+    useRef(false);
+
+  const [ready, setReady] =
+    useState(!fadeIn);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    const video =
+      videoRef.current;
+
+    if (!video) {
+      return;
+    }
 
     video.muted = muted;
   }, [muted]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    const hlsUrl = getHlsUrl(url);
+    const video =
+      videoRef.current;
+
+    const hlsUrl =
+      getHlsUrl(url);
 
     readyRef.current = false;
     setReady(!fadeIn);
 
-    if (!video || !hlsUrl) return;
+    if (
+      !video ||
+      !hlsUrl
+    ) {
+      return;
+    }
 
     let cancelled = false;
 
-    if (hlsRef.current) {
+    if (
+      hlsRef.current
+    ) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
     video.pause();
-    video.removeAttribute("src");
+
+    video.removeAttribute(
+      "src"
+    );
+
     video.load();
 
     video.muted = muted;
@@ -71,16 +122,26 @@ export default function TrailerPreviewVideo({
     video.playsInline = true;
 
     async function revealAndPlay() {
-      if (cancelled || readyRef.current) return;
+      if (
+        cancelled ||
+        readyRef.current
+      ) {
+        return;
+      }
 
       readyRef.current = true;
       setReady(true);
 
-      if (!autoPlay) return;
+      if (!autoPlay) {
+        return;
+      }
 
-      const currentVideo = videoRef.current;
+      const currentVideo =
+        videoRef.current;
 
-      if (!currentVideo) return;
+      if (!currentVideo) {
+        return;
+      }
 
       try {
         await currentVideo.play();
@@ -90,50 +151,140 @@ export default function TrailerPreviewVideo({
     }
 
     function handleCanPlay() {
-      revealAndPlay();
+      void revealAndPlay();
     }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        maxBufferLength: 8,
-        backBufferLength: 0,
-      });
+    video.addEventListener(
+      "canplay",
+      handleCanPlay
+    );
 
-      hlsRef.current = hls;
+    async function setupPlayback() {
+      const currentVideo =
+        videoRef.current;
 
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
+      if (!currentVideo) {
+        return;
+      }
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (video.readyState >= 2) {
-          revealAndPlay();
+      if (
+        currentVideo.canPlayType(
+          "application/vnd.apple.mpegurl"
+        )
+      ) {
+        if (cancelled) {
+          return;
         }
-      });
 
-      video.addEventListener("canplay", handleCanPlay);
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = hlsUrl;
-      video.addEventListener("canplay", handleCanPlay);
-      video.load();
+        currentVideo.src =
+          hlsUrl;
+
+        currentVideo.load();
+
+        return;
+      }
+
+      try {
+        const hlsModule =
+          await import(
+            "hls.js"
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        const Hls =
+          hlsModule.default;
+
+        if (
+          !Hls.isSupported()
+        ) {
+          return;
+        }
+
+        const hls =
+          new Hls({
+            enableWorker: true,
+            maxBufferLength: 8,
+            backBufferLength: 0,
+          });
+
+        if (cancelled) {
+          hls.destroy();
+          return;
+        }
+
+        hlsRef.current =
+          hls;
+
+        hls.loadSource(
+          hlsUrl
+        );
+
+        hls.attachMedia(
+          currentVideo
+        );
+
+        hls.on(
+          Hls.Events
+            .MANIFEST_PARSED,
+          () => {
+            if (cancelled) {
+              return;
+            }
+
+            if (
+              currentVideo.readyState >=
+              2
+            ) {
+              void revealAndPlay();
+            }
+          }
+        );
+      } catch (error) {
+        console.error(
+          "TRAILER PREVIEW HLS LOAD ERROR:",
+          error
+        );
+      }
     }
+
+    void setupPlayback();
 
     return () => {
       cancelled = true;
 
-      video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener(
+        "canplay",
+        handleCanPlay
+      );
+
       video.pause();
-      video.removeAttribute("src");
+
+      video.removeAttribute(
+        "src"
+      );
+
       video.load();
 
-      if (hlsRef.current) {
+      if (
+        hlsRef.current
+      ) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [url, loop, autoPlay, fadeIn, muted]);
+  }, [
+    url,
+    loop,
+    autoPlay,
+    fadeIn,
+  ]);
 
-  if (!url) return null;
+  if (!url) {
+    return null;
+  }
 
   return (
     <video
@@ -143,7 +294,9 @@ export default function TrailerPreviewVideo({
       playsInline
       preload="auto"
       className={`${className} transition-opacity duration-700 ${
-        ready ? "opacity-100" : "opacity-0"
+        ready
+          ? "opacity-100"
+          : "opacity-0"
       }`}
     />
   );

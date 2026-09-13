@@ -8,7 +8,11 @@ import PremiereRail from "@/app/components/PremiereRail";
 import TopTenRail from "@/app/components/TopTenRail";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type ContentItem = {
   id: string;
@@ -43,6 +47,16 @@ type RecommendationMemoryItem = {
   watchedAt: number;
 };
 
+type EditorialCollectionResponse = {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  placement: string;
+  sortOrder: number;
+  itemIds?: string[];
+};
+
 type EditorialCollection = {
   id: string;
   title: string;
@@ -53,10 +67,30 @@ type EditorialCollection = {
   items: ContentItem[];
 };
 
+type BrowseResponse = {
+  content?: ContentItem[];
+  featuredIds?: string[];
+  trendingIds?: string[];
+  recentlyAddedIds?: string[];
+  editorPickIds?: string[];
+
+  editorialCollections?:
+    EditorialCollectionResponse[];
+
+  settings?: {
+    homepageRows?: unknown;
+    aiRecommendations?: unknown;
+    heroAutoplay?: unknown;
+    autoplayMuted?: unknown;
+  };
+};
+
 function getActiveProfile() {
   try {
     return JSON.parse(
-      localStorage.getItem("sourcetv_active_profile") ||
+      localStorage.getItem(
+        "sourcetv_active_profile"
+      ) ||
         '{"id":"main","name":"Adan"}'
     );
   } catch {
@@ -67,486 +101,901 @@ function getActiveProfile() {
   }
 }
 
-function normalize(value?: string | null) {
-  return (value || "").trim().toLowerCase();
+function normalize(
+  value?: string | null
+) {
+  return (value || "")
+    .trim()
+    .toLowerCase();
 }
 
-async function fetchRail(url: string): Promise<ContentItem[]> {
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load ${url}`);
+function resolveContentIds(
+  ids: unknown,
+  contentById: Map<
+    string,
+    ContentItem
+  >
+) {
+  if (!Array.isArray(ids)) {
+    return [];
   }
 
-  const data = await response.json();
+  return ids
+    .map((id) => {
+      if (
+        typeof id !== "string"
+      ) {
+        return undefined;
+      }
 
-  return Array.isArray(data) ? data : [];
-}
-
-async function fetchCollections(): Promise<EditorialCollection[]> {
-  const response = await fetch("/api/collections", {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to load editorial collections.");
-  }
-
-  const data = await response.json();
-
-  return Array.isArray(data) ? data : [];
+      return contentById.get(
+        id
+      );
+    })
+    .filter(
+      (
+        item
+      ): item is ContentItem =>
+        Boolean(item)
+    );
 }
 
 export default function BrowseClient() {
-  const searchParams = useSearchParams();
+  const searchParams =
+    useSearchParams();
 
-  const [content, setContent] = useState<ContentItem[]>([]);
-  const [trending, setTrending] = useState<ContentItem[]>([]);
-  const [recentlyAdded, setRecentlyAdded] = useState<ContentItem[]>([]);
-  const [editorPicks, setEditorPicks] = useState<ContentItem[]>([]);
-  const [featured, setFeatured] = useState<ContentItem[]>([]);
-  const [editorialCollections, setEditorialCollections] = useState<EditorialCollection[]>([]);
+  const [
+    content,
+    setContent,
+  ] = useState<ContentItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [memory, setMemory] = useState<RecommendationMemoryItem[]>([]);
-  const [profileName, setProfileName] = useState("Your");
-  const [homepageRows, setHomepageRows] = useState(12);
+  const [
+    trending,
+    setTrending,
+  ] = useState<ContentItem[]>([]);
 
-  const [aiRecommendations, setAiRecommendations] =
-  useState(true);
+  const [
+    recentlyAdded,
+    setRecentlyAdded,
+  ] = useState<ContentItem[]>([]);
 
-  const urlType = searchParams.get("type") || "";
-  const urlGenre = searchParams.get("genre") || "";
+  const [
+    editorPicks,
+    setEditorPicks,
+  ] = useState<ContentItem[]>([]);
 
-  useEffect(() => {
-    const activeProfile = getActiveProfile();
+  const [
+    featured,
+    setFeatured,
+  ] = useState<ContentItem[]>([]);
 
-    setProfileName(activeProfile.name || "Your");
+  const [
+    editorialCollections,
+    setEditorialCollections,
+  ] = useState<
+    EditorialCollection[]
+  >([]);
 
-    const memoryKey = `sourcetv_recommendation_memory_${activeProfile.id}`;
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-    try {
-      const savedMemory = JSON.parse(
-        localStorage.getItem(memoryKey) || "[]"
-      );
+  const [
+    memory,
+    setMemory,
+  ] = useState<
+    RecommendationMemoryItem[]
+  >([]);
 
-      setMemory(Array.isArray(savedMemory) ? savedMemory : []);
-    } catch {
-      setMemory([]);
-    }
+  const [
+    profileName,
+    setProfileName,
+  ] = useState("Your");
 
-    async function fetchContent() {
-      try {
-        const [
-          allContent,
-          featuredContent,
-          trendingContent,
-          newContent,
-          editorPickContent,
-          editorialCollectionContent,
-        ] = await Promise.all([
-          fetchRail("/api/content?mode=all&limit=100"),
-          fetchRail("/api/content?mode=featured&limit=6"),
-          fetchRail("/api/content?mode=trending&limit=12"),
-          fetchRail("/api/content?mode=new&limit=12"),
-          fetchRail("/api/content?mode=editor_picks&limit=12"),
-          fetchCollections(),
-        ]);
+  const [
+    homepageRows,
+    setHomepageRows,
+  ] = useState(12);
 
-        setContent(allContent);
-        setFeatured(featuredContent);
-        setTrending(trendingContent);
-        setRecentlyAdded(newContent);
-        setEditorPicks(editorPickContent);
-        setEditorialCollections(editorialCollectionContent);
-      } catch (error) {
-        console.error("BROWSE CONTENT LOAD ERROR:", error);
+  const [
+    aiRecommendations,
+    setAiRecommendations,
+  ] = useState(true);
 
-        setContent([]);
-        setFeatured([]);
-        setTrending([]);
-        setRecentlyAdded([]);
-        setEditorPicks([]);
-        setEditorialCollections([]);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const [
+    heroAutoplay,
+    setHeroAutoplay,
+  ] = useState(true);
 
-    fetchContent();
-  }, []);
+  const [
+    autoplayMuted,
+    setAutoplayMuted,
+  ] = useState(true);
+
+  const urlType =
+    searchParams.get(
+      "type"
+    ) || "";
+
+  const urlGenre =
+    searchParams.get(
+      "genre"
+    ) || "";
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadHomepageSettings() {
+    const activeProfile =
+      getActiveProfile();
+
+    setProfileName(
+      activeProfile.name ||
+        "Your"
+    );
+
+    const memoryKey =
+      `sourcetv_recommendation_memory_${activeProfile.id}`;
+
+    try {
+      const savedMemory =
+        JSON.parse(
+          localStorage.getItem(
+            memoryKey
+          ) || "[]"
+        );
+
+      setMemory(
+        Array.isArray(
+          savedMemory
+        )
+          ? savedMemory
+          : []
+      );
+    } catch {
+      setMemory([]);
+    }
+
+    async function loadBrowse() {
       try {
-        const response = await fetch("/api/settings", {
-          cache: "no-store",
-        });
+        const response =
+          await fetch(
+            "/api/browse",
+            {
+              cache:
+                "no-store",
+            }
+          );
 
         if (!response.ok) {
+          throw new Error(
+            "Failed to load SourceTV browse data."
+          );
+        }
+
+        const data: BrowseResponse =
+          await response.json();
+
+        if (cancelled) {
           return;
         }
 
-        const data: unknown = await response.json();
+        const nextContent =
+          Array.isArray(
+            data.content
+          )
+            ? data.content
+            : [];
+
+        const contentById =
+          new Map(
+            nextContent.map(
+              (item) => [
+                item.id,
+                item,
+              ]
+            )
+          );
+
+        setContent(
+          nextContent
+        );
+
+        setFeatured(
+          resolveContentIds(
+            data.featuredIds,
+            contentById
+          )
+        );
+
+        setTrending(
+          resolveContentIds(
+            data.trendingIds,
+            contentById
+          )
+        );
+
+        setRecentlyAdded(
+          resolveContentIds(
+            data.recentlyAddedIds,
+            contentById
+          )
+        );
+
+        setEditorPicks(
+          resolveContentIds(
+            data.editorPickIds,
+            contentById
+          )
+        );
+
+        const nextCollections =
+          Array.isArray(
+            data.editorialCollections
+          )
+            ? data.editorialCollections
+                .map(
+                  (
+                    collection
+                  ) => ({
+                    id:
+                      collection.id,
+                    title:
+                      collection.title,
+                    slug:
+                      collection.slug,
+                    description:
+                      collection.description,
+                    placement:
+                      collection.placement,
+                    sortOrder:
+                      collection.sortOrder,
+
+                    items:
+                      resolveContentIds(
+                        collection.itemIds,
+                        contentById
+                      ),
+                  })
+                )
+                .filter(
+                  (
+                    collection
+                  ) =>
+                    collection.items
+                      .length > 0
+                )
+            : [];
+
+        setEditorialCollections(
+          nextCollections
+        );
+
+        const settings =
+          data.settings;
 
         if (
-          cancelled ||
-          !data ||
-          typeof data !== "object"
-        ) {
-          return;
-        }
-
-        const result = data as {
-  homepageRows?: unknown;
-  aiRecommendations?: unknown;
-};
-
-        if (
-          typeof result.homepageRows === "number" &&
-          Number.isFinite(result.homepageRows)
+          typeof settings?.homepageRows ===
+            "number" &&
+          Number.isFinite(
+            settings.homepageRows
+          )
         ) {
           setHomepageRows(
             Math.max(
               1,
               Math.min(
                 30,
-                Math.round(result.homepageRows)
+                Math.round(
+                  settings.homepageRows
+                )
               )
             )
           );
-
         }
 
         if (
-  typeof result.aiRecommendations === "boolean"
-) {
-  setAiRecommendations(
-    result.aiRecommendations
-  );
-}
+          typeof settings?.aiRecommendations ===
+          "boolean"
+        ) {
+          setAiRecommendations(
+            settings.aiRecommendations
+          );
+        }
 
+        if (
+          typeof settings?.heroAutoplay ===
+          "boolean"
+        ) {
+          setHeroAutoplay(
+            settings.heroAutoplay
+          );
+        }
+
+        if (
+          typeof settings?.autoplayMuted ===
+          "boolean"
+        ) {
+          setAutoplayMuted(
+            settings.autoplayMuted
+          );
+        }
       } catch (error) {
         console.error(
-          "HOMEPAGE SETTINGS LOAD ERROR:",
+          "BROWSE CONTENT LOAD ERROR:",
           error
         );
+
+        if (!cancelled) {
+          setContent([]);
+          setFeatured([]);
+          setTrending([]);
+          setRecentlyAdded([]);
+          setEditorPicks([]);
+          setEditorialCollections([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    void loadHomepageSettings();
+    void loadBrowse();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const heroItems = useMemo(() => {
-    if (featured.length > 0) {
-      return featured;
-    }
-
-    return content.slice(0, 6);
-  }, [featured, content]);
-
-  const filteredContent = useMemo(() => {
-    return content.filter((item) => {
-      const cleanType = normalize(urlType);
-      const cleanGenre = normalize(urlGenre);
-
-      const itemType = normalize(item.type);
-      const itemGenre = normalize(item.genre);
-
-      const matchesType = cleanType
-        ? itemType.includes(cleanType) || cleanType.includes(itemType)
-        : true;
-
-      const matchesGenre = cleanGenre
-        ? itemGenre.includes(cleanGenre) || cleanGenre.includes(itemGenre)
-        : true;
-
-      return matchesType && matchesGenre;
-    });
-  }, [content, urlType, urlGenre]);
-
-  const topTen = useMemo(() => {
-    return trending.slice(0, 10);
-  }, [trending]);
-
-  const todayTrending = useMemo(() => {
-    return trending.slice(0, 12);
-  }, [trending]);
-
-  const personalized = useMemo(() => {
-    if (!memory.length) return [];
-
-    const watchedSlugs = new Set(memory.map((item) => item.slug));
-
-    const genreScore = new Map<string, number>();
-    const typeScore = new Map<string, number>();
-    const creatorScore = new Map<string, number>();
-
-    memory.forEach((item, index) => {
-      const weight = Math.max(1, 10 - index);
-
-      if (item.genre) {
-        genreScore.set(
-          normalize(item.genre),
-          (genreScore.get(normalize(item.genre)) || 0) + weight
-        );
+  const heroItems =
+    useMemo(() => {
+      if (
+        featured.length > 0
+      ) {
+        return featured;
       }
 
-      if (item.type) {
-        typeScore.set(
-          normalize(item.type),
-          (typeScore.get(normalize(item.type)) || 0) + weight
-        );
+      return content.slice(
+        0,
+        6
+      );
+    }, [
+      featured,
+      content,
+    ]);
+
+  const filteredContent =
+    useMemo(() => {
+      const cleanType =
+        normalize(urlType);
+
+      const cleanGenre =
+        normalize(urlGenre);
+
+      return content.filter(
+        (item) => {
+          const itemType =
+            normalize(
+              item.type
+            );
+
+          const itemGenre =
+            normalize(
+              item.genre
+            );
+
+          const matchesType =
+            cleanType
+              ? itemType.includes(
+                  cleanType
+                ) ||
+                cleanType.includes(
+                  itemType
+                )
+              : true;
+
+          const matchesGenre =
+            cleanGenre
+              ? itemGenre.includes(
+                  cleanGenre
+                ) ||
+                cleanGenre.includes(
+                  itemGenre
+                )
+              : true;
+
+          return (
+            matchesType &&
+            matchesGenre
+          );
+        }
+      );
+    }, [
+      content,
+      urlType,
+      urlGenre,
+    ]);
+
+  const topTen =
+    useMemo(() => {
+      return trending.slice(
+        0,
+        10
+      );
+    }, [trending]);
+
+  const todayTrending =
+    useMemo(() => {
+      return trending.slice(
+        0,
+        12
+      );
+    }, [trending]);
+
+  const personalized =
+    useMemo(() => {
+      if (!memory.length) {
+        return [];
       }
 
-      if (item.creatorName) {
-        creatorScore.set(
-          normalize(item.creatorName),
-          (creatorScore.get(normalize(item.creatorName)) || 0) + weight
+      const watchedSlugs =
+        new Set(
+          memory.map(
+            (item) =>
+              item.slug
+          )
         );
+
+      const genreScore =
+        new Map<
+          string,
+          number
+        >();
+
+      const typeScore =
+        new Map<
+          string,
+          number
+        >();
+
+      const creatorScore =
+        new Map<
+          string,
+          number
+        >();
+
+      memory.forEach(
+        (item, index) => {
+          const weight =
+            Math.max(
+              1,
+              10 - index
+            );
+
+          if (item.genre) {
+            genreScore.set(
+              normalize(
+                item.genre
+              ),
+              (genreScore.get(
+                normalize(
+                  item.genre
+                )
+              ) || 0) +
+                weight
+            );
+          }
+
+          if (item.type) {
+            typeScore.set(
+              normalize(
+                item.type
+              ),
+              (typeScore.get(
+                normalize(
+                  item.type
+                )
+              ) || 0) +
+                weight
+            );
+          }
+
+          if (
+            item.creatorName
+          ) {
+            creatorScore.set(
+              normalize(
+                item.creatorName
+              ),
+              (creatorScore.get(
+                normalize(
+                  item.creatorName
+                )
+              ) || 0) +
+                weight
+            );
+          }
+        }
+      );
+
+      return [
+        ...content,
+      ]
+        .filter(
+          (item) =>
+            !watchedSlugs.has(
+              item.id
+            )
+        )
+        .map((item) => {
+          const genrePoints =
+            genreScore.get(
+              normalize(
+                item.genre
+              )
+            ) || 0;
+
+          const typePoints =
+            typeScore.get(
+              normalize(
+                item.type
+              )
+            ) || 0;
+
+          const creatorPoints =
+            item.creatorName
+              ? creatorScore.get(
+                  normalize(
+                    item.creatorName
+                  )
+                ) || 0
+              : 0;
+
+          const score =
+            genrePoints * 3 +
+            typePoints * 2 +
+            creatorPoints +
+            (item.views || 0) *
+              0.01;
+
+          return {
+            item,
+            score,
+          };
+        })
+        .filter(
+          (entry) =>
+            entry.score > 0
+        )
+        .sort(
+          (a, b) =>
+            b.score -
+            a.score
+        )
+        .map(
+          (entry) =>
+            entry.item
+        )
+        .slice(0, 12);
+    }, [
+      content,
+      memory,
+    ]);
+
+  const becauseYouWatched =
+    useMemo(() => {
+      if (!memory.length) {
+        return [];
       }
-    });
 
-    return [...content]
-      .filter((item) => !watchedSlugs.has(item.id))
-      .map((item) => {
-        const genrePoints =
-          genreScore.get(normalize(item.genre)) || 0;
+      const mostRecentWatch =
+        memory[0];
 
-        const typePoints =
-          typeScore.get(normalize(item.type)) || 0;
+      if (
+        !mostRecentWatch
+      ) {
+        return [];
+      }
 
-        const creatorPoints = item.creatorName
-          ? creatorScore.get(normalize(item.creatorName)) || 0
-          : 0;
+      return content
+        .filter(
+          (item) =>
+            item.id !==
+            mostRecentWatch.slug
+        )
+        .map((item) => {
+          let score = 0;
 
-        const score =
-          genrePoints * 3 +
-          typePoints * 2 +
-          creatorPoints +
-          (item.views || 0) * 0.01;
+          if (
+            mostRecentWatch.genre &&
+            normalize(
+              item.genre
+            ) ===
+              normalize(
+                mostRecentWatch.genre
+              )
+          ) {
+            score += 6;
+          }
 
-        return {
-          item,
-          score,
-        };
-      })
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.item)
-      .slice(0, 12);
-  }, [content, memory]);
+          if (
+            mostRecentWatch.type &&
+            normalize(
+              item.type
+            ) ===
+              normalize(
+                mostRecentWatch.type
+              )
+          ) {
+            score += 3;
+          }
 
-  const becauseYouWatched = useMemo(() => {
-    if (!memory.length) return [];
+          if (
+            mostRecentWatch.creatorName &&
+            item.creatorName &&
+            normalize(
+              item.creatorName
+            ) ===
+              normalize(
+                mostRecentWatch.creatorName
+              )
+          ) {
+            score += 5;
+          }
 
-    const mostRecentWatch = memory[0];
+          score +=
+            (item.views || 0) *
+            0.001;
 
-    if (!mostRecentWatch) return [];
+          return {
+            item,
+            score,
+          };
+        })
+        .filter(
+          (entry) =>
+            entry.score > 0
+        )
+        .sort(
+          (a, b) =>
+            b.score -
+            a.score
+        )
+        .map(
+          (entry) =>
+            entry.item
+        )
+        .slice(0, 12);
+    }, [
+      content,
+      memory,
+    ]);
 
-    return content
-      .filter((item) => item.id !== mostRecentWatch.slug)
-      .map((item) => {
-        let score = 0;
+  const becauseYouWatchedTitle =
+    useMemo(() => {
+      const mostRecentWatch =
+        memory[0];
 
-        if (
-          mostRecentWatch.genre &&
-          normalize(item.genre) === normalize(mostRecentWatch.genre)
-        ) {
-          score += 6;
-        }
+      if (
+        !mostRecentWatch?.title
+      ) {
+        return "Because You Watched";
+      }
 
-        if (
-          mostRecentWatch.type &&
-          normalize(item.type) === normalize(mostRecentWatch.type)
-        ) {
-          score += 3;
-        }
+      return `Because You Watched ${mostRecentWatch.title}`;
+    }, [memory]);
 
-        if (
-          mostRecentWatch.creatorName &&
-          item.creatorName &&
-          normalize(item.creatorName) ===
-            normalize(mostRecentWatch.creatorName)
-        ) {
-          score += 5;
-        }
+  const filteredTitle =
+    useMemo(() => {
+      if (urlType) {
+        return urlType ===
+          "Film"
+          ? "Films"
+          : urlType;
+      }
 
-        score += (item.views || 0) * 0.001;
+      if (urlGenre) {
+        return urlGenre;
+      }
 
-        return {
-          item,
-          score,
-        };
-      })
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.item)
-      .slice(0, 12);
-  }, [content, memory]);
+      return "";
+    }, [
+      urlType,
+      urlGenre,
+    ]);
 
-  const becauseYouWatchedTitle = useMemo(() => {
-    const mostRecentWatch = memory[0];
+  const homeRows =
+    useMemo(() => {
+      const rows: Array<{
+        key: string;
+        node: ReactNode;
+      }> = [];
 
-    if (!mostRecentWatch?.title) {
-      return "Because You Watched";
-    }
-
-    return `Because You Watched ${mostRecentWatch.title}`;
-  }, [memory]);
-
-
-  const filteredTitle = useMemo(() => {
-    if (urlType) {
-      return urlType === "Film" ? "Films" : urlType;
-    }
-
-    if (urlGenre) {
-      return urlGenre;
-    }
-
-    return "";
-  }, [urlType, urlGenre]);
-
-  const homeRows = useMemo(() => {
-    const rows: Array<{
-      key: string;
-      node: ReactNode;
-    }> = [];
-
-    rows.push({
-      key: "continue-watching",
-      node: (
-        <div className="pt-14 md:pt-24">
-          <ContinueWatching />
-        </div>
-      ),
-    });
-
-    if (topTen.length > 0) {
       rows.push({
-        key: "top-ten",
-        node: <TopTenRail items={topTen} />,
-      });
-    }
+        key:
+          "continue-watching",
 
-    if (todayTrending.length > 0) {
-      rows.push({
-        key: "trending",
         node: (
-          <ContentRail
-            title="Today’s Trending"
-            items={todayTrending}
-          />
+          <div className="pt-14 md:pt-24">
+            <ContinueWatching />
+          </div>
         ),
       });
-    }
 
-if (
-  aiRecommendations &&
-  personalized.length > 0
-) {
+      if (
+        topTen.length > 0
+      ) {
         rows.push({
-        key: "personalized",
-        node: (
-          <ContentRail
-            title={`Recommended for ${profileName}`}
-            items={personalized}
-          />
-        ),
-      });
-    }
+          key: "top-ten",
+          node: (
+            <TopTenRail
+              items={topTen}
+            />
+          ),
+        });
+      }
 
-if (
-  aiRecommendations &&
-  becauseYouWatched.length > 0
-) {
+      if (
+        todayTrending.length >
+        0
+      ) {
         rows.push({
-        key: "because-you-watched",
-        node: (
-          <ContentRail
-            title={becauseYouWatchedTitle}
-            items={becauseYouWatched}
-          />
-        ),
-      });
-    }
+          key: "trending",
 
-    rows.push({
-      key: "premieres",
-      node: <PremiereRail items={content} />,
-    });
+          node: (
+            <ContentRail
+              title="Today’s Trending"
+              items={
+                todayTrending
+              }
+            />
+          ),
+        });
+      }
 
-    if (recentlyAdded.length > 0) {
+      if (
+        aiRecommendations &&
+        personalized.length >
+          0
+      ) {
+        rows.push({
+          key:
+            "personalized",
+
+          node: (
+            <ContentRail
+              title={`Recommended for ${profileName}`}
+              items={
+                personalized
+              }
+            />
+          ),
+        });
+      }
+
+      if (
+        aiRecommendations &&
+        becauseYouWatched.length >
+          0
+      ) {
+        rows.push({
+          key:
+            "because-you-watched",
+
+          node: (
+            <ContentRail
+              title={
+                becauseYouWatchedTitle
+              }
+              items={
+                becauseYouWatched
+              }
+            />
+          ),
+        });
+      }
+
       rows.push({
-        key: "new-releases",
-        node: (
-          <ContentRail
-            title="New Releases"
-            items={recentlyAdded}
-          />
-        ),
-      });
-    }
+        key: "premieres",
 
-    if (editorPicks.length > 0) {
-      rows.push({
-        key: "staff-picks",
         node: (
-          <ContentRail
-            title="Staff Picks"
-            items={editorPicks}
-          />
-        ),
-      });
-    }
-
-    editorialCollections.forEach((collection) => {
-      rows.push({
-        key: `collection-${collection.id}`,
-        node: (
-          <ContentRail
-            title={collection.title}
-            items={collection.items}
-          />
-        ),
-      });
-    });
-
-    if (content.length > 0) {
-      rows.push({
-        key: "explore",
-        node: (
-          <ContentRail
-            title="Explore SourceTV"
+          <PremiereRail
             items={content}
           />
         ),
       });
-    }
 
-    return rows.slice(0, homepageRows);
-  }, [
-    becauseYouWatched,
-    becauseYouWatchedTitle,
-    content,
-    editorialCollections,
-    editorPicks,
-    homepageRows,
-    personalized,
-    profileName,
-    recentlyAdded,
-    todayTrending,
-    topTen,
-  ]);
+      if (
+        recentlyAdded.length >
+        0
+      ) {
+        rows.push({
+          key:
+            "new-releases",
+
+          node: (
+            <ContentRail
+              title="New Releases"
+              items={
+                recentlyAdded
+              }
+            />
+          ),
+        });
+      }
+
+      if (
+        editorPicks.length > 0
+      ) {
+        rows.push({
+          key:
+            "staff-picks",
+
+          node: (
+            <ContentRail
+              title="Staff Picks"
+              items={
+                editorPicks
+              }
+            />
+          ),
+        });
+      }
+
+      editorialCollections.forEach(
+        (collection) => {
+          rows.push({
+            key:
+              `collection-${collection.id}`,
+
+            node: (
+              <ContentRail
+                title={
+                  collection.title
+                }
+                items={
+                  collection.items
+                }
+              />
+            ),
+          });
+        }
+      );
+
+      if (
+        content.length > 0
+      ) {
+        rows.push({
+          key: "explore",
+
+          node: (
+            <ContentRail
+              title="Explore SourceTV"
+              items={content}
+            />
+          ),
+        });
+      }
+
+      return rows.slice(
+        0,
+        homepageRows
+      );
+    }, [
+      aiRecommendations,
+      becauseYouWatched,
+      becauseYouWatchedTitle,
+      content,
+      editorialCollections,
+      editorPicks,
+      homepageRows,
+      personalized,
+      profileName,
+      recentlyAdded,
+      todayTrending,
+      topTen,
+    ]);
 
   if (loading) {
     return (
@@ -556,12 +1005,16 @@ if (
             <div className="relative z-10 flex h-full items-end p-8 md:p-14">
               <div className="w-full max-w-3xl">
                 <div className="h-3 w-36 rounded-full bg-white/10" />
+
                 <div className="mt-5 h-14 w-4/5 rounded-full bg-white/10 md:h-24" />
+
                 <div className="mt-6 h-5 w-full max-w-xl rounded-full bg-white/10" />
+
                 <div className="mt-3 h-5 w-4/5 max-w-lg rounded-full bg-white/10" />
 
                 <div className="mt-8 flex gap-3">
                   <div className="h-12 w-36 rounded-full bg-white/10" />
+
                   <div className="h-12 w-32 rounded-full bg-white/10" />
                 </div>
               </div>
@@ -572,14 +1025,18 @@ if (
             <div className="mb-5 h-8 w-52 rounded-full bg-white/10" />
 
             <div className="flex gap-5 overflow-hidden pb-8">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="w-[42vw] max-w-[170px] shrink-0 md:w-[220px] md:max-w-none"
-                >
-                  <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]" />
-                </div>
-              ))}
+              {Array.from({
+                length: 6,
+              }).map(
+                (_, index) => (
+                  <div
+                    key={index}
+                    className="w-[42vw] max-w-[170px] shrink-0 md:w-[220px] md:max-w-none"
+                  >
+                    <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-white/[0.04]" />
+                  </div>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -589,24 +1046,43 @@ if (
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-transparent text-white">
-      <FeaturedCarousel items={heroItems} />
+      <FeaturedCarousel
+        items={heroItems}
+        heroAutoplay={
+          heroAutoplay
+        }
+        autoplayMuted={
+          autoplayMuted
+        }
+      />
 
       <section className="relative z-30 -mt-36 overflow-visible px-0 pb-28 pt-0 md:-mt-[19rem] md:px-0 md:pb-32">
         <div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_bottom,transparent_0%,transparent_66%,rgba(0,0,0,0.08)_76%,rgba(0,0,0,0.30)_86%,rgba(0,0,0,0.72)_94%,#000_100%)]" />
 
         <div className="relative z-10 space-y-3 md:space-y-4">
-          {urlType || urlGenre ? (
+          {urlType ||
+          urlGenre ? (
             <FilteredResultsRail
-              title={filteredTitle}
-              items={filteredContent}
+              title={
+                filteredTitle
+              }
+              items={
+                filteredContent
+              }
             />
           ) : (
             <>
-              {homeRows.map((row) => (
-                <div key={row.key}>
-                  {row.node}
-                </div>
-              ))}
+              {homeRows.map(
+                (row) => (
+                  <div
+                    key={
+                      row.key
+                    }
+                  >
+                    {row.node}
+                  </div>
+                )
+              )}
             </>
           )}
         </div>
@@ -622,7 +1098,9 @@ function FilteredResultsRail({
   title: string;
   items: ContentItem[];
 }) {
-  if (items.length === 0) {
+  if (
+    items.length === 0
+  ) {
     return (
       <section className="relative z-20 px-4 pt-10 md:px-12 md:pt-20">
         <div className="mb-8">
@@ -631,7 +1109,8 @@ function FilteredResultsRail({
           </p>
 
           <h1 className="mt-2 text-4xl font-black md:text-6xl">
-            {title || "Filtered Titles"}
+            {title ||
+              "Filtered Titles"}
           </h1>
         </div>
 
@@ -657,23 +1136,47 @@ function FilteredResultsRail({
       </div>
 
       <div className="flex gap-5 overflow-x-auto overflow-y-visible pb-8 pt-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {items.map((item) => (
-          <ContentCard
-            key={`filtered-${item.id}`}
-            id={item.id}
-            title={item.title}
-            description={item.description}
-            type={item.type}
-            genre={item.genre}
-            maturityRating={item.maturityRating}
-            runtime={item.runtime}
-            thumbnailUrl={item.thumbnailUrl}
-            backdropUrl={item.backdropUrl}
-            trailerUrl={item.trailerUrl}
-            scheduledAt={item.scheduledAt}
-            status={item.status}
-          />
-        ))}
+        {items.map(
+          (item) => (
+            <ContentCard
+              key={`filtered-${item.id}`}
+              id={item.id}
+              title={
+                item.title
+              }
+              description={
+                item.description
+              }
+              type={
+                item.type
+              }
+              genre={
+                item.genre
+              }
+              maturityRating={
+                item.maturityRating
+              }
+              runtime={
+                item.runtime
+              }
+              thumbnailUrl={
+                item.thumbnailUrl
+              }
+              backdropUrl={
+                item.backdropUrl
+              }
+              trailerUrl={
+                item.trailerUrl
+              }
+              scheduledAt={
+                item.scheduledAt
+              }
+              status={
+                item.status
+              }
+            />
+          )
+        )}
       </div>
     </section>
   );
